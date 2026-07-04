@@ -1,0 +1,689 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import AdminLayout from '@/components/layout/AdminLayout';
+import {
+  StatCard,
+  DataTable,
+  Column,
+  StatusBadge,
+  SearchBox,
+  FilterDropdown,
+  CustomButton,
+  CustomModal,
+  PaginationBar,
+  UserAvatar,
+} from '@/components/common';
+import DashboardSkeleton from '@/components/common/DashboardSkeleton';
+import {
+  Plus,
+  Eye,
+  Edit3,
+  Trash2,
+  Users,
+  UserCheck,
+  Radio,
+  UserX,
+  Mail,
+  Phone,
+  Calendar,
+  Shield,
+  Power,
+} from 'lucide-react';
+import { User, Role, UserStatus } from '@/types';
+import { formatDateID } from '@/utils/formatters';
+import { toast } from 'sonner';
+
+const initialUsers: User[] = [
+  {
+    id: 1,
+    fullName: 'Komang Ari',
+    username: 'komang.ari',
+    email: 'komang@polinela.ac.id',
+    phone: '0812-3456-7890',
+    role: 'ADMIN',
+    roleLabel: 'Koordinator Humas',
+    status: 'AKTIF',
+    joinedAt: '2025-01-01',
+    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 2,
+    fullName: 'Rina Wati',
+    username: 'rina.wati',
+    email: 'rina@polinela.ac.id',
+    phone: '0813-9876-5432',
+    role: 'JURNALIS',
+    roleLabel: 'Jurnalis Lapangan',
+    status: 'AKTIF',
+    joinedAt: '2025-01-01',
+    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 3,
+    fullName: 'Budi Santoso',
+    username: 'budi.s',
+    email: 'budi@polinela.ac.id',
+    phone: '0852-1122-3344',
+    role: 'VIDEOGRAFER',
+    roleLabel: 'Videografer Utama',
+    status: 'AKTIF',
+    joinedAt: '2025-01-01',
+    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 4,
+    fullName: 'Andi Saputra',
+    username: 'andi.s',
+    email: 'andi@polinela.ac.id',
+    phone: '0857-8899-0011',
+    role: 'FOTOGRAFER',
+    roleLabel: 'Fotografer Resmi',
+    status: 'AKTIF',
+    joinedAt: '2025-01-01',
+    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
+  },
+  {
+    id: 5,
+    fullName: 'Siti Aminah',
+    username: 'siti.aminah',
+    email: 'siti@polinela.ac.id',
+    phone: '0819-4455-6677',
+    role: 'TIM_DOKUMENTASI',
+    roleLabel: 'Staf Dokumentasi',
+    status: 'NONAKTIF',
+    joinedAt: '2025-02-15',
+  },
+];
+
+export default function UserManagementPage() {
+  const [users, setUsers] = useState<User[]>(initialUsers);
+  const [loading, setLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  // Modals state
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+
+  // Form State
+  const [formData, setFormData] = useState({
+    fullName: '',
+    username: '',
+    email: '',
+    phone: '',
+    role: 'JURNALIS' as Role,
+    status: 'AKTIF' as UserStatus,
+  });
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setLoading(false);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const filteredUsers = users.filter((u) => {
+    const matchSearch =
+      u.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchRole = roleFilter ? u.role === roleFilter : true;
+    const matchStatus = statusFilter ? u.status === statusFilter : true;
+    return matchSearch && matchRole && matchStatus;
+  });
+
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+
+  const getRoleLabel = (r: Role) => {
+    switch (r) {
+      case 'ADMIN':
+        return 'Koordinator Humas';
+      case 'JURNALIS':
+        return 'Jurnalis Lapangan';
+      case 'VIDEOGRAFER':
+        return 'Videografer Utama';
+      case 'FOTOGRAFER':
+        return 'Fotografer Resmi';
+      default:
+        return 'Tim Dokumentasi';
+    }
+  };
+
+  const handleOpenCreate = () => {
+    setFormData({
+      fullName: '',
+      username: '',
+      email: '',
+      phone: '',
+      role: 'JURNALIS',
+      status: 'AKTIF',
+    });
+    setIsCreateOpen(true);
+  };
+
+  const handleOpenEdit = (user: User) => {
+    setSelectedUser(user);
+    setFormData({
+      fullName: user.fullName,
+      username: user.username,
+      email: user.email,
+      phone: user.phone || '',
+      role: user.role,
+      status: user.status,
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleCreateSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.fullName || !formData.email) {
+      toast.error('Harap lengkapi Nama Lengkap dan Email!');
+      return;
+    }
+
+    const newUser: User = {
+      id: Date.now(),
+      fullName: formData.fullName,
+      username: formData.username || formData.fullName.toLowerCase().replace(/\s+/g, '.'),
+      email: formData.email,
+      phone: formData.phone,
+      role: formData.role,
+      roleLabel: getRoleLabel(formData.role),
+      status: formData.status,
+      joinedAt: new Date().toISOString().split('T')[0],
+    };
+
+    setUsers([newUser, ...users]);
+    setIsCreateOpen(false);
+    toast.success('Personel baru berhasil ditambahkan ke dalam sistem HUMASS!');
+  };
+
+  const handleEditSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+
+    setUsers(
+      users.map((u) => {
+        if (u.id === selectedUser.id) {
+          return {
+            ...u,
+            fullName: formData.fullName,
+            username: formData.username,
+            email: formData.email,
+            phone: formData.phone,
+            role: formData.role,
+            roleLabel: getRoleLabel(formData.role),
+            status: formData.status,
+          };
+        }
+        return u;
+      }),
+    );
+    setIsEditOpen(false);
+    toast.success('Informasi profil personel berhasil diperbarui!');
+  };
+
+  const handleToggleStatus = (user: User) => {
+    const nextStatus = user.status === 'AKTIF' ? 'NONAKTIF' : 'AKTIF';
+    setUsers(users.map((u) => (u.id === user.id ? { ...u, status: nextStatus } : u)));
+    toast.info(`Akun "${user.fullName}" diubah menjadi ${nextStatus === 'AKTIF' ? 'Aktif' : 'Nonaktif'}.`);
+  };
+
+  const getRoleBadge = (role: Role, label: string) => {
+    switch (role) {
+      case 'ADMIN':
+        return (
+          <span className="bg-teal-50 text-teal-800 font-bold px-2.5 py-1 rounded-lg text-xs border border-teal-200">
+            {label}
+          </span>
+        );
+      case 'JURNALIS':
+        return (
+          <span className="bg-sky-50 text-sky-800 font-bold px-2.5 py-1 rounded-lg text-xs border border-sky-200">
+            {label}
+          </span>
+        );
+      case 'VIDEOGRAFER':
+        return (
+          <span className="bg-green-50 text-green-800 font-bold px-2.5 py-1 rounded-lg text-xs border border-green-200">
+            {label}
+          </span>
+        );
+      case 'FOTOGRAFER':
+        return (
+          <span className="bg-amber-50 text-amber-800 font-bold px-2.5 py-1 rounded-lg text-xs border border-amber-200">
+            {label}
+          </span>
+        );
+      default:
+        return (
+          <span className="bg-slate-100 text-slate-700 font-bold px-2.5 py-1 rounded-lg text-xs border border-slate-200">
+            {label}
+          </span>
+        );
+    }
+  };
+
+  const columns: Column<User>[] = [
+    {
+      key: 'no',
+      header: 'No',
+      render: (_, idx) => (
+        <span className="font-semibold text-slate-600">
+          {(currentPage - 1) * itemsPerPage + idx + 1}
+        </span>
+      ),
+      className: 'w-12 text-center',
+    },
+    {
+      key: 'profil',
+      header: 'Profil Personel',
+      render: (item) => (
+        <div className="flex items-center gap-3">
+          <UserAvatar src={item.avatar} name={item.fullName} size="md" />
+          <div>
+            <p className="font-bold text-slate-800 leading-snug">{item.fullName}</p>
+            <p className="text-[11px] text-slate-400">@{item.username}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'email',
+      header: 'Email & Kontak',
+      render: (item) => (
+        <div className="text-xs">
+          <p className="font-semibold text-slate-700 flex items-center gap-1.5">
+            <Mail className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+            <span>{item.email}</span>
+          </p>
+          {item.phone && (
+            <p className="text-slate-400 text-[11px] mt-0.5 flex items-center gap-1.5">
+              <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span>{item.phone}</span>
+            </p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'role',
+      header: 'Role / Peran',
+      render: (item) => getRoleBadge(item.role, item.roleLabel),
+    },
+    {
+      key: 'status',
+      header: 'Status Akun',
+      render: (item) => <StatusBadge status={item.status} />,
+    },
+    {
+      key: 'joinedAt',
+      header: 'Tanggal Bergabung',
+      render: (item) => (
+        <span className="text-xs text-slate-600 font-medium">{formatDateID(item.joinedAt)}</span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Aksi',
+      render: (item) => (
+        <div className="flex items-center gap-1.5 justify-center">
+          <button
+            onClick={() => {
+              setSelectedUser(item);
+              setIsDetailOpen(true);
+            }}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors cursor-pointer"
+            title="Lihat Detail Personel"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleOpenEdit(item)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors cursor-pointer"
+            title="Edit Data Personel"
+          >
+            <Edit3 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleToggleStatus(item)}
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+              item.status === 'AKTIF'
+                ? 'text-slate-400 hover:text-red-600 hover:bg-red-50'
+                : 'text-slate-400 hover:text-green-600 hover:bg-green-50'
+            }`}
+            title={item.status === 'AKTIF' ? 'Nonaktifkan Akun' : 'Aktifkan Akun'}
+          >
+            <Power className="w-4 h-4" />
+          </button>
+        </div>
+      ),
+      className: 'w-32 text-center',
+    },
+  ];
+
+  if (loading) {
+    return (
+      <AdminLayout title="Manajemen Personel & Hak Akses">
+        <DashboardSkeleton />
+      </AdminLayout>
+    );
+  }
+
+  return (
+    <AdminLayout title="Manajemen Personel & Hak Akses">
+      {/* Statistics Row: 4 StatCards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <StatCard
+          title="Total Personel"
+          value="24 Orang"
+          subtitle="Tim Humas Politeknik Negeri Lampung"
+          icon={Users}
+          iconBgClass="bg-teal-50"
+          iconColorClass="text-teal-600"
+        />
+        <StatCard
+          title="Personel Aktif"
+          value="22 Orang"
+          subtitle="Memiliki hak akses sistem HUMASS"
+          icon={UserCheck}
+          iconBgClass="bg-green-50"
+          iconColorClass="text-green-600"
+        />
+        <StatCard
+          title="Bertugas Lapangan"
+          value="6 Orang"
+          subtitle="Sedang meliput kegiatan kampus"
+          icon={Radio}
+          iconBgClass="bg-sky-50"
+          iconColorClass="text-sky-600"
+        />
+        <StatCard
+          title="Nonaktif / Cuti"
+          value="2 Orang"
+          subtitle="Akun dinonaktifkan sementara"
+          icon={UserX}
+          iconBgClass="bg-orange-50"
+          iconColorClass="text-orange-600"
+        />
+      </div>
+
+      {/* Header Banner & Table Controls */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight">Daftar Personel Kehumasan</h1>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Kelola data profil, peran (Role Access Control), dan status keaktifan akun petugas humas.
+            </p>
+          </div>
+          <CustomButton variant="primary" icon={Plus} onClick={handleOpenCreate}>
+            Tambah Personel
+          </CustomButton>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
+          <SearchBox
+            value={searchQuery}
+            onChange={(val) => {
+              setSearchQuery(val);
+              setCurrentPage(1);
+            }}
+            placeholder="Cari nama personel, username, atau email..."
+            className="w-full sm:w-80"
+          />
+          <div className="flex flex-wrap items-center gap-2.5">
+            <FilterDropdown
+              options={[
+                { value: 'ADMIN', label: 'Admin / Koordinator' },
+                { value: 'JURNALIS', label: 'Jurnalis Lapangan' },
+                { value: 'VIDEOGRAFER', label: 'Videografer' },
+                { value: 'FOTOGRAFER', label: 'Fotografer' },
+              ]}
+              value={roleFilter}
+              onChange={(val) => {
+                setRoleFilter(val);
+                setCurrentPage(1);
+              }}
+              placeholder="Semua Role"
+            />
+            <FilterDropdown
+              options={[
+                { value: 'AKTIF', label: 'Aktif' },
+                { value: 'NONAKTIF', label: 'Nonaktif' },
+              ]}
+              value={statusFilter}
+              onChange={(val) => {
+                setStatusFilter(val);
+                setCurrentPage(1);
+              }}
+              placeholder="Semua Status"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Main Personnel Table */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <DataTable columns={columns} data={paginatedUsers} emptyMessage="Tidak ada personel yang sesuai dengan kriteria." />
+        <PaginationBar
+          currentPage={currentPage}
+          totalPages={totalPages || 1}
+          totalItems={filteredUsers.length}
+          onPageChange={setCurrentPage}
+          itemName="personel"
+        />
+      </div>
+
+      {/* Create User Modal */}
+      <CustomModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        title="Tambah Personel Baru"
+        subtitle="Daftarkan akun petugas kehumasan untuk hak akses sistem."
+        maxWidth="md"
+      >
+        <form onSubmit={handleCreateSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Nama Lengkap *</label>
+            <input
+              type="text"
+              required
+              value={formData.fullName}
+              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+              placeholder="Contoh: Budi Santoso, S.I.Kom"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Username *</label>
+              <input
+                type="text"
+                required
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                placeholder="budi.s"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Email Polinela *</label>
+              <input
+                type="email"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="budi@polinela.ac.id"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Nomor Telepon / WhatsApp</label>
+              <input
+                type="text"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="0812-3456-7890"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Role / Hak Akses *</label>
+              <select
+                value={formData.role}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value as Role })}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
+              >
+                <option value="ADMIN">ADMIN (Koordinator Humas)</option>
+                <option value="JURNALIS">JURNALIS (Penulis Berita)</option>
+                <option value="VIDEOGRAFER">VIDEOGRAFER (Produksi Video)</option>
+                <option value="FOTOGRAFER">FOTOGRAFER (Dokumentasi)</option>
+                <option value="TIM_DOKUMENTASI">TIM DOKUMENTASI (Staf)</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+            <CustomButton type="button" variant="outline" onClick={() => setIsCreateOpen(false)}>
+              Batal
+            </CustomButton>
+            <CustomButton type="submit" variant="primary">
+              Simpan Personel
+            </CustomButton>
+          </div>
+        </form>
+      </CustomModal>
+
+      {/* Edit User Modal */}
+      <CustomModal
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        title="Edit Data Personel"
+        subtitle={selectedUser ? `@${selectedUser.username}` : ''}
+        maxWidth="md"
+      >
+        <form onSubmit={handleEditSubmit} className="space-y-4">
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1.5">Nama Lengkap *</label>
+            <input
+              type="text"
+              required
+              value={formData.fullName}
+              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Email Polinela *</label>
+              <input
+                type="email"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Nomor WhatsApp</label>
+              <input
+                type="text"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Role / Peran</label>
+              <select
+                value={formData.role}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value as Role })}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
+              >
+                <option value="ADMIN">ADMIN (Koordinator)</option>
+                <option value="JURNALIS">JURNALIS</option>
+                <option value="VIDEOGRAFER">VIDEOGRAFER</option>
+                <option value="FOTOGRAFER">FOTOGRAFER</option>
+                <option value="TIM_DOKUMENTASI">TIM DOKUMENTASI</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Status Akun</label>
+              <select
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as UserStatus })}
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
+              >
+                <option value="AKTIF">AKTIF</option>
+                <option value="NONAKTIF">NONAKTIF</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+            <CustomButton type="button" variant="outline" onClick={() => setIsEditOpen(false)}>
+              Batal
+            </CustomButton>
+            <CustomButton type="submit" variant="primary">
+              Simpan Perubahan
+            </CustomButton>
+          </div>
+        </form>
+      </CustomModal>
+
+      {/* Detail User Modal */}
+      <CustomModal
+        isOpen={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
+        title="Detail Profil Personel"
+        maxWidth="sm"
+      >
+        {selectedUser && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <UserAvatar src={selectedUser.avatar} name={selectedUser.fullName} size="lg" />
+              <div>
+                <StatusBadge status={selectedUser.status} />
+                <h4 className="font-bold text-base text-slate-900 mt-1">{selectedUser.fullName}</h4>
+                <p className="text-xs text-teal-600 font-semibold">{selectedUser.roleLabel}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 text-xs text-slate-700">
+              <p><strong>Username:</strong> @{selectedUser.username}</p>
+              <p><strong>Email Polinela:</strong> {selectedUser.email}</p>
+              <p><strong>Nomor WhatsApp:</strong> {selectedUser.phone || '-'}</p>
+              <p><strong>Tanggal Bergabung:</strong> {formatDateID(selectedUser.joinedAt)}</p>
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-100">
+              <CustomButton variant="primary" size="sm" onClick={() => setIsDetailOpen(false)}>
+                Tutup
+              </CustomButton>
+            </div>
+          </div>
+        )}
+      </CustomModal>
+    </AdminLayout>
+  );
+}
