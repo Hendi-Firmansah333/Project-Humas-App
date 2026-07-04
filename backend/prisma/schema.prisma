@@ -1,0 +1,454 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "mysql"
+}
+
+// ==========================================
+// ENUMS
+// ==========================================
+
+enum Role {
+  ADMIN
+  TIM_DOKUMENTASI
+  FOTOGRAFER
+  VIDEOGRAFER
+  JURNALIS
+}
+
+enum UserStatus {
+  AKTIF
+  NONAKTIF
+  SUSPENDED
+}
+
+enum ActivityStatus {
+  SELESAI
+  SEDANG_BERLANGSUNG
+  AKAN_DATANG
+  DIBATALKAN
+}
+
+enum CheckInStatus {
+  SUCCESS
+  TERLAMBAT
+  MISSED
+  IZIN
+}
+
+enum Platform {
+  INSTAGRAM
+  TIKTOK
+  YOUTUBE
+  WEBSITE
+  FACEBOOK
+}
+
+enum ContentType {
+  REELS
+  VIDEO_PENDEK
+  VIDEO_DOKUMENTER
+  BERITA_RILIS
+  INFOGRAFIS
+}
+
+enum ContentStatus {
+  SELESAI
+  PROSES
+  TERENCANA
+  REVISI
+  DITOLAK
+}
+
+enum LoanStatus {
+  DIPINJAM
+  DIKEMBALIKAN
+  TERLAMBAT
+  DIBATALKAN
+}
+
+enum NotificationType {
+  INFO
+  SUCCESS
+  WARNING
+  ALERT
+}
+
+// ==========================================
+// MODELS: RBAC (Roles & Permissions)
+// ==========================================
+
+model UserRole {
+  id          Int              @id @default(autoincrement())
+  name        Role             @unique
+  label       String           @default("Staff Humas")
+  description String?
+  permissions RolePermission[]
+  users       User[]
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+
+  @@index([deletedAt])
+}
+
+model Permission {
+  id          Int              @id @default(autoincrement())
+  code        String           @unique
+  module      String
+  description String?
+  roles       RolePermission[]
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model RolePermission {
+  roleId       Int
+  permissionId Int
+  role         UserRole   @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  assignedAt   DateTime   @default(now())
+
+  @@id([roleId, permissionId])
+  @@index([roleId])
+  @@index([permissionId])
+}
+
+// ==========================================
+// MODELS: Users
+// ==========================================
+
+model User {
+  id             Int              @id @default(autoincrement())
+  fullName       String
+  username       String           @unique
+  email          String           @unique
+  phone          String?
+  password       String
+  role           Role             @default(ADMIN)
+  roleLabel      String           @default("Admin Humas")
+  userRoleId     Int?
+  userRole       UserRole?        @relation(fields: [userRoleId], references: [id], onDelete: SetNull)
+  avatar         String?
+  status         UserStatus       @default(AKTIF)
+  joinedAt       DateTime         @default(now())
+
+  // Relations
+  activitiesPic  Activity[]       @relation("ActivityPic")
+  activities     ActivityMember[]
+  schedules      DutySchedule[]
+  attendances    Attendance[]
+  contentPlans   ContentPlan[]    @relation("ContentPic")
+  uploadedMedia  Media[]          @relation("MediaUploader")
+  locations      Location[]
+  loans          EquipmentLoan[]  @relation("LoanBorrower")
+  reports        Report[]         @relation("ReportPic")
+  notifications  Notification[]
+  auditLogs      AuditLog[]
+
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
+  deletedAt      DateTime?
+
+  @@index([username, email])
+  @@index([role, status])
+  @@index([userRoleId])
+  @@index([deletedAt])
+}
+
+// ==========================================
+// MODELS: Activities & Attendance
+// ==========================================
+
+model Activity {
+  id          Int              @id @default(autoincrement())
+  title       String
+  category    String           @default("Liputan Internal")
+  date        DateTime
+  startTime   String
+  endTime     String
+  location    String
+  status      ActivityStatus   @default(AKAN_DATANG)
+  description String           @db.Text
+  picId       Int
+  pic         User             @relation("ActivityPic", fields: [picId], references: [id])
+  members     ActivityMember[]
+  attendances Attendance[]
+  media       Media[]          @relation("ActivityMedia")
+
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
+
+  @@index([picId])
+  @@index([date, status])
+  @@index([deletedAt])
+}
+
+model ActivityMember {
+  id            Int           @id @default(autoincrement())
+  activityId    Int
+  userId        Int
+  role          String        @default("Fotografer")
+  checkInStatus CheckInStatus @default(SUCCESS)
+  checkInTime   String?
+  selfieUrl     String?
+
+  activity      Activity      @relation(fields: [activityId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  @@unique([activityId, userId])
+  @@index([activityId])
+  @@index([userId])
+}
+
+model Attendance {
+  id            Int           @id @default(autoincrement())
+  userId        Int
+  activityId    Int?
+  scheduleId    Int?
+  checkInTime   DateTime      @default(now())
+  checkOutTime  DateTime?
+  status        CheckInStatus @default(SUCCESS)
+  latitude      Float?
+  longitude     Float?
+  selfieUrl     String?
+  notes         String?
+
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  activity      Activity?     @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  schedule      DutySchedule? @relation(fields: [scheduleId], references: [id], onDelete: SetNull)
+
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  deletedAt     DateTime?
+
+  @@index([userId, checkInTime])
+  @@index([activityId])
+  @@index([scheduleId])
+  @@index([deletedAt])
+}
+
+// ==========================================
+// MODELS: Schedules
+// ==========================================
+
+model DutySchedule {
+  id          Int          @id @default(autoincrement())
+  date        DateTime
+  startTime   String       @default("08:00")
+  endTime     String       @default("16:00")
+  userId      Int
+  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  shiftName   String?      @default("Pagi")
+  notes       String?
+  attendances Attendance[]
+
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+  deletedAt   DateTime?
+
+  @@index([userId, date])
+  @@index([deletedAt])
+}
+
+// ==========================================
+// MODELS: Content Plans & Media
+// ==========================================
+
+model ContentPlan {
+  id           Int           @id @default(autoincrement())
+  title        String
+  category     String?
+  platform     Platform      @default(INSTAGRAM)
+  contentType  ContentType   @default(REELS)
+  picId        Int
+  pic          User          @relation("ContentPic", fields: [picId], references: [id])
+  deadline     DateTime
+  status       ContentStatus @default(TERENCANA)
+  description  String?       @db.Text
+  thumbnailUrl String?
+  draftUrl     String?
+  videoUrl     String?
+  media        Media[]       @relation("ContentPlanMedia")
+
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  deletedAt    DateTime?
+
+  @@index([picId])
+  @@index([platform, status])
+  @@index([deadline])
+  @@index([deletedAt])
+}
+
+model Media {
+  id            Int          @id @default(autoincrement())
+  fileName      String
+  fileUrl       String
+  fileType      String       @default("image/png")
+  fileSize      Int?
+  uploaderId    Int
+  uploader      User         @relation("MediaUploader", fields: [uploaderId], references: [id])
+  contentPlanId Int?
+  contentPlan   ContentPlan? @relation("ContentPlanMedia", fields: [contentPlanId], references: [id], onDelete: SetNull)
+  activityId    Int?
+  activity      Activity?    @relation("ActivityMedia", fields: [activityId], references: [id], onDelete: SetNull)
+
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  deletedAt     DateTime?
+
+  @@index([uploaderId])
+  @@index([contentPlanId])
+  @@index([activityId])
+  @@index([deletedAt])
+}
+
+// ==========================================
+// MODELS: Equipment & Loans
+// ==========================================
+
+model Equipment {
+  id             Int             @id @default(autoincrement())
+  name           String
+  code           String?         @unique
+  category       String          @default("Kamera & Audio")
+  icon           String?
+  totalUnits     Int             @default(1)
+  availableUnits Int             @default(1)
+  condition      String          @default("Baik")
+  loans          EquipmentLoan[]
+
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  deletedAt      DateTime?
+
+  @@index([category])
+  @@index([deletedAt])
+}
+
+model EquipmentLoan {
+  id               Int        @id @default(autoincrement())
+  equipmentId      Int
+  borrowerId       Int
+  borrowDate       DateTime
+  returnDate       DateTime
+  actualReturnDate DateTime?
+  status           LoanStatus @default(DIPINJAM)
+  purpose          String?
+
+  equipment        Equipment  @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  borrower         User       @relation("LoanBorrower", fields: [borrowerId], references: [id], onDelete: Cascade)
+
+  createdAt        DateTime   @default(now())
+  updatedAt        DateTime   @updatedAt
+  deletedAt        DateTime?
+
+  @@index([equipmentId])
+  @@index([borrowerId])
+  @@index([status, borrowDate])
+  @@index([deletedAt])
+}
+
+// ==========================================
+// MODELS: Reports
+// ==========================================
+
+model Report {
+  id        Int       @id @default(autoincrement())
+  title     String
+  category  String    @default("Kegiatan")
+  period    String?   @default("Bulan Ini")
+  date      DateTime
+  picId     Int
+  pic       User      @relation("ReportPic", fields: [picId], references: [id])
+  summary   String?   @db.Text
+  status    String    @default("Selesai")
+  fileUrl   String?
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([picId])
+  @@index([date, category])
+  @@index([deletedAt])
+}
+
+// ==========================================
+// MODELS: Notifications
+// ==========================================
+
+model Notification {
+  id        Int              @id @default(autoincrement())
+  userId    Int?
+  user      User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  message   String           @db.Text
+  type      NotificationType @default(INFO)
+  isRead    Boolean          @default(false)
+  link      String?
+
+  createdAt DateTime         @default(now())
+  updatedAt DateTime         @updatedAt
+  deletedAt DateTime?
+
+  @@index([userId, isRead])
+  @@index([createdAt])
+  @@index([deletedAt])
+}
+
+// ==========================================
+// MODELS: Locations
+// ==========================================
+
+model Location {
+  id        Int       @id @default(autoincrement())
+  userId    Int       @unique
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  latitude  Float
+  longitude Float
+  address   String
+  accuracy  Float?
+  distance  String?
+  isOnline  Boolean   @default(true)
+
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  deletedAt DateTime?
+
+  @@index([isOnline, updatedAt])
+  @@index([deletedAt])
+}
+
+// ==========================================
+// MODELS: Audit Logs
+// ==========================================
+
+model AuditLog {
+  id        Int      @id @default(autoincrement())
+  userId    Int?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  action    String
+  entity    String
+  entityId  String?
+  oldValue  String?  @db.LongText
+  newValue  String?  @db.LongText
+  ipAddress String?
+  userAgent String?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([entity, entityId])
+  @@index([action, createdAt])
+}
