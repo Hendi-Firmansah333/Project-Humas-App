@@ -42,11 +42,11 @@ The system enables administrators to manage:
 ## 📂 Project Structure
 
 ```
-admin-humas-app
+Project-Humas-App
 │
-├── frontend
-│
-├── backend
+├── mobile/      # Aplikasi Flutter (tim lapangan)
+├── frontend/    # Dashboard web admin
+├── backend/     # API NestJS
 │
 └── README.md
 ```
@@ -84,6 +84,20 @@ npm install
 
 npm run start:dev
 ```
+
+---
+
+### Mobile (Flutter)
+
+```bash
+cd mobile
+
+flutter pub get
+
+flutter run
+```
+
+Login demo (mode offline): password `Humas@123`
 
 ---
 

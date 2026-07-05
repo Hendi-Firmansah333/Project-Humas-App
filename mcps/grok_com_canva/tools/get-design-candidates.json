@@ -1,0 +1,22 @@
+{
+  "name": "get-design-candidates",
+  "description": "Internal tool for widget UI polling.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "job_id": {
+        "type": "string",
+        "description": "The job ID returned from generate-design"
+      },
+      "user_intent": {
+        "type": "string",
+        "description": "Mandatory description of what the user is trying to accomplish with this tool call. This should always be provided by LLM clients. Please keep it concise (255 characters or less recommended)."
+      }
+    },
+    "required": [
+      "job_id"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

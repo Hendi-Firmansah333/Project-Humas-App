@@ -1,0 +1,28 @@
+{
+  "name": "get-design-thumbnail",
+  "description": "Get the thumbnail for a particular page of the design in the specified editing transaction. This tool needs to be used with the `start-editing-transaction` tool to obtain an editing transaction ID. You need to provide the transaction ID and a page index to get the thumbnail of that particular page. Each call can only get the thumbnail for one page. Retrieving the thumbnails for multiple pages will require multiple calls of this tool.IMPORTANT: ALWAYS ALWAYS ALWAYS show the preview to the user of EACH thumbnail you get in the response in the chat, EVERY SINGLE TIME you call this tool",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "transaction_id": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9_-]{1,50}$",
+        "description": "The editing transaction ID. This must be the exact `transaction_id` value returned in the `start-editing-transaction` tool response for the editing transaction to get a thumbnail for."
+      },
+      "page_index": {
+        "type": "integer",
+        "description": "Required page index to get the thumbnail for. Pages are indexed using one-based numbering, so the first page in a design has the index value `1`."
+      },
+      "user_intent": {
+        "type": "string",
+        "description": "Mandatory description of what the user is trying to accomplish with this tool call. This should always be provided by LLM clients. Please keep it concise (255 characters or less recommended)."
+      }
+    },
+    "required": [
+      "transaction_id",
+      "page_index"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

@@ -18,130 +18,56 @@ import {
   Smartphone,
 } from 'lucide-react';
 import { LocationData } from '@/types';
+import { locationService } from '@/services';
+import { normalizeLocation } from '@/utils/api-helpers';
 import { toast } from 'sonner';
 
-const initialLocations: LocationData[] = [
-  {
-    id: 1,
-    userId: 1,
-    user: {
-      id: 1,
-      fullName: 'Komang Ari',
-      username: 'komang.ari',
-      email: 'komang@polinela.ac.id',
-      role: 'ADMIN',
-      roleLabel: 'Koordinator Humas',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    },
-    latitude: -5.3585,
-    longitude: 105.2345,
-    address: 'Gedung Serbaguna Polinela (Liputan Menteri Pendidikan)',
-    distance: '0.2 km dari Posko Utama',
-    isOnline: true,
-    updatedAt: 'Baru saja',
-  },
-  {
-    id: 2,
-    userId: 2,
-    user: {
-      id: 2,
-      fullName: 'Rina Wati',
-      username: 'rina.wati',
-      email: 'rina@polinela.ac.id',
-      role: 'JURNALIS',
-      roleLabel: 'Jurnalis Lapangan',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-    },
-    latitude: -5.3592,
-    longitude: 105.2358,
-    address: 'Gedung Rektorat Lantai 1 (Wawancara Direktur Polinela)',
-    distance: '0.5 km dari Posko Utama',
-    isOnline: true,
-    updatedAt: '3 menit lalu',
-  },
-  {
-    id: 3,
-    userId: 3,
-    user: {
-      id: 3,
-      fullName: 'Budi Santoso',
-      username: 'budi.s',
-      email: 'budi@polinela.ac.id',
-      role: 'VIDEOGRAFER',
-      roleLabel: 'Videografer Utama',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    },
-    latitude: -5.3578,
-    longitude: 105.2332,
-    address: 'Studio Humas & Multimedia Polinela',
-    distance: 'Posko Utama',
-    isOnline: true,
-    updatedAt: '5 menit lalu',
-  },
-  {
-    id: 4,
-    userId: 4,
-    user: {
-      id: 4,
-      fullName: 'Andi Saputra',
-      username: 'andi.s',
-      email: 'andi@polinela.ac.id',
-      role: 'FOTOGRAFER',
-      roleLabel: 'Fotografer Resmi',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-    },
-    latitude: -5.3605,
-    longitude: 105.2365,
-    address: 'Laboratorium Tanaman Vokasi (Selesai Liputan)',
-    distance: '0.8 km dari Posko Utama',
-    isOnline: false,
-    updatedAt: '2 jam lalu',
-  },
-];
+const DEFAULT_CENTER: [number, number] = [-5.3585, 105.2345];
 
 export default function LiveLocationPage() {
-  const [locations, setLocations] = useState<LocationData[]>(initialLocations);
+  const [locations, setLocations] = useState<LocationData[]>([]);
   const [loading, setLoading] = useState(true);
-  const [selectedLocation, setSelectedLocation] = useState<LocationData>(initialLocations[0]);
-  const [mapCenter, setMapCenter] = useState<[number, number]>([-5.3585, 105.2345]);
+  const [selectedLocation, setSelectedLocation] = useState<LocationData | null>(null);
+  const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_CENTER);
   const [mapZoom, setMapZoom] = useState<number>(16);
   const [searchQuery, setSearchQuery] = useState('');
   const [refreshing, setRefreshing] = useState(false);
 
+  const loadLocations = async () => {
+    try {
+      const data = await locationService.getAll();
+      const normalized = (Array.isArray(data) ? data : []).map(normalizeLocation);
+      setLocations(normalized);
+      if (normalized.length > 0) {
+        setSelectedLocation((prev) => prev ?? normalized[0]);
+        setMapCenter([normalized[0].latitude, normalized[0].longitude]);
+      }
+    } catch {
+      toast.error('Gagal memuat lokasi tim dari server.');
+    }
+  };
+
   useEffect(() => {
-    const timer = setTimeout(() => {
+    const init = async () => {
+      setLoading(true);
+      await loadLocations();
       setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    };
+    init();
+    const interval = setInterval(loadLocations, 30000);
+    return () => clearInterval(interval);
   }, []);
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    setTimeout(() => {
-      // Simulate slight GPS coordinate jitter for live feel
-      const updated = locations.map((loc) => {
-        if (loc.isOnline) {
-          return {
-            ...loc,
-            latitude: loc.latitude + (Math.random() - 0.5) * 0.0004,
-            longitude: loc.longitude + (Math.random() - 0.5) * 0.0004,
-            updatedAt: 'Baru saja',
-          };
-        }
-        return loc;
-      });
-      setLocations(updated);
+    try {
+      await loadLocations();
+      toast.success('Lokasi tim diperbarui dari server.');
+    } catch {
+      toast.error('Gagal memperbarui lokasi.');
+    } finally {
       setRefreshing(false);
-      toast.success('Sinyal GPS seluruh personel lapangan diperbarui!');
-    }, 700);
+    }
   };
 
   const handleSelectMember = (loc: LocationData) => {

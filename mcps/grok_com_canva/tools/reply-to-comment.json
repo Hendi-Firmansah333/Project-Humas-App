@@ -1,0 +1,37 @@
+{
+  "name": "reply-to-comment",
+  "description": "Reply to an existing comment on a Canva design. You need to provide the design ID, comment ID, and your reply message. The reply will be added to the specified comment and visible to all users with access to the design.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "design_id": {
+        "type": "string",
+        "minLength": 11,
+        "maxLength": 11,
+        "pattern": "^D[a-zA-Z0-9_-]+$",
+        "description": "ID of the design containing the comment. You can find the design ID by using the `search-designs` tool."
+      },
+      "comment_id": {
+        "type": "string",
+        "description": "The ID of the comment to reply to. You can find comment IDs using the `list-comments` tool."
+      },
+      "message_plaintext": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 2048,
+        "description": "The text content of the reply to add"
+      },
+      "user_intent": {
+        "type": "string",
+        "description": "Mandatory description of what the user is trying to accomplish with this tool call. This should always be provided by LLM clients. Please keep it concise (255 characters or less recommended)."
+      }
+    },
+    "required": [
+      "design_id",
+      "comment_id",
+      "message_plaintext"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

@@ -20,6 +20,19 @@ export function formatDateTimeID(dateString: string | Date): string {
   }).format(date);
 }
 
+export function isValidImageSrc(src?: string | null): src is string {
+  if (typeof src !== 'string' || !src.trim()) return false;
+  const value = src.trim();
+  if (value.startsWith('data:image/')) return true;
+  if (value.startsWith('http://') || value.startsWith('https://')) return true;
+  return false;
+}
+
+export function isLocalFilePath(src?: string | null): boolean {
+  if (!src) return false;
+  return /^[a-zA-Z]:\\/.test(src) || src.startsWith('file://');
+}
+
 export function getInitials(name: string): string {
   if (!name) return 'HP';
   const parts = name.trim().split(' ');

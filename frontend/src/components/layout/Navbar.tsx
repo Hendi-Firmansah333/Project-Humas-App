@@ -3,6 +3,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { Search, Calendar, Bell, Menu, User as UserIcon, Settings, LogOut, ChevronRight, CheckCircle2 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
+import UserAvatar from '@/components/common/UserAvatar';
+import { authService } from '@/services';
+import { syncUserSession } from '@/utils/session';
 
 interface NavbarProps {
   title?: string;
@@ -12,11 +15,11 @@ interface NavbarProps {
 export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu }: NavbarProps) {
   const pathname = usePathname();
   const router = useRouter();
-  const [currentDate, setCurrentDate] = useState('Rabu, 21 Mei 2025');
+  const [currentDate, setCurrentDate] = useState('');
   const [user, setUser] = useState<{ fullName: string; roleLabel: string; avatar: string }>({
-    fullName: 'Komang Ari',
-    roleLabel: 'Admin Humas',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+    fullName: '',
+    roleLabel: '',
+    avatar: '',
   });
 
   const [showNotifs, setShowNotifs] = useState(false);
@@ -33,19 +36,33 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
     }).format(new Date());
     setCurrentDate(dateStr);
 
-    const storedUser = localStorage.getItem('humass_user');
-    if (storedUser) {
+    const loadUser = async () => {
       try {
-        const parsed = JSON.parse(storedUser);
+        const profile = await authService.profile();
+        syncUserSession(profile);
         setUser({
-          fullName: parsed.fullName || 'Komang Ari',
-          roleLabel: parsed.roleLabel || 'Admin Humas',
-          avatar:
-            parsed.avatar ||
-            'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+          fullName: profile.fullName,
+          roleLabel: profile.roleLabel,
+          avatar: profile.avatar || '',
         });
-      } catch (e) {}
-    }
+      } catch {
+        const stored = localStorage.getItem('humass_user');
+        if (stored) {
+          try {
+            const parsed = JSON.parse(stored);
+            setUser({
+              fullName: parsed.fullName || '',
+              roleLabel: parsed.roleLabel || '',
+              avatar: parsed.avatar || '',
+            });
+          } catch {
+            // ignore parse errors
+          }
+        }
+      }
+    };
+
+    loadUser();
 
     const handleClickOutside = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
@@ -57,7 +74,7 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
+  }, [pathname]);
 
   const handleLogout = () => {
     localStorage.removeItem('humass_token');
@@ -65,12 +82,10 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
     router.push('/login');
   };
 
-  // Generate dynamic breadcrumb items
   const pathParts = pathname.split('/').filter(Boolean);
 
   return (
     <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-30 px-4 sm:px-6 lg:px-8 flex items-center justify-between shrink-0 shadow-xs">
-      {/* Left Title & Breadcrumbs */}
       <div className="flex items-center gap-3 sm:gap-4">
         {onOpenMobileMenu && (
           <button
@@ -98,7 +113,6 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
         </div>
       </div>
 
-      {/* Center Search */}
       <div className="hidden md:flex items-center">
         <div className="w-64 lg:w-80 h-9 bg-slate-100/90 rounded-full px-4 flex items-center gap-2.5 text-slate-500 border border-transparent focus-within:border-teal-500 focus-within:bg-white focus-within:shadow-xs transition-all">
           <Search className="w-4 h-4 text-slate-400 shrink-0" />
@@ -110,15 +124,12 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
         </div>
       </div>
 
-      {/* Right Controls */}
       <div className="flex items-center gap-2 sm:gap-4">
-        {/* Date Pill Badge */}
         <div className="hidden xl:flex items-center gap-2 bg-slate-100/80 px-3 py-1.5 rounded-lg text-xs font-medium text-slate-600 border border-slate-200/50">
           <Calendar className="w-3.5 h-3.5 text-teal-600 shrink-0" />
           <span>{currentDate}</span>
         </div>
 
-        {/* Notification Bell with Popover */}
         <div className="relative" ref={notifRef}>
           <button
             onClick={() => setShowNotifs(!showNotifs)}
@@ -133,7 +144,7 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
           {showNotifs && (
             <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-slate-200 p-4 z-50 animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
-                <h3 className="font-bold text-sm text-slate-800">Notifikasi System</h3>
+                <h3 className="font-bold text-sm text-slate-800">Notifikasi Sistem</h3>
                 <span className="text-[10px] font-semibold bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full">
                   3 Baru
                 </span>
@@ -142,22 +153,22 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
                 <div className="p-2.5 rounded-xl bg-teal-50/60 border border-teal-100 flex gap-3 text-xs">
                   <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-semibold text-slate-800">Jadwal Piket Mei Dipublikasikan</p>
-                    <p className="text-slate-500 text-[11px] mt-0.5">Anda dijadwalkan bertugas pada 21 Mei & 28 Mei 2025.</p>
+                    <p className="font-semibold text-slate-800">Jadwal Piket Dipublikasikan</p>
+                    <p className="text-slate-500 text-[11px] mt-0.5">Anda dijadwalkan bertugas pada minggu ini.</p>
                   </div>
                 </div>
                 <div className="p-2.5 rounded-xl hover:bg-slate-50 transition-colors flex gap-3 text-xs">
                   <CheckCircle2 className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-semibold text-slate-800">Peminjaman Kamera Sony A7III</p>
+                    <p className="font-semibold text-slate-800">Peminjaman Alat Disetujui</p>
                     <p className="text-slate-500 text-[11px] mt-0.5">Pengajuan pinjaman alat telah disetujui untuk kegiatan Wisuda.</p>
                   </div>
                 </div>
                 <div className="p-2.5 rounded-xl hover:bg-slate-50 transition-colors flex gap-3 text-xs">
                   <CheckCircle2 className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
                   <div>
-                    <p className="font-semibold text-slate-800">Review Draft Content Plan</p>
-                    <p className="text-slate-500 text-[11px] mt-0.5">Reels Profil Kampus membutuhkan konfirmasi Anda.</p>
+                    <p className="font-semibold text-slate-800">Review Pengajuan Konten</p>
+                    <p className="text-slate-500 text-[11px] mt-0.5">Reels Profil Kampus membutuhkan validasi Anda.</p>
                   </div>
                 </div>
               </div>
@@ -165,21 +176,20 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
           )}
         </div>
 
-        {/* User Profile Pill with Dropdown */}
         <div className="relative border-l border-slate-200 pl-2 sm:pl-3.5" ref={profileRef}>
           <div
             onClick={() => setShowProfileMenu(!showProfileMenu)}
             className="flex items-center gap-2.5 cursor-pointer p-1 rounded-xl hover:bg-slate-50 transition-colors"
           >
             <div className="text-right hidden sm:block">
-              <p className="text-xs font-semibold text-slate-800 leading-tight">{user.fullName}</p>
-              <p className="text-[10px] text-slate-400 font-medium leading-tight mt-0.5">{user.roleLabel}</p>
+              <p className="text-xs font-semibold text-slate-800 leading-tight">
+                {user.fullName || 'Memuat...'}
+              </p>
+              <p className="text-[10px] text-slate-400 font-medium leading-tight mt-0.5">
+                {user.roleLabel || 'Admin Humas'}
+              </p>
             </div>
-            <img
-              src={user.avatar}
-              alt={user.fullName}
-              className="w-9 h-9 rounded-full object-cover border border-teal-200 shadow-xs shrink-0"
-            />
+            <UserAvatar src={user.avatar} name={user.fullName || 'U'} size="md" />
           </div>
 
           {showProfileMenu && (

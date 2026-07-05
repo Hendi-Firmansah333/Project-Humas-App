@@ -15,148 +15,21 @@ import {
   PaginationBar,
 } from '@/components/common';
 import DashboardSkeleton from '@/components/common/DashboardSkeleton';
-import { Plus, Eye, Edit3, Trash2, MapPin, Calendar, Clock, User, FileText, AlertTriangle } from 'lucide-react';
-import { Activity, ActivityStatus } from '@/types';
+import { Plus, Eye, Edit3, Trash2, MapPin, Calendar, Clock, User as UserIcon, AlertTriangle, X, CheckCircle, ExternalLink } from 'lucide-react';
+import { Activity, ActivityInput, ActivityStatus, User } from '@/types';
 import { formatDateID } from '@/utils/formatters';
 import { toast } from 'sonner';
+import { activityService, userService } from '@/services';
+import { JOB_DESK_OPTIONS } from '@/constants';
 
-const initialActivities: Activity[] = [
-  {
-    id: 1,
-    title: 'Liputan Kunjungan Menteri Pendidikan',
-    category: 'Liputan Resmi',
-    date: '2025-05-21',
-    startTime: '09:00',
-    endTime: '12:00',
-    location: 'Gedung Serbaguna Polinela',
-    status: 'SEDANG_BERLANGSUNG',
-    description: 'Dokumentasi foto dan video kedatangan tamu kementerian serta publikasi live di Instagram.',
-    picId: 1,
-    pic: {
-      id: 1,
-      fullName: 'Komang Ari',
-      username: 'komang.ari',
-      email: 'komang@polinela.ac.id',
-      role: 'ADMIN',
-      roleLabel: 'Admin Humas',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-    },
-  },
-  {
-    id: 2,
-    title: 'Konferensi Pers Dies Natalis ke-41 Polinela',
-    category: 'Konferensi Pers',
-    date: '2025-05-22',
-    startTime: '13:30',
-    endTime: '15:30',
-    location: 'Ruang Sidang Utama Rektorat',
-    status: 'AKAN_DATANG',
-    description: 'Persiapan media rilis dan wawancara pimpinan kampus dengan jurnalis mitra.',
-    picId: 2,
-    pic: {
-      id: 2,
-      fullName: 'Rina Wati',
-      username: 'rina.wati',
-      email: 'rina@polinela.ac.id',
-      role: 'JURNALIS',
-      roleLabel: 'Jurnalis',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-    },
-  },
-  {
-    id: 3,
-    title: 'Podcast Campus Life Episode 12',
-    category: 'Media Produksi',
-    date: '2025-05-23',
-    startTime: '10:00',
-    endTime: '12:00',
-    location: 'Studio Humas Polinela',
-    status: 'AKAN_DATANG',
-    description: 'Recording video podcast dengan BEM Polinela mengenai kegiatan mahasiswa baru.',
-    picId: 3,
-    pic: {
-      id: 3,
-      fullName: 'Budi Santoso',
-      username: 'budi.s',
-      email: 'budi@polinela.ac.id',
-      role: 'VIDEOGRAFER',
-      roleLabel: 'Videografer',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-    },
-  },
-  {
-    id: 4,
-    title: 'Dokumentasi Penandatanganan MoU Industri',
-    category: 'Kerjasama',
-    date: '2025-05-19',
-    startTime: '08:30',
-    endTime: '11:00',
-    location: 'Ruang VIP Rektorat Lantai 2',
-    status: 'SELESAI',
-    description: 'Pengambilan foto resmi penandatanganan kerja sama PT Charoen Pokphand dan arsip digital.',
-    picId: 4,
-    pic: {
-      id: 4,
-      fullName: 'Andi Saputra',
-      username: 'andi.s',
-      email: 'andi@polinela.ac.id',
-      role: 'FOTOGRAFER',
-      roleLabel: 'Fotografer',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-    },
-  },
-  {
-    id: 5,
-    title: 'Publikasi Artikel Prestasi Mahasiswa Nasional',
-    category: 'Rilis Berita',
-    date: '2025-05-18',
-    startTime: '14:00',
-    endTime: '16:00',
-    location: 'Online / Website Resmi',
-    status: 'SELESAI',
-    description: 'Penyusunan berita mahasiswa juara 1 Kompetisi Inovasi Pertanian Nasional.',
-    picId: 2,
-    pic: {
-      id: 2,
-      fullName: 'Rina Wati',
-      username: 'rina.wati',
-      email: 'rina@polinela.ac.id',
-      role: 'JURNALIS',
-      roleLabel: 'Jurnalis',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-    },
-  },
-  {
-    id: 6,
-    title: 'Liputan Kuliah Umum Digital Marketing',
-    category: 'Liputan Resmi',
-    date: '2025-05-15',
-    startTime: '08:00',
-    endTime: '11:30',
-    location: 'Aula Gedung Q Polinela',
-    status: 'SELESAI',
-    description: 'Peliputan seminar nasional wirausaha mahasiswa.',
-    picId: 1,
-    pic: {
-      id: 1,
-      fullName: 'Komang Ari',
-      username: 'komang.ari',
-      email: 'komang@polinela.ac.id',
-      role: 'ADMIN',
-      roleLabel: 'Admin Humas',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-    },
-  },
-];
+interface MemberAssignment {
+  userId: number;
+  role: string;
+}
 
 export default function ActivityManagementPage() {
-  const [activities, setActivities] = useState<Activity[]>(initialActivities);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
 
   // Filters & Search
@@ -184,14 +57,62 @@ export default function ActivityManagementPage() {
     location: '',
     status: 'AKAN_DATANG' as ActivityStatus,
     description: '',
-    picName: 'Komang Ari',
+    picId: 0,
   });
+  const [memberAssignments, setMemberAssignments] = useState<MemberAssignment[]>([]);
+
+  const loadActivities = async () => {
+    setLoading(true);
+    try {
+      const result = await activityService.getAll({ page: 1, pageSize: 100 });
+      setActivities(result.items ?? []);
+    } catch {
+      toast.error('Gagal memuat data kegiatan dari server.');
+      setActivities([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const staffUsers = users.filter((u) => u.role === 'USER' || u.role === 'ADMIN');
+
+  const resolvePicId = () => formData.picId || staffUsers[0]?.id || 1;
+
+  const addMemberAssignment = () => {
+    const available = staffUsers.find(
+      (u) => !memberAssignments.some((m) => m.userId === u.id),
+    );
+    if (!available) {
+      toast.error('Semua anggota sudah ditugaskan.');
+      return;
+    }
+    setMemberAssignments((prev) => [
+      ...prev,
+      { userId: available.id, role: JOB_DESK_OPTIONS[0] },
+    ]);
+  };
+
+  const updateMemberAssignment = (index: number, patch: Partial<MemberAssignment>) => {
+    setMemberAssignments((prev) =>
+      prev.map((item, i) => (i === index ? { ...item, ...patch } : item)),
+    );
+  };
+
+  const removeMemberAssignment = (index: number) => {
+    setMemberAssignments((prev) => prev.filter((_, i) => i !== index));
+  };
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    const init = async () => {
+      try {
+        const staff = await userService.getAll();
+        setUsers(Array.isArray(staff) ? staff : []);
+      } catch {
+        setUsers([]);
+      }
+      await loadActivities();
+    };
+    init();
   }, []);
 
   // Filter logic
@@ -199,7 +120,7 @@ export default function ActivityManagementPage() {
     const matchSearch =
       act.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       act.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      act.pic.fullName.toLowerCase().includes(searchQuery.toLowerCase());
+      (act.pic?.fullName ?? '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchCat = categoryFilter ? act.category === categoryFilter : true;
     const matchStat = statusFilter ? act.status === statusFilter : true;
     return matchSearch && matchCat && matchStat;
@@ -222,8 +143,9 @@ export default function ActivityManagementPage() {
       location: '',
       status: 'AKAN_DATANG',
       description: '',
-      picName: 'Komang Ari',
+      picId: staffUsers[0]?.id ?? 0,
     });
+    setMemberAssignments([]);
     setIsCreateOpen(true);
   };
 
@@ -232,14 +154,17 @@ export default function ActivityManagementPage() {
     setFormData({
       title: activity.title,
       category: activity.category,
-      date: activity.date,
+      date: activity.date.split('T')[0],
       startTime: activity.startTime,
       endTime: activity.endTime,
       location: activity.location,
       status: activity.status,
       description: activity.description || '',
-      picName: activity.pic.fullName,
+      picId: activity.picId,
     });
+    setMemberAssignments(
+      (activity.members ?? []).map((m) => ({ userId: m.userId, role: m.role })),
+    );
     setIsEditOpen(true);
   };
 
@@ -253,76 +178,99 @@ export default function ActivityManagementPage() {
     setIsDeleteOpen(true);
   };
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title || !formData.location) {
       toast.error('Harap lengkapi Judul Kegiatan dan Lokasi!');
       return;
     }
 
-    const newAct: Activity = {
-      id: Date.now(),
-      title: formData.title,
-      category: formData.category,
-      date: formData.date,
-      startTime: formData.startTime,
-      endTime: formData.endTime,
-      location: formData.location,
-      status: formData.status,
-      description: formData.description,
-      picId: 1,
-      pic: {
-        id: 1,
-        fullName: formData.picName,
-        username: formData.picName.toLowerCase().replace(/\s+/g, '.'),
-        email: `${formData.picName.toLowerCase().replace(/\s+/g, '')}@polinela.ac.id`,
-        role: 'ADMIN',
-        roleLabel: 'Petugas Humas',
-        status: 'AKTIF',
-        joinedAt: '2025-01-01',
-      },
-    };
+    try {
+      const picId = resolvePicId();
+      const members =
+        memberAssignments.length > 0
+          ? memberAssignments
+          : picId
+            ? [{ userId: picId, role: 'PIC Lapangan' }]
+            : [];
 
-    setActivities([newAct, ...activities]);
-    setIsCreateOpen(false);
-    toast.success('Kegiatan berhasil ditambahkan ke dalam jadwal!');
+      await activityService.create({
+        title: formData.title,
+        category: formData.category,
+        date: formData.date,
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        location: formData.location,
+        status: formData.status,
+        description: formData.description || '-',
+        picId,
+        members,
+      });
+      setIsCreateOpen(false);
+      toast.success('Kegiatan berhasil ditambahkan ke dalam jadwal!');
+      await loadActivities();
+    } catch {
+      toast.error('Gagal menyimpan kegiatan ke server.');
+    }
   };
 
-  const handleEditSubmit = (e: React.FormEvent) => {
+  const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedActivity) return;
 
-    const updated = activities.map((act) => {
-      if (act.id === selectedActivity.id) {
-        return {
-          ...act,
-          title: formData.title,
-          category: formData.category,
-          date: formData.date,
-          startTime: formData.startTime,
-          endTime: formData.endTime,
-          location: formData.location,
-          status: formData.status,
-          description: formData.description,
-          pic: {
-            ...act.pic,
-            fullName: formData.picName,
-          },
-        };
-      }
-      return act;
-    });
+    try {
+      const picId = resolvePicId();
+      const members =
+        memberAssignments.length > 0
+          ? memberAssignments.some((m) => m.userId === picId)
+            ? memberAssignments
+            : [{ userId: picId, role: 'PIC Lapangan' }, ...memberAssignments]
+          : picId
+            ? [{ userId: picId, role: 'PIC Lapangan' }]
+            : [];
 
-    setActivities(updated);
-    setIsEditOpen(false);
-    toast.success('Informasi kegiatan berhasil diperbarui!');
+      await activityService.update(selectedActivity.id, {
+        title: formData.title,
+        category: formData.category,
+        date: formData.date,
+        startTime: formData.startTime,
+        endTime: formData.endTime,
+        location: formData.location,
+        status: formData.status,
+        description: formData.description,
+        picId,
+        members,
+      });
+      setIsEditOpen(false);
+      toast.success('Informasi kegiatan berhasil diperbarui!');
+      await loadActivities();
+    } catch {
+      toast.error('Gagal memperbarui kegiatan.');
+    }
   };
 
-  const handleDeleteConfirm = () => {
+  const handleDeleteConfirm = async () => {
     if (!selectedActivity) return;
-    setActivities(activities.filter((act) => act.id !== selectedActivity.id));
-    setIsDeleteOpen(false);
-    toast.success(`Kegiatan "${selectedActivity.title}" berhasil dihapus.`);
+    try {
+      await activityService.remove(selectedActivity.id);
+      setIsDeleteOpen(false);
+      toast.success(`Kegiatan "${selectedActivity.title}" berhasil dihapus.`);
+      await loadActivities();
+    } catch {
+      toast.error('Gagal menghapus kegiatan.');
+    }
+  };
+
+  const handleMarkSelesai = async () => {
+    if (!selectedActivity) return;
+    try {
+      await activityService.update(selectedActivity.id, { status: 'SELESAI' });
+      setIsDetailOpen(false);
+      toast.success(`Kegiatan "${selectedActivity.title}" ditandai selesai dan masuk riwayat.`);
+      await loadActivities();
+    } catch {
+      toast.error('Gagal mengubah status kegiatan.');
+    }
   };
 
   const columns: Column<Activity>[] = [
@@ -607,14 +555,15 @@ export default function ActivityManagementPage() {
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Personel Penanggung Jawab (PIC)</label>
               <select
-                value={formData.picName}
-                onChange={(e) => setFormData({ ...formData, picName: e.target.value })}
+                value={formData.picId}
+                onChange={(e) => setFormData({ ...formData, picId: Number(e.target.value) })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
               >
-                <option value="Komang Ari">Komang Ari (Koordinator)</option>
-                <option value="Rina Wati">Rina Wati (Jurnalis)</option>
-                <option value="Budi Santoso">Budi Santoso (Videografer)</option>
-                <option value="Andi Saputra">Andi Saputra (Fotografer)</option>
+                {staffUsers.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.fullName} ({u.roleLabel})
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -628,6 +577,55 @@ export default function ActivityManagementPage() {
               placeholder="Tuliskan catatan khusus peliputan..."
               className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
             />
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold text-slate-700">Penugasan Job Desk</label>
+              <CustomButton type="button" variant="outline" size="sm" icon={Plus} onClick={addMemberAssignment}>
+                Tambah Anggota
+              </CustomButton>
+            </div>
+            {memberAssignments.length === 0 ? (
+              <p className="text-xs text-slate-400 italic">Belum ada anggota yang ditugaskan.</p>
+            ) : (
+              <div className="space-y-2">
+                {memberAssignments.map((assignment, index) => (
+                  <div key={index} className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                    <select
+                      value={assignment.userId}
+                      onChange={(e) => updateMemberAssignment(index, { userId: Number(e.target.value) })}
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
+                    >
+                      {staffUsers.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.fullName}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={assignment.role}
+                      onChange={(e) => updateMemberAssignment(index, { role: e.target.value })}
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
+                    >
+                      {JOB_DESK_OPTIONS.map((role) => (
+                        <option key={role} value={role}>
+                          {role}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => removeMemberAssignment(index)}
+                      className="p-2.5 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
+                      title="Hapus penugasan"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
@@ -736,14 +734,15 @@ export default function ActivityManagementPage() {
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Personel PIC</label>
               <select
-                value={formData.picName}
-                onChange={(e) => setFormData({ ...formData, picName: e.target.value })}
+                value={formData.picId}
+                onChange={(e) => setFormData({ ...formData, picId: Number(e.target.value) })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
               >
-                <option value="Komang Ari">Komang Ari</option>
-                <option value="Rina Wati">Rina Wati</option>
-                <option value="Budi Santoso">Budi Santoso</option>
-                <option value="Andi Saputra">Andi Saputra</option>
+                {staffUsers.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.fullName} ({u.roleLabel})
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -756,6 +755,55 @@ export default function ActivityManagementPage() {
               onChange={(e) => setFormData({ ...formData, description: e.target.value })}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
             />
+          </div>
+
+          <div className="space-y-3">
+            <div className="flex items-center justify-between">
+              <label className="block text-xs font-semibold text-slate-700">Penugasan Job Desk</label>
+              <CustomButton type="button" variant="outline" size="sm" icon={Plus} onClick={addMemberAssignment}>
+                Tambah Anggota
+              </CustomButton>
+            </div>
+            {memberAssignments.length === 0 ? (
+              <p className="text-xs text-slate-400 italic">Belum ada anggota yang ditugaskan.</p>
+            ) : (
+              <div className="space-y-2">
+                {memberAssignments.map((assignment, index) => (
+                  <div key={index} className="flex flex-col sm:flex-row gap-2 items-stretch sm:items-center">
+                    <select
+                      value={assignment.userId}
+                      onChange={(e) => updateMemberAssignment(index, { userId: Number(e.target.value) })}
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
+                    >
+                      {staffUsers.map((u) => (
+                        <option key={u.id} value={u.id}>
+                          {u.fullName}
+                        </option>
+                      ))}
+                    </select>
+                    <select
+                      value={assignment.role}
+                      onChange={(e) => updateMemberAssignment(index, { role: e.target.value })}
+                      className="flex-1 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
+                    >
+                      {JOB_DESK_OPTIONS.map((role) => (
+                        <option key={role} value={role}>
+                          {role}
+                        </option>
+                      ))}
+                    </select>
+                    <button
+                      type="button"
+                      onClick={() => removeMemberAssignment(index)}
+                      className="p-2.5 rounded-xl text-red-500 hover:bg-red-50 transition-colors"
+                      title="Hapus penugasan"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
@@ -813,7 +861,7 @@ export default function ActivityManagementPage() {
                 </div>
               </div>
               <div className="flex items-center gap-3 text-slate-700">
-                <User className="w-4 h-4 text-teal-600 shrink-0" />
+                <UserIcon className="w-4 h-4 text-teal-600 shrink-0" />
                 <div>
                   <span className="font-semibold">PIC Bertugas: </span>
                   <span>{selectedActivity.pic.fullName} ({selectedActivity.pic.roleLabel})</span>
@@ -830,7 +878,92 @@ export default function ActivityManagementPage() {
               </p>
             </div>
 
-            <div className="pt-4 border-t border-slate-100 flex justify-end gap-2">
+            <div>
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                Penugasan Job Desk
+              </h4>
+              {(selectedActivity.members ?? []).length > 0 ? (
+                <div className="space-y-2">
+                  {(selectedActivity.members ?? []).map((m) => (
+                    <div
+                      key={m.id}
+                      className="flex items-center justify-between p-3 rounded-xl bg-teal-50/50 border border-teal-100 text-xs"
+                    >
+                      <span className="font-semibold text-slate-800">{m.user.fullName}</span>
+                      <span className="bg-teal-100 text-teal-700 font-semibold px-2.5 py-1 rounded-lg">
+                        {m.role}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-slate-400 italic">Belum ada penugasan anggota.</p>
+              )}
+            </div>
+
+            {/* Dokumentasi dari Tim Mobile */}
+            <div>
+              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">
+                Dokumentasi dari Tim
+              </h4>
+              {(() => {
+                const docLinks = (selectedActivity.media ?? []).filter(
+                  (m) => m.fileType === 'application/link',
+                );
+                if (docLinks.length === 0) {
+                  return (
+                    <p className="text-xs text-slate-400 italic">
+                      Belum ada dokumentasi yang dikirim tim.
+                    </p>
+                  );
+                }
+                return (
+                  <div className="space-y-2">
+                    {docLinks.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between p-3 rounded-xl bg-emerald-50 border border-emerald-100 text-xs gap-2"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-semibold text-slate-800 truncate">
+                            {doc.uploader?.fullName ?? 'Tim Lapangan'}
+                          </p>
+                          <a
+                            href={doc.fileUrl}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-teal-600 hover:underline truncate block max-w-[220px]"
+                          >
+                            {doc.fileUrl}
+                          </a>
+                        </div>
+                        <a
+                          href={doc.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="shrink-0 p-1.5 rounded-lg bg-teal-100 text-teal-700 hover:bg-teal-200 transition-colors"
+                          title="Buka Link"
+                        >
+                          <ExternalLink className="w-3.5 h-3.5" />
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                );
+              })()}
+            </div>
+
+            <div className="pt-4 border-t border-slate-100 flex flex-wrap justify-end gap-2">
+              {selectedActivity.status !== 'SELESAI' && selectedActivity.status !== 'DIBATALKAN' && (
+                <CustomButton
+                  variant="primary"
+                  size="sm"
+                  icon={CheckCircle}
+                  onClick={handleMarkSelesai}
+                >
+                  Tandai Selesai
+                </CustomButton>
+              )}
               <CustomButton
                 variant="secondary"
                 size="sm"
@@ -841,7 +974,7 @@ export default function ActivityManagementPage() {
               >
                 Edit Kegiatan
               </CustomButton>
-              <CustomButton variant="primary" size="sm" onClick={() => setIsDetailOpen(false)}>
+              <CustomButton variant="outline" size="sm" onClick={() => setIsDetailOpen(false)}>
                 Tutup
               </CustomButton>
             </div>

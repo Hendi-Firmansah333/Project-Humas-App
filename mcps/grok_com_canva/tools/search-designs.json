@@ -1,0 +1,48 @@
+{
+  "name": "search-designs",
+  "description": "\n      Search docs, presentations, videos, whiteboards, sheets, and other designs in Canva, except for templates or brand templates.\n      Use when you need to find specific designs by keywords rather than browsing folders.\n      Use 'query' parameter to search by title or content.\n      If 'query' is used, 'sortBy' must be set to 'relevance'. Filter by 'any' ownership unless specified. Sort by relevance unless specified.\n      Use the continuation token to get the next page of results, when there are more results.\n\n      CRITICAL REQUIREMENTS:\n      1. ALWAYS use the 'search-brand-templates' tool when the user is searching for templates or wants to use a template.\n      2.** 🚫 When a user says search a template, they ALWAYS mean brand-templates. Therefore NEVER call this tool, ALWAYS call the 'search-brand-templates' tool to search for the templates. **\n      3.** 🚫 NEVER use this tool when the user expresses intent to “generate”, “create”, “autofill”, “search a template”, “start from a template”, “use my template”, or “pick a template for generation”.\n      In all such cases, ALWAYS use search-brand-templates.\n      ANY query involving:\n      – “generate a presentation”\n      – “generate a report”\n      – “make a design using a template”\n      – “generate from a template”\n      – “produce a presentation from their template”\n      - \"search for available templates\"\n      MUST NOT use search-designs.\n      This tool ONLY searches existing designs (docs, presentations, whiteboards, videos, etc.) that the user already owns or that are shared with them.\n      It DOES NOT find templates and MUST NOT be used as a fallback for template selection. **\n      ",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Optional search term to filter designs by title or content. If it is used, 'sortBy' must be set to 'relevance'."
+      },
+      "ownership": {
+        "type": "string",
+        "enum": [
+          "any",
+          "owned",
+          "shared"
+        ],
+        "description": "Filter designs by ownership: 'any' for all designs owned by and shared with you (default), 'owned' for designs you created, 'shared' for designs shared with you"
+      },
+      "sort_by": {
+        "type": "string",
+        "enum": [
+          "relevance",
+          "modified_descending",
+          "modified_ascending",
+          "title_descending",
+          "title_ascending"
+        ],
+        "description": "Sort results by: 'relevance' (default), 'modified_descending' (newest first), 'modified_ascending' (oldest first), 'title_descending' (Z-A), 'title_ascending' (A-Z). Optional sort order for results. If 'query' is used, 'sortBy' must be set to 'relevance'."
+      },
+      "limit": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "description": "Maximum number of designs to return."
+      },
+      "continuation": {
+        "type": "string",
+        "description": "\n            Pagination token for the current search context.\n\n            CRITICAL RULES:\n            - ONLY set this parameter if the previous response included a continuation token.\n            - If no continuation token was returned → OMIT this parameter completely. NEVER EVER fabricate a token.\n            - Do not set to null, empty string, or any other value when no token was provided.\n\n            Usage:\n            - First request: omit this parameter\n            - Previous response had continuation token: use that exact token\n            - Previous response had NO continuation token: omit this parameter\n            - New search query: omit this parameter\n          "
+      },
+      "user_intent": {
+        "type": "string",
+        "description": "Mandatory description of what the user is trying to accomplish with this tool call. This should always be provided by LLM clients. Please keep it concise (255 characters or less recommended)."
+      }
+    },
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

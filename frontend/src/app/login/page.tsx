@@ -1,10 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { User, Lock, Eye, EyeOff, Building2, AlertCircle } from 'lucide-react';
 import { toast } from 'sonner';
-import { api } from '@/lib/api';
+import { authService } from '@/services';
 
 export default function LoginPage() {
   const router = useRouter();
@@ -15,41 +15,35 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    if (params.get('error') === 'admin_only') {
+      setError('Akses Web Admin hanya untuk Admin Humas. Anggota Humas menggunakan aplikasi mobile.');
+    }
+  }, []);
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
     setLoading(true);
 
     try {
-      const response = await api.post('/auth/login', { username, password });
-      if (response.data && response.data.accessToken) {
-        localStorage.setItem('humass_token', response.data.accessToken);
-        localStorage.setItem('humass_user', JSON.stringify(response.data.user));
-        toast.success('Login berhasil! Selamat datang, ' + (response.data.user?.fullName || 'Admin Humas'));
+      const data = await authService.login(username, password);
+      const token = data.accessToken || data.token;
+      if (token) {
+        if (data.user?.role !== 'ADMIN') {
+          setError('Akses Web Admin hanya untuk Admin Humas. Anggota Humas menggunakan aplikasi mobile.');
+          return;
+        }
+        localStorage.setItem('humass_token', token);
+        localStorage.setItem('humass_user', JSON.stringify(data.user));
+        toast.success('Login berhasil! Selamat datang, ' + (data.user?.fullName || 'Admin Humas'));
         router.push('/dashboard');
       }
     } catch (err: any) {
-      // Fallback for demo if API server isn't running yet or credentials demo
-      if (username === 'komang.ari' && (password === 'admin123' || password === 'password')) {
-        localStorage.setItem('humass_token', 'demo_jwt_token_2026');
-        localStorage.setItem(
-          'humass_user',
-          JSON.stringify({
-            id: 1,
-            fullName: 'Komang Ari',
-            username: 'komang.ari',
-            role: 'ADMIN',
-            roleLabel: 'Admin Humas',
-            avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-          }),
-        );
-        toast.success('Login berhasil! Selamat datang kembali, Komang Ari.');
-        router.push('/dashboard');
-      } else {
-        const errorMsg = err?.response?.data?.message || 'Username atau password salah. Coba: komang.ari / admin123';
-        setError(errorMsg);
-        toast.error(errorMsg);
-      }
+      const errorMsg = err?.response?.data?.message || 'Username atau password salah.';
+      setError(errorMsg);
+      toast.error(errorMsg);
     } finally {
       setLoading(false);
     }
@@ -102,7 +96,7 @@ export default function LoginPage() {
               <Building2 className="w-7 h-7" />
             </div>
             <h2 className="text-2xl font-bold text-slate-800 tracking-tight mb-1">Selamat Datang</h2>
-            <p className="text-sm text-slate-500">Silakan masuk menggunakan akun Admin Humas.</p>
+            <p className="text-sm text-slate-500">Silakan masuk menggunakan akun Admin Humas Polinela.</p>
           </div>
 
           {/* Error Alert */}

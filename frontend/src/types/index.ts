@@ -1,10 +1,10 @@
-export type Role = 'ADMIN' | 'TIM_DOKUMENTASI' | 'FOTOGRAFER' | 'VIDEOGRAFER' | 'JURNALIS';
+export type Role = 'ADMIN' | 'USER';
 export type UserStatus = 'AKTIF' | 'NONAKTIF';
-export type ActivityStatus = 'SELESAI' | 'SEDANG_BERLANGSUNG' | 'AKAN_DATANG';
+export type ActivityStatus = 'SELESAI' | 'SEDANG_BERLANGSUNG' | 'AKAN_DATANG' | 'DIBATALKAN';
 export type CheckInStatus = 'SUCCESS' | 'MISSED';
 export type Platform = 'INSTAGRAM' | 'TIKTOK' | 'YOUTUBE';
 export type ContentType = 'REELS' | 'VIDEO_PENDEK' | 'VIDEO_DOKUMENTER';
-export type ContentStatus = 'SELESAI' | 'PROSES' | 'TERENCANA';
+export type ContentStatus = 'SELESAI' | 'PROSES' | 'TERENCANA' | 'REVISI' | 'DITOLAK';
 export type LoanStatus = 'DIPINJAM' | 'DIKEMBALIKAN' | 'TERLAMBAT';
 
 export interface User {
@@ -31,6 +31,20 @@ export interface ActivityMember {
   user: User;
 }
 
+export interface ActivityMedia {
+  id: number;
+  fileName: string;
+  fileUrl: string;
+  fileType: string;
+  createdAt: string;
+  uploader?: { fullName: string } | null;
+}
+
+export interface ActivityMemberInput {
+  userId: number;
+  role: string;
+}
+
 export interface Activity {
   id: number;
   title: string;
@@ -44,6 +58,20 @@ export interface Activity {
   picId: number;
   pic: User;
   members?: ActivityMember[];
+  media?: ActivityMedia[];
+}
+
+export interface ActivityInput {
+  title?: string;
+  category?: string;
+  date?: string;
+  startTime?: string;
+  endTime?: string;
+  location?: string;
+  status?: ActivityStatus;
+  description?: string;
+  picId?: number;
+  members?: ActivityMemberInput[];
 }
 
 export interface DutySchedule {
@@ -53,6 +81,8 @@ export interface DutySchedule {
   endTime: string;
   userId: number;
   user: User;
+  notes?: string;
+  shiftName?: string;
 }
 
 export interface ContentPlan {
@@ -66,9 +96,11 @@ export interface ContentPlan {
   deadline: string;
   status: ContentStatus;
   description?: string;
+  revisionNote?: string;
   thumbnailUrl?: string;
   draftUrl?: string;
   videoUrl?: string;
+  submittedAt?: string;
 }
 
 export interface LocationData {

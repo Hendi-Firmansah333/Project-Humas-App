@@ -25,6 +25,9 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { scheduleService, userService } from '@/services';
+import { DutySchedule } from '@/types';
+import { formatApiDate, getMemberColor, userToMemberOption } from '@/utils/api-helpers';
 
 interface ScheduleEvent {
   id: string;
@@ -43,117 +46,36 @@ interface ScheduleEvent {
   };
 }
 
-const membersList = [
-  { id: 1, name: 'Komang Ari', role: 'Koordinator Humas', color: '#0D9488', bgClass: 'bg-teal-50 text-teal-800 border-teal-200', avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80' },
-  { id: 2, name: 'Rina Wati', role: 'Jurnalis Lapangan', color: '#0284C7', bgClass: 'bg-sky-50 text-sky-800 border-sky-200', avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80' },
-  { id: 3, name: 'Budi Santoso', role: 'Videografer Utama', color: '#16A34A', bgClass: 'bg-green-50 text-green-800 border-green-200', avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80' },
-  { id: 4, name: 'Andi Saputra', role: 'Fotografer Resmi', color: '#D97706', bgClass: 'bg-amber-50 text-amber-800 border-amber-200', avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80' },
-];
+type MemberOption = ReturnType<typeof userToMemberOption>;
 
-const initialEvents: ScheduleEvent[] = [
-  {
-    id: '101',
-    title: 'Komang Ari (08:00 - 16:00)',
-    start: '2025-05-02T08:00:00',
-    end: '2025-05-02T16:00:00',
-    backgroundColor: '#0D9488',
+function mapScheduleToEvent(schedule: DutySchedule & { notes?: string }): ScheduleEvent {
+  const dateStr = formatApiDate(schedule.date);
+  const { startTime, endTime, user } = schedule;
+
+  return {
+    id: String(schedule.id),
+    title: `${user.fullName} (${startTime} - ${endTime})`,
+    start: `${dateStr}T${startTime}:00`,
+    end: `${dateStr}T${endTime}:00`,
+    backgroundColor: getMemberColor(schedule.userId),
     extendedProps: {
-      memberId: 1,
-      memberName: 'Komang Ari',
-      role: 'Koordinator Humas',
+      memberId: schedule.userId,
+      memberName: user.fullName,
+      role: user.roleLabel,
       location: 'Posko Humas Rektorat Lt. 1',
-      shift: '08:00 - 16:00 WIB',
-      note: 'Koordinator peliputan pagi dan koordinasi tamu VIP.',
-      avatar: membersList[0].avatar,
+      shift: `${startTime} - ${endTime} WIB`,
+      note: schedule.notes,
+      avatar: user.avatar,
     },
-  },
-  {
-    id: '102',
-    title: 'Rina Wati (08:00 - 16:00)',
-    start: '2025-05-05T08:00:00',
-    end: '2025-05-05T16:00:00',
-    backgroundColor: '#0284C7',
-    extendedProps: {
-      memberId: 2,
-      memberName: 'Rina Wati',
-      role: 'Jurnalis Lapangan',
-      location: 'Gedung Serbaguna Polinela',
-      shift: '08:00 - 16:00 WIB',
-      note: 'Piket liputan wisuda mahasiswa.',
-      avatar: membersList[1].avatar,
-    },
-  },
-  {
-    id: '103',
-    title: 'Budi Santoso (13:00 - 20:00)',
-    start: '2025-05-12T13:00:00',
-    end: '2025-05-12T20:00:00',
-    backgroundColor: '#16A34A',
-    extendedProps: {
-      memberId: 3,
-      memberName: 'Budi Santoso',
-      role: 'Videografer Utama',
-      location: 'Studio Humas & Multimedia',
-      shift: '13:00 - 20:00 WIB',
-      note: 'Perekaman dan editing podcast dies natalis.',
-      avatar: membersList[2].avatar,
-    },
-  },
-  {
-    id: '104',
-    title: 'Andi Saputra (08:00 - 16:00)',
-    start: '2025-05-19T08:00:00',
-    end: '2025-05-19T16:00:00',
-    backgroundColor: '#D97706',
-    extendedProps: {
-      memberId: 4,
-      memberName: 'Andi Saputra',
-      role: 'Fotografer Resmi',
-      location: 'Ruang Sidang Utama',
-      shift: '08:00 - 16:00 WIB',
-      note: 'Dokumentasi foto MoU industri.',
-      avatar: membersList[3].avatar,
-    },
-  },
-  {
-    id: '105',
-    title: 'Komang Ari (08:00 - 16:00)',
-    start: '2025-05-21T08:00:00',
-    end: '2025-05-21T16:00:00',
-    backgroundColor: '#0D9488',
-    extendedProps: {
-      memberId: 1,
-      memberName: 'Komang Ari',
-      role: 'Koordinator Humas',
-      location: 'Gedung Serbaguna Polinela',
-      shift: '08:00 - 16:00 WIB',
-      note: 'Penanggung jawab peliputan Menteri Pendidikan.',
-      avatar: membersList[0].avatar,
-    },
-  },
-  {
-    id: '106',
-    title: 'Rina Wati (08:00 - 16:00)',
-    start: '2025-05-28T08:00:00',
-    end: '2025-05-28T16:00:00',
-    backgroundColor: '#0284C7',
-    extendedProps: {
-      memberId: 2,
-      memberName: 'Rina Wati',
-      role: 'Jurnalis Lapangan',
-      location: 'Posko Humas Rektorat Lt. 1',
-      shift: '08:00 - 16:00 WIB',
-      note: 'Piket rutin pelayanan kehumasan kampus.',
-      avatar: membersList[1].avatar,
-    },
-  },
-];
+  };
+}
 
 export default function SchedulePage() {
-  const [events, setEvents] = useState<ScheduleEvent[]>(initialEvents);
+  const [events, setEvents] = useState<ScheduleEvent[]>([]);
+  const [membersList, setMembersList] = useState<MemberOption[]>([]);
   const [mounted, setMounted] = useState(false);
   const [searchMember, setSearchMember] = useState('');
-  const [selectedMemberFilters, setSelectedMemberFilters] = useState<number[]>(membersList.map((m) => m.id));
+  const [selectedMemberFilters, setSelectedMemberFilters] = useState<number[]>([]);
 
   // Modals state
   const [isAssignOpen, setIsAssignOpen] = useState(false);
@@ -162,7 +84,7 @@ export default function SchedulePage() {
 
   // Form State
   const [formDate, setFormDate] = useState(new Date().toISOString().split('T')[0]);
-  const [formMemberId, setFormMemberId] = useState(1);
+  const [formMemberId, setFormMemberId] = useState(0);
   const [formStartTime, setFormStartTime] = useState('08:00');
   const [formEndTime, setFormEndTime] = useState('16:00');
   const [formLocation, setFormLocation] = useState('Posko Humas Rektorat Lt. 1');
@@ -170,8 +92,39 @@ export default function SchedulePage() {
 
   const calendarRef = useRef<any>(null);
 
+  const loadSchedules = async () => {
+    try {
+      const schedules = await scheduleService.getAll();
+      const list = Array.isArray(schedules) ? schedules : [];
+      setEvents(list.map((schedule) => mapScheduleToEvent(schedule as DutySchedule & { notes?: string })));
+    } catch {
+      toast.error('Gagal memuat jadwal piket dari server.');
+      setEvents([]);
+    }
+  };
+
   useEffect(() => {
     setMounted(true);
+
+    const init = async () => {
+      try {
+        const users = await userService.getAll();
+        const members = (Array.isArray(users) ? users : []).map(userToMemberOption);
+        setMembersList(members);
+        setSelectedMemberFilters(members.map((m) => m.id));
+        if (members.length > 0) {
+          setFormMemberId(members[0].id);
+        }
+      } catch {
+        toast.error('Gagal memuat data personel dari server.');
+        setMembersList([]);
+        setSelectedMemberFilters([]);
+      }
+
+      await loadSchedules();
+    };
+
+    init();
   }, []);
 
   const toggleMemberFilter = (id: number) => {
@@ -207,45 +160,56 @@ export default function SchedulePage() {
     }
   };
 
-  const handleEventDrop = (arg: any) => {
+  const handleEventDrop = async (arg: any) => {
     const ev = events.find((e) => e.id === arg.event.id);
-    if (ev) {
-      toast.success(`Jadwal "${ev.extendedProps.memberName}" dipindahkan ke tanggal ${arg.event.startStr.split('T')[0]}.`);
+    if (!ev) return;
+
+    const newDate = arg.event.startStr.split('T')[0];
+    try {
+      await scheduleService.update(Number(arg.event.id), { date: `${newDate}T00:00:00Z` });
+      await loadSchedules();
+      toast.success(`Jadwal "${ev.extendedProps.memberName}" dipindahkan ke tanggal ${newDate}.`);
+    } catch {
+      arg.revert();
+      toast.error('Gagal memindahkan jadwal piket.');
     }
   };
 
-  const handleAssignSubmit = (e: React.FormEvent) => {
+  const handleAssignSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     const member = membersList.find((m) => m.id === Number(formMemberId)) || membersList[0];
+    if (!member) {
+      toast.error('Tidak ada personel tersedia.');
+      return;
+    }
 
-    const newEvent: ScheduleEvent = {
-      id: String(Date.now()),
-      title: `${member.name} (${formStartTime} - ${formEndTime})`,
-      start: `${formDate}T${formStartTime}:00`,
-      end: `${formDate}T${formEndTime}:00`,
-      backgroundColor: member.color,
-      extendedProps: {
-        memberId: member.id,
-        memberName: member.name,
-        role: member.role,
-        location: formLocation,
-        shift: `${formStartTime} - ${formEndTime} WIB`,
-        note: formNote,
-        avatar: member.avatar,
-      },
-    };
-
-    setEvents([...events, newEvent]);
-    setIsAssignOpen(false);
-    setFormNote('');
-    toast.success(`Jadwal piket berhasil ditambahkan untuk ${member.name}!`);
+    try {
+      await scheduleService.create({
+        userId: Number(formMemberId),
+        date: `${formDate}T00:00:00Z`,
+        startTime: formStartTime,
+        endTime: formEndTime,
+      });
+      await loadSchedules();
+      setIsAssignOpen(false);
+      setFormNote('');
+      toast.success(`Jadwal piket berhasil ditambahkan untuk ${member.name}!`);
+    } catch {
+      toast.error('Gagal menyimpan jadwal piket.');
+    }
   };
 
-  const handleDeleteEvent = () => {
+  const handleDeleteEvent = async () => {
     if (!selectedEvent) return;
-    setEvents(events.filter((e) => e.id !== selectedEvent.id));
-    setIsDetailOpen(false);
-    toast.success(`Jadwal piket "${selectedEvent.extendedProps.memberName}" berhasil dihapus.`);
+
+    try {
+      await scheduleService.remove(Number(selectedEvent.id));
+      await loadSchedules();
+      setIsDetailOpen(false);
+      toast.success(`Jadwal piket "${selectedEvent.extendedProps.memberName}" berhasil dihapus.`);
+    } catch {
+      toast.error('Gagal menghapus jadwal piket.');
+    }
   };
 
   return (

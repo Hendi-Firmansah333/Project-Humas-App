@@ -17,11 +17,13 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
+  History,
 } from 'lucide-react';
 
 const navItems = [
   { name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
   { name: 'Kegiatan', href: '/kegiatan', icon: CalendarCheck2 },
+  { name: 'Riwayat Kegiatan', href: '/riwayat-kegiatan', icon: History },
   { name: 'Jadwal Piket', href: '/jadwal-piket', icon: Calendar },
   { name: 'Content Plan', href: '/content-plan', icon: FileText },
   { name: 'Live Location Tim', href: '/live-location', icon: MapPin },
@@ -65,17 +67,17 @@ export default function Sidebar({
           isCollapsed ? 'justify-center px-2' : 'px-6 gap-3 justify-between'
         }`}
       >
-        <div className="flex items-center gap-3 overflow-hidden">
+        <Link href="/dashboard" className="flex items-center gap-3 overflow-hidden hover:opacity-90 transition-opacity" title="Kembali ke Dashboard">
           <div className="w-9 h-9 rounded-xl bg-teal-600 text-white flex items-center justify-center shadow-sm shrink-0">
             <Building2 className="w-5 h-5" />
           </div>
           {!isCollapsed && (
             <div className="truncate">
               <h1 className="font-bold text-sm text-slate-900 leading-tight">HUMAS POLINELA</h1>
-              <p className="text-[11px] text-slate-400 font-medium leading-tight">Admin System</p>
+              <p className="text-[11px] text-slate-400 font-medium leading-tight">Admin Humas</p>
             </div>
           )}
-        </div>
+        </Link>
 
         {/* Desktop Collapse Toggle */}
         {onToggleCollapse && !isCollapsed && (

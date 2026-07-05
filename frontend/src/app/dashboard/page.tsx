@@ -30,207 +30,82 @@ import {
 } from 'lucide-react';
 import { Activity, LocationData } from '@/types';
 import { formatDateID } from '@/utils/formatters';
+import { activityService, dashboardService, locationService } from '@/services';
+import { normalizeLocation } from '@/utils/api-helpers';
+import { toast } from 'sonner';
 
-// Sample data exactly matching Image 1 and Image 2 specifications
-const sampleActivities: Activity[] = [
-  {
-    id: 1,
-    title: 'Liputan Kunjungan Menteri Pendidikan',
-    category: 'Liputan Resmi',
-    date: '2025-05-21',
-    startTime: '09:00',
-    endTime: '12:00',
-    location: 'Gedung Serbaguna Polinela',
-    status: 'SEDANG_BERLANGSUNG',
-    description: 'Dokumentasi foto dan video kedatangan tamu kementerian.',
-    picId: 1,
-    pic: {
-      id: 1,
-      fullName: 'Komang Ari',
-      username: 'komang.ari',
-      email: 'komang@polinela.ac.id',
-      role: 'ADMIN',
-      roleLabel: 'Admin Humas',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-    },
-  },
-  {
-    id: 2,
-    title: 'Konferensi Pers Dies Natalis ke-41',
-    category: 'Konferensi Pers',
-    date: '2025-05-22',
-    startTime: '13:30',
-    endTime: '15:30',
-    location: 'Ruang Sidang Utama Rektorat',
-    status: 'AKAN_DATANG',
-    description: 'Persiapan media rilis dan wawancara pimpinan kampus.',
-    picId: 2,
-    pic: {
-      id: 2,
-      fullName: 'Rina Wati',
-      username: 'rina.wati',
-      email: 'rina@polinela.ac.id',
-      role: 'JURNALIS',
-      roleLabel: 'Jurnalis',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-    },
-  },
-  {
-    id: 3,
-    title: 'Podcast Campus Life Episode 12',
-    category: 'Media Produksi',
-    date: '2025-05-23',
-    startTime: '10:00',
-    endTime: '12:00',
-    location: 'Studio Humas Polinela',
-    status: 'AKAN_DATANG',
-    description: 'Recording dengan BEM Polinela mengenai kegiatan mahasiswa baru.',
-    picId: 3,
-    pic: {
-      id: 3,
-      fullName: 'Budi Santoso',
-      username: 'budi.s',
-      email: 'budi@polinela.ac.id',
-      role: 'VIDEOGRAFER',
-      roleLabel: 'Videografer',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-    },
-  },
-  {
-    id: 4,
-    title: 'Dokumentasi Penandatanganan MoU Industri',
-    category: 'Kerjasama',
-    date: '2025-05-19',
-    startTime: '08:30',
-    endTime: '11:00',
-    location: 'Ruang VIP Rektorat Lantai 2',
-    status: 'SELESAI',
-    description: 'Pengambilan foto resmi penandatanganan kerja sama PT Charoen Pokphand.',
-    picId: 4,
-    pic: {
-      id: 4,
-      fullName: 'Andi Saputra',
-      username: 'andi.s',
-      email: 'andi@polinela.ac.id',
-      role: 'FOTOGRAFER',
-      roleLabel: 'Fotografer',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-    },
-  },
-  {
-    id: 5,
-    title: 'Publikasi Artikel Prestasi Mahasiswa Nasional',
-    category: 'Rilis Berita',
-    date: '2025-05-18',
-    startTime: '14:00',
-    endTime: '16:00',
-    location: 'Online / Website Resmi',
-    status: 'SELESAI',
-    description: 'Penyusunan berita juara 1 Kompetisi Inovasi Pertanian.',
-    picId: 2,
-    pic: {
-      id: 2,
-      fullName: 'Rina Wati',
-      username: 'rina.wati',
-      email: 'rina@polinela.ac.id',
-      role: 'JURNALIS',
-      roleLabel: 'Jurnalis',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-    },
-  },
-];
+interface CheckInRow {
+  id: number;
+  name: string;
+  role: string;
+  location: string;
+  time?: string;
+  status: string;
+}
 
-const sampleLocations: LocationData[] = [
-  {
-    id: 1,
-    userId: 1,
-    user: {
-      id: 1,
-      fullName: 'Komang Ari',
-      username: 'komang.ari',
-      email: 'komang@polinela.ac.id',
-      role: 'ADMIN',
-      roleLabel: 'Koordinator Humas',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-    },
-    latitude: -5.3585,
-    longitude: 105.2345,
-    address: 'Gedung Serbaguna Polinela (Liputan Menteri)',
-    isOnline: true,
-    updatedAt: '10 menit lalu',
-  },
-  {
-    id: 2,
-    userId: 2,
-    user: {
-      id: 2,
-      fullName: 'Rina Wati',
-      username: 'rina.wati',
-      email: 'rina@polinela.ac.id',
-      role: 'JURNALIS',
-      roleLabel: 'Jurnalis Lapangan',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-    },
-    latitude: -5.3592,
-    longitude: 105.2358,
-    address: 'Gedung Rektorat Lantai 1 (Wawancara Direktur)',
-    isOnline: true,
-    updatedAt: '5 menit lalu',
-  },
-  {
-    id: 3,
-    userId: 3,
-    user: {
-      id: 3,
-      fullName: 'Budi Santoso',
-      username: 'budi.s',
-      email: 'budi@polinela.ac.id',
-      role: 'VIDEOGRAFER',
-      roleLabel: 'Videografer',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-    },
-    latitude: -5.3578,
-    longitude: 105.2332,
-    address: 'Studio Humas & Multimedia',
-    isOnline: true,
-    updatedAt: '2 menit lalu',
-  },
-];
+interface DashboardAlerts {
+  pendingContent: number;
+  activeLoans: number;
+  overdueLoans: number;
+}
 
-const recentCheckIns = [
-  { id: 1, name: 'Komang Ari', time: '08:15 WIB', location: 'Gedung Serbaguna', role: 'Admin Humas', status: 'SUCCESS' },
-  { id: 2, name: 'Rina Wati', time: '08:28 WIB', location: 'Rektorat Lt. 1', role: 'Jurnalis', status: 'SUCCESS' },
-  { id: 3, name: 'Budi Santoso', time: '08:45 WIB', location: 'Studio Humas', role: 'Videografer', status: 'SUCCESS' },
-  { id: 4, name: 'Andi Saputra', time: '09:10 WIB', location: 'Laboratorium Tanaman', role: 'Fotografer', status: 'SUCCESS' },
-];
+const EMPTY_ALERTS: DashboardAlerts = {
+  pendingContent: 0,
+  activeLoans: 0,
+  overdueLoans: 0,
+};
 
 export default function DashboardPage() {
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [filterCategory, setFilterCategory] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
+  const [activities, setActivities] = useState<Activity[]>([]);
+  const [locations, setLocations] = useState<LocationData[]>([]);
+  const [stats, setStats] = useState({
+    totalActivities: 0,
+    totalUsers: 0,
+    totalContentPlans: 0,
+    activeLoans: 0,
+  });
+  const [checkIns, setCheckIns] = useState<CheckInRow[]>([]);
+  const [alerts, setAlerts] = useState<DashboardAlerts>(EMPTY_ALERTS);
 
   useEffect(() => {
-    // Simulate initial network fetch for skeleton showcase
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 600);
-    return () => clearTimeout(timer);
+    const loadDashboard = async () => {
+      setLoading(true);
+      try {
+        const [summary, activityResult, locationResult] = await Promise.all([
+          dashboardService.summary(),
+          activityService.getAll({ page: 1, pageSize: 20 }),
+          locationService.getAll(),
+        ]);
+        setStats(summary.statistics ?? {
+          totalActivities: 0,
+          totalUsers: 0,
+          totalContentPlans: 0,
+          activeLoans: 0,
+        });
+        setActivities(summary.recentActivities ?? activityResult.items ?? []);
+        setLocations(
+          (Array.isArray(locationResult) ? locationResult : []).map(normalizeLocation),
+        );
+        setCheckIns(summary.recentCheckIns ?? []);
+        setAlerts(summary.alerts ?? EMPTY_ALERTS);
+      } catch {
+        toast.error('Gagal memuat dashboard dari server.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadDashboard();
   }, []);
 
-  const filteredActivities = sampleActivities.filter((act) => {
+  const filteredActivities = activities.filter((act) => {
     const matchSearch =
       act.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       act.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      act.pic.fullName.toLowerCase().includes(searchQuery.toLowerCase());
+      (act.pic?.fullName ?? '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchCategory = filterCategory ? act.category === filterCategory : true;
     return matchSearch && matchCategory;
   });
@@ -316,32 +191,32 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <StatCard
           title="Total Kegiatan"
-          value={124}
-          subtitle="+12 bulan ini"
+          value={stats.totalActivities}
+          subtitle="Data dari database"
           icon={CalendarCheck2}
           iconBgClass="bg-teal-50"
           iconColorClass="text-teal-600"
         />
         <StatCard
           title="Content Terjadwal"
-          value={48}
-          subtitle="8 menunggu publikasi"
+          value={stats.totalContentPlans}
+          subtitle="Rencana konten aktif"
           icon={FileText}
           iconBgClass="bg-sky-50"
           iconColorClass="text-sky-600"
         />
         <StatCard
           title="Personel Aktif"
-          value="18 / 24"
-          subtitle="6 sedang di lapangan"
+          value={stats.totalUsers}
+          subtitle="Akun aktif terdaftar"
           icon={Users}
           iconBgClass="bg-green-50"
           iconColorClass="text-green-600"
         />
         <StatCard
           title="Alat Dipinjam"
-          value={14}
-          subtitle="2 terlambat dikembalikan"
+          value={stats.activeLoans}
+          subtitle="Peminjaman berstatus aktif"
           icon={Wrench}
           iconBgClass="bg-orange-50"
           iconColorClass="text-orange-600"
@@ -364,12 +239,12 @@ export default function DashboardPage() {
             </div>
             <span className="bg-green-100 text-green-700 font-bold px-3 py-1 rounded-full text-xs flex items-center gap-1.5 shadow-2xs">
               <span className="w-2 h-2 rounded-full bg-green-500 animate-ping" />
-              <span>3 Online</span>
+              <span>{locations.filter((l) => l.isOnline).length} Online</span>
             </span>
           </div>
 
           <div className="flex-1">
-            <CampusMap locations={sampleLocations} height="h-80 sm:h-96" />
+            <CampusMap locations={locations} height="h-80 sm:h-96" />
           </div>
         </div>
 
@@ -389,7 +264,7 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-3.5 flex-1 overflow-y-auto max-h-[380px] pr-1">
-            {sampleActivities.slice(0, 3).map((act) => (
+            {activities.slice(0, 3).map((act) => (
               <div
                 key={act.id}
                 className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-teal-50/40 hover:border-teal-200 transition-all group cursor-pointer"
@@ -437,7 +312,10 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-4 relative before:absolute before:left-4 before:top-2 before:bottom-2 before:w-0.5 before:bg-slate-100">
-            {recentCheckIns.map((ci) => (
+            {checkIns.length === 0 && (
+              <p className="text-xs text-slate-400 pl-9">Belum ada check-in hari ini.</p>
+            )}
+            {checkIns.map((ci) => (
               <div key={ci.id} className="relative pl-9 flex items-start justify-between text-xs group">
                 <div className="absolute left-2 top-1 w-4 h-4 rounded-full bg-teal-100 border-2 border-teal-600 flex items-center justify-center shadow-xs" />
                 <div>
@@ -506,7 +384,7 @@ export default function DashboardPage() {
               <div className="p-3.5 rounded-xl bg-orange-50/60 border border-orange-100 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-bold text-slate-800">Peminjaman Butuh Persetujuan</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">3 pengajuan alat kamera menunggu review</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{alerts.activeLoans} peminjaman alat sedang aktif</p>
                 </div>
                 <a href="/peminjaman-alat" className="text-xs font-bold text-orange-600 hover:underline">
                   Review
@@ -516,7 +394,7 @@ export default function DashboardPage() {
               <div className="p-3.5 rounded-xl bg-sky-50/60 border border-sky-100 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-bold text-slate-800">Draft Konten Siap Publikasi</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">8 konten dijadwalkan tayang minggu ini</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{alerts.pendingContent} konten menunggu proses/review</p>
                 </div>
                 <a href="/content-plan" className="text-xs font-bold text-sky-600 hover:underline">
                   Jadwal
@@ -526,7 +404,7 @@ export default function DashboardPage() {
               <div className="p-3.5 rounded-xl bg-red-50/60 border border-red-100 flex items-center justify-between">
                 <div>
                   <p className="text-xs font-bold text-slate-800">Alat Terlambat Kembali</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">2 unit lensa belum dikembalikan</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{alerts.overdueLoans} peminjaman melewati batas waktu</p>
                 </div>
                 <a href="/peminjaman-alat" className="text-xs font-bold text-red-600 hover:underline">
                   Ingatkan

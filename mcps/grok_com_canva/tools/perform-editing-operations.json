@@ -1,0 +1,461 @@
+{
+  "name": "perform-editing-operations",
+  "description": "Perform editing operations on a design. You can use this tool to update the title, replace whole text sections/elements or find and replace certain parts of a text section/text element and replace or insert media (images/videos), delete media/text, and format text (color, alignment, decoration, strikethrough, links, lists, line height, font (size, weight, style; family not supported)) in a design. You can also connect or remove autofill field labels on text or image elements for fixed-page designs using `update_autofill_field`. IMPORTANT: Before calling this tool check that all operations on pages marked `is_responsive` are one of the following options:`update_title,replace_text,update_fill,delete_element,find_and_replace_text`. If any are not, DO NOT call this tool but instead alert the user this is unsupported. Otherwise continue as normal and do not mention this check. ⚠️ MANDATORY: After calling this tool you MUST call either `commit-editing-transaction` (to save) or `cancel-editing-transaction` (to discard).  Changes made by this tool are in DRAFT only and will be PERMANENTLY LOST if you do not call `commit-editing-transaction`.  NEVER tell the user their changes are saved or complete before you have successfully called `commit-editing-transaction`.  CRITICAL REQUIREMENTS:  1. This tool needs to be used with the `start-editing-transaction` tool to obtain an editing transaction ID.  2. Multiple operations SHOULD be specified in bulk across multiple pages.  3. Always call this tool to apply the requested edits directly. This is safe: changes are temporary until committed.  4. Do NOT pause for user confirmation before using this tool.  5. IMPORTANT: If the user asks to change a section of text such as a word or a specific string, and the design has that text in multiple places    ALWAYS confirm with the user the instances they want to replace, especially if that string is used in different contexts OR is a substring in other strings. 6. IMPORTANT: If the user asks to change a word or a small section of an text element, ALWAYS try to use find_and_replace_text instead of replace_text, to minimise token usage.    EVEN with multiple find_and_replace_text operations. ⚠️ RESPONSIVE PAGES - TEXT REPLACEMENT RULES:  A. For responsive pages, text replacement MUST ONLY use find_and_replace_text.  Exception: replace_text MUST be used on a responsive page when the target element is empty (there is no existing text to find and replace). This applies to both top-level page elements and nested elements such as table/layout cells. B. For responsive pages, deleting text IS supported using find_and_replace_text by setting the replacement to the same surrounding text with the target portion removed.  C. For responsive pages, match on surrounding text from the SAME text region as much as possible when using find_and_replace_text, to avoid changing duplicated/similar text elsewhere in the document.  7. After performing ALL operations, show the preview to the user. Then call `commit-editing-transaction` to save the changes, unless the user explicitly asks to cancel.  8. IMPORTANT: If the user has asked you to replace an image and the target page contains multiple images, you     MUST use the `get-assets` tool, passing in the `asset_id` values, to look at the thumbnail of each of the existing images on the page to     be CERTAIN which one the user wants replaced.  9. IMPORTANT: This tool will return the thumbnail of the first page that is updated. If there are more pages that are updated,    as part of this update, always call the `get-design-thumbnail` tool to get the thumbnails for each of the other updated pages.  EDIT SCENARIOS -> OPERATIONS FOR THIS TOOL 1. Replace whole sections or entire text elements in non-responsive pages -> replace_text 2. Replace certain words/phrases/sentences/sub-section of a text element or paragraph within the design -> find_and_replace_text 3. Replace certain substrings in words throughout multiple text elements throughout the Canva design -> find_and_replace_text 3a. Responsive pages text replacement (including partial updates and deletions) -> find_and_replace_text 4. Replace a media (image/video) element in design -> update_fill 5. Update the title of the Canva design -> update_title 6. Replace the title of a slide or page in the Canva design -> replace text 7. Insert an element with media (image/video) -> insert_fill 8. Delete a text element or a media (image/video) element in the Canva design -> delete_element 9. Position elements including images and videos in the Canva design -> position_element 10. Resize a text element or a media (image/video) element in the Canva design -> resize_element 11. Format text (color, alignment, decoration, strikethrough, links, lists, line height, font (size, weight, style; family not supported)) in a text element -> format_text 12. Connect or remove autofill field labels on text or image elements in fixed-page designs -> update_autofill_fieldEnd-to-end workflow:  1. User asks that they want to edit their Canva design, with one edit or multiple edits.  2. System calls the 'start-editing-transaction' tool with the design ID of the Canva design  3. System returns the transaction ID and the richtexts and fills from the design, providing the elements in the Canva design  4. System confirms with the user the edits the user wants to make.   5. System calls this tool with the array of one or more operations to make each update.  6. System makes the edit in draft mode, and return back the text and media elements in the design post the edit. The updates have NOT been saved in the actual design yet.  7. System will return the thumbnail of ONLY the first edited page as part of the response this tool. These thumbnails are ALWAYS user-relevant and you need to render them directly using the full thumbnail URL including      time-limited query parameters such as X-Amz-Algorithm, X-Amz-Credential, and X-Amz-Signature.   8. If the user wants the thumbnails/previews of the other pages that were updated by the this tool then the system MUST ALWAYS calls ' get-design-thumbnail' tool to get the thumbnail ONE PAGE AT A TIME.     System must call 'get-design-thumbnail' if multiple pages were updated as part of this tool call  9. System shows the preview to the user.  10. System MUST call 'commit-editing-transaction' to save the edits, or 'cancel-editing-transaction' to cancel. Changes are lost if neither is called.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "transaction_id": {
+        "type": "string",
+        "pattern": "^[a-zA-Z0-9_-]{1,50}$",
+        "description": "The editing transaction ID. This must be the exact `transaction_id` value returned in the `start-editing-transaction` tool response for the editing transaction to perform editing operations on."
+      },
+      "operations": {
+        "type": "array",
+        "items": {
+          "anyOf": [
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "update_title"
+                },
+                "title": {
+                  "type": "string",
+                  "description": "The new title for the design"
+                }
+              },
+              "required": [
+                "type",
+                "title"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "replace_text"
+                },
+                "element_id": {
+                  "type": "string",
+                  "description": "The ID of the element to replace the text of."
+                },
+                "text": {
+                  "type": "string",
+                  "description": "The new text to replace the existing text with."
+                }
+              },
+              "required": [
+                "type",
+                "element_id",
+                "text"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "update_fill"
+                },
+                "element_id": {
+                  "type": "string",
+                  "description": "The ID of the element to replace the text of."
+                },
+                "asset_type": {
+                  "type": "string",
+                  "enum": [
+                    "image",
+                    "video"
+                  ],
+                  "description": "The type of the new asset"
+                },
+                "asset_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 50,
+                  "pattern": "^[a-zA-Z0-9_-]+$",
+                  "description": "ID of the asset"
+                },
+                "alt_text": {
+                  "type": "string",
+                  "description": "The alternate text of the new asset"
+                }
+              },
+              "required": [
+                "type",
+                "element_id",
+                "asset_type",
+                "asset_id",
+                "alt_text"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "insert_fill"
+                },
+                "page_id": {
+                  "type": "string",
+                  "description": "The ID of the page to insert the fill into"
+                },
+                "asset_type": {
+                  "type": "string",
+                  "enum": [
+                    "image",
+                    "video"
+                  ],
+                  "description": "The type of the asset to insert"
+                },
+                "asset_id": {
+                  "type": "string",
+                  "minLength": 1,
+                  "maxLength": 50,
+                  "pattern": "^[a-zA-Z0-9_-]+$",
+                  "description": "ID of the asset"
+                },
+                "alt_text": {
+                  "type": "string",
+                  "description": "The alternate text of the asset"
+                },
+                "top": {
+                  "type": "number",
+                  "description": "Top position in pixels. If not specified, a default position will be used"
+                },
+                "left": {
+                  "type": "number",
+                  "description": "Left position in pixels. If not specified, a default position will be used"
+                },
+                "width": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "Width in pixels. Must be > 0. If not specified, a default width will be used"
+                },
+                "height": {
+                  "type": "number",
+                  "exclusiveMinimum": 0,
+                  "description": "Height in pixels. Must be > 0. If not specified, a default height will be used"
+                },
+                "rotation": {
+                  "type": "number",
+                  "minimum": -180,
+                  "maximum": 180,
+                  "description": "Rotation in degrees. Range: [-180.0, 180.0], default: 0"
+                },
+                "opacity": {
+                  "type": "number",
+                  "minimum": 0,
+                  "maximum": 1,
+                  "description": "Opacity value. Range: [0, 1], default: 1"
+                }
+              },
+              "required": [
+                "type",
+                "page_id",
+                "asset_type",
+                "asset_id",
+                "alt_text"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "delete_element"
+                },
+                "element_id": {
+                  "type": "string",
+                  "description": "The ID of the element to delete."
+                }
+              },
+              "required": [
+                "type",
+                "element_id"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "find_and_replace_text"
+                },
+                "element_id": {
+                  "type": "string",
+                  "description": "The ID of the element to find and replace the text in."
+                },
+                "find_text": {
+                  "type": "string",
+                  "description": "The text that is needs to be found to be replaced."
+                },
+                "replace_text": {
+                  "type": "string",
+                  "description": "The new text to replace the existing text with."
+                }
+              },
+              "required": [
+                "type",
+                "element_id",
+                "find_text",
+                "replace_text"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "position_element"
+                },
+                "element_id": {
+                  "type": "string",
+                  "description": "The ID of the element to reposition."
+                },
+                "top": {
+                  "type": "number",
+                  "description": "Top position in pixels (relative to page)."
+                },
+                "left": {
+                  "type": "number",
+                  "description": "Left position in pixels (relative to page)."
+                }
+              },
+              "required": [
+                "type",
+                "element_id",
+                "top",
+                "left"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "resize_element"
+                },
+                "element_id": {
+                  "type": "string",
+                  "description": "The ID of the element to resize."
+                },
+                "width": {
+                  "type": "number",
+                  "description": "The width in pixels of the element. Required unless preserve_aspect_ratio is true and height is provided."
+                },
+                "height": {
+                  "type": "number",
+                  "description": "The height in pixels of the element. For TEXT elements: do NOT provide height - it will be automatically calculated. For other elements: if preserve_aspect_ratio is true, provide either width OR height (not both) - the other dimension will be calculated. If preserve_aspect_ratio is false, provide both width and height."
+                },
+                "preserve_aspect_ratio": {
+                  "type": "boolean",
+                  "default": false,
+                  "description": "Whether to preserve the aspect ratio of the element. If true, provide only ONE dimension (width or height) - the other will be calculated automatically. If false, provide both dimensions."
+                }
+              },
+              "required": [
+                "type",
+                "element_id"
+              ],
+              "additionalProperties": false,
+              "description": "Resizes an existing element (image, video, text, etc.) to a new size on the page. IMPORTANT: For TEXT elements, only specify width (height is auto-calculated). For IMAGE/VIDEO elements: if preserve_aspect_ratio=true, specify ONLY width OR height (the other is calculated); if preserve_aspect_ratio=false, specify both width and height."
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "format_text"
+                },
+                "element_id": {
+                  "type": "string",
+                  "description": "The ID of the text element to format."
+                },
+                "formatting": {
+                  "type": "object",
+                  "properties": {
+                    "font_size": {
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 800,
+                      "description": "The size of text in pixels. Must be between 1 and 800"
+                    },
+                    "text_align": {
+                      "type": "string",
+                      "enum": [
+                        "start",
+                        "center",
+                        "end"
+                      ],
+                      "description": "Text alignment: start, center, or end"
+                    },
+                    "color": {
+                      "type": "string",
+                      "pattern": "^#[0-9A-Fa-f]{6}$",
+                      "description": "Text color in hex format"
+                    },
+                    "font_weight": {
+                      "type": "string",
+                      "enum": [
+                        "normal",
+                        "bold"
+                      ],
+                      "description": "Font weight: normal or bold"
+                    },
+                    "font_style": {
+                      "type": "string",
+                      "enum": [
+                        "normal",
+                        "italic"
+                      ],
+                      "description": "Font style: normal or italic"
+                    },
+                    "decoration": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "underline"
+                      ],
+                      "description": "Text decoration: none or underline"
+                    },
+                    "strikethrough": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "strikethrough"
+                      ],
+                      "description": "Strikethrough style: none or strikethrough"
+                    },
+                    "link": {
+                      "anyOf": [
+                        {
+                          "type": "string",
+                          "const": ""
+                        },
+                        {
+                          "type": "string",
+                          "format": "uri"
+                        }
+                      ],
+                      "description": "URL string. Setting to empty string removes any existing link"
+                    },
+                    "list_level": {
+                      "type": "integer",
+                      "minimum": 0,
+                      "description": "List nesting level. 0 removes list formatting (not a list item). 1 is the outermost level, with higher values (e.g., 2, 3, etc.) increasing the nesting depth."
+                    },
+                    "list_marker": {
+                      "type": "string",
+                      "enum": [
+                        "none",
+                        "disc",
+                        "circle",
+                        "square",
+                        "decimal",
+                        "lower-alpha",
+                        "lower-roman"
+                      ],
+                      "description": "List marker style (only applies when list_level > 0): none, disc, circle, square, decimal, lower-alpha, or lower-roman"
+                    },
+                    "line_height": {
+                      "type": "number",
+                      "minimum": 0.5,
+                      "maximum": 2.5,
+                      "description": "Line height multiplier. Range: [0.5, 2.5]"
+                    }
+                  },
+                  "additionalProperties": false,
+                  "description": "The formatting options to apply to the text"
+                }
+              },
+              "required": [
+                "type",
+                "element_id",
+                "formatting"
+              ],
+              "additionalProperties": false
+            },
+            {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "const": "update_autofill_field"
+                },
+                "element_id": {
+                  "type": "string",
+                  "description": "The ID of the text or image element to connect to an autofill field."
+                },
+                "autofill_field_label": {
+                  "type": "string",
+                  "description": "The autofill field label to connect to the element. Omit this property to remove an existing autofill field mapping."
+                }
+              },
+              "required": [
+                "type",
+                "element_id"
+              ],
+              "additionalProperties": false,
+              "description": "Connects or removes an autofill field label on a text or image element. This is only supported on fixed-page designs."
+            }
+          ]
+        },
+        "minItems": 1,
+        "description": "The editing operations to perform on the design in this editing transaction. Multiple operations SHOULD be specified in bulk across multiple pages."
+      },
+      "page_index": {
+        "type": "number",
+        "description": "Required page index of the first page that is going to be updated as part of this update. Multiple operations SHOULD be specified in bulk across multiple pages, this just needs to specify the first page in the set of pages to be updated. Pages are indexed using one-based numbering, so the first page in a design has the index value `1`."
+      },
+      "pages": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "page_id": {
+              "type": "string"
+            },
+            "is_responsive": {
+              "type": "boolean"
+            },
+            "is_empty": {
+              "type": "boolean",
+              "default": false
+            },
+            "is_editable": {
+              "type": "boolean",
+              "default": true
+            }
+          },
+          "required": [
+            "page_id",
+            "is_responsive"
+          ],
+          "additionalProperties": false
+        },
+        "description": "The list of all pages in the design. This must be the `pages` array returned by the last call to `perform-editing-operations` or if this is the first call the `start-editing-transaction` tool. Used to determine which pages are responsive and editable."
+      },
+      "user_intent": {
+        "type": "string",
+        "description": "Mandatory description of what the user is trying to accomplish with this tool call. This should always be provided by LLM clients. Please keep it concise (255 characters or less recommended)."
+      }
+    },
+    "required": [
+      "transaction_id",
+      "operations",
+      "page_index"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

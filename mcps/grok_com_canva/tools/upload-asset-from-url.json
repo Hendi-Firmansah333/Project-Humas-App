@@ -1,0 +1,28 @@
+{
+  "name": "upload-asset-from-url",
+  "description": "Upload an asset (e.g. an image, a video) from a URL into Canva",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "format": "uri",
+        "description": "URL of the asset to upload into Canva"
+      },
+      "name": {
+        "type": "string",
+        "description": "Name for the uploaded asset"
+      },
+      "user_intent": {
+        "type": "string",
+        "description": "Mandatory description of what the user is trying to accomplish with this tool call. This should always be provided by LLM clients. Please keep it concise (255 characters or less recommended)."
+      }
+    },
+    "required": [
+      "url",
+      "name"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

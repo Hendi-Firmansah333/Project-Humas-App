@@ -60,6 +60,7 @@ export class AuthService implements OnModuleInit {
     return {
       message: 'Login berhasil',
       accessToken,
+      token: accessToken,
       user: userInfo,
     };
   }

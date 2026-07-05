@@ -1,13 +1,15 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateLocationDto } from './dto/update-location.dto';
+import { mapTeamMemberFromLocation } from '../common/mappers/mobile.mapper';
 
 @Injectable()
 export class LiveLocationService {
   constructor(private prisma: PrismaService) {}
 
-  async findAll() {
-    return this.prisma.location.findMany({
+  async findAll(mobile = false) {
+    const locations = await this.prisma.location.findMany({
+      where: { deletedAt: null },
       include: {
         user: {
           select: {
@@ -22,6 +24,12 @@ export class LiveLocationService {
         },
       },
     });
+
+    if (mobile) {
+      return { items: locations.map(mapTeamMemberFromLocation) };
+    }
+
+    return locations;
   }
 
   async updateLocation(userId: number, dto: UpdateLocationDto) {

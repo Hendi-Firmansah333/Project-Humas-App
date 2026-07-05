@@ -1,6 +1,8 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsArray, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { Type } from 'class-transformer';
+import { IsArray, IsEnum, IsInt, IsNotEmpty, IsOptional, IsString, ValidateNested } from 'class-validator';
 import { ActivityStatus } from '@prisma/client';
+import { ActivityMemberDto } from './activity-member.dto';
 
 export class CreateActivityDto {
   @ApiProperty({ example: 'Liputan Dies Natalis Polinela ke-41' })
@@ -52,4 +54,14 @@ export class CreateActivityDto {
   @IsArray()
   @IsOptional()
   memberIds?: number[];
+
+  @ApiProperty({
+    example: [{ userId: 2, role: 'Reporter' }, { userId: 3, role: 'Dokumentasi' }],
+    required: false,
+  })
+  @IsArray()
+  @IsOptional()
+  @ValidateNested({ each: true })
+  @Type(() => ActivityMemberDto)
+  members?: ActivityMemberDto[];
 }

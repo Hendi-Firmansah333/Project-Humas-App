@@ -1,0 +1,75 @@
+{
+  "name": "import-design-from-url",
+  "description": "ALWAYS use this tool when the user's message contains an HTTPS URL and their intent is to create a Canva design from it. Pass the URL directly to this tool. Do NOT download, fetch, unzip, or inspect the URL first. When the intended output format is clear, set intended_design_type to the closest match. This tool also supports PDF, PPTX, DOCX, XLSX, CSV, HTML, Markdown, PSD, AI, Keynote, Pages, Numbers, and more. URL must be a public HTTPS link (e.g., https://example.com/file.pdf, https://example.com/site.zip, https://raw.githubusercontent.com/.../file.zip). Local file paths (file://..., /Users/..., C:\\...) cannot be accessed.\nIf user provides a local path, tell them to upload the file to a public URL and share the HTTPS link.\nFor agent-generated HTML files with non-interactive content (presentation, social media, etc.), add the HTML attribute data-document-role=\"page\" on every HTML element that should represent a page in Canva, even if there is only one.Any page(s) cannot be nested HTML elements within another page. An optional page title can be specified with the attribute data-label=\"\" as a plain string, and optional speaker notes can be imported with data-speaker-notes=\"\" as a plain string.\nFor an HTML file that represents an interactive design (app, website), import the file without annotation.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "format": "uri",
+        "pattern": "^https:\\/\\/(?!.*canva\\.com\\/design\\/)(?!.*files\\.oaiusercontent\\.com)(?!.*cdn\\.openai\\.com).*",
+        "description": "Public HTTPS URL to the file to import. MUST START WITH https://. Examples: https://example.com/file.pdf, https://example.com/site.zip, https://raw.githubusercontent.com/user/repo/main/design.zip CRITICAL: If user input is a local path (starts with /, C:\\, file://, or mentions Downloads/Documents/Desktop), DO NOT USE THIS TOOL. If it looks like a Canva design URL, DO NOT call this tool."
+      },
+      "name": {
+        "type": "string",
+        "description": "Name for the new design"
+      },
+      "intended_design_type": {
+        "type": "string",
+        "enum": [
+          "a4",
+          "a4_landscape",
+          "business_card",
+          "card",
+          "desktop_wallpaper",
+          "doc",
+          "document",
+          "email",
+          "facebook_cover",
+          "facebook_post",
+          "flyer",
+          "flyer_a4",
+          "graph",
+          "infographic",
+          "instagram_post",
+          "instagram_reel",
+          "invitation",
+          "logo",
+          "mobile_video",
+          "other",
+          "phone_wallpaper",
+          "photo_collage",
+          "pinterest_pin",
+          "postcard",
+          "poster",
+          "poster_us",
+          "presentation",
+          "proposal",
+          "real_estate_flyer",
+          "report",
+          "resume",
+          "sheet",
+          "twitter_post",
+          "us_letter",
+          "video",
+          "website",
+          "whiteboard",
+          "your_story",
+          "youtube_banner",
+          "youtube_thumbnail"
+        ],
+        "description": "The design type the user appears to want to create from this URL. Choose the closest match based on the user request and the URL. If unclear, omit this field. Use other only when the intended design type is clear but none of the listed options fit."
+      },
+      "user_intent": {
+        "type": "string",
+        "description": "Mandatory description of what the user is trying to accomplish with this tool call. This should always be provided by LLM clients. Please keep it concise (255 characters or less recommended)."
+      }
+    },
+    "required": [
+      "url",
+      "name"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

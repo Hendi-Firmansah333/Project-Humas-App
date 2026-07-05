@@ -1,0 +1,39 @@
+{
+  "name": "search-brand-templates",
+  "description": "Searches and lists for templates available to the current user. This returns a list of templates with their IDs, names, and preview thumbnails to help users select the appropriate template for their needs.\n    ** ❗When a user says search a template, they ALWAYS mean brand-templates. Therefore ALWAYS call this tool to search for the templates **\n\n    ** 🟢 This tool can also be used to browse all of the available templates. If query is not provided, all available templates will be returned.\n    ❗Set the query parameter to be empty, unless the user EXPLICITLY states a type or title of template to query by.\n    You may use dataset=\"non_empty\" with or without a query. When used without a query, this returns all autofill-capable templates **\n\n    Use the continuation token to get the next page of results, if needed.\n\n    If user intends to use a template for design generation, filter the templates with \"dataset\" parameter set to \"non_empty\".\n    If the user wants to create a design from a template, there are two options:\n    1. Design Generation from template. Only templates with non-empty dataset can be used for design generation. You also need to set the dataset parameter to non-empty to get the templates for design generation.\n    Then use the 'autofill-design' tool to generate.\n    2. Create a design manually in the browser. If you cannot find a suitable template for design generation, you can suggest the user create a Canva design using the template manually, by going to the 'create_url' field of the template in the browser.\n\n    ❗This tool takes priority over search-designs whenever templates or generation are involved.\n    If the user mentions both \"template\" and an existing design title, default to 'search-brand-templates' unless they explicitly request to open or edit an existing design.\n    ❗Trigger words can include:\n      \"search for a template\", generate\", \"create for me\", \"autofill\",\n      \"template\", \"use a template\", \"use my template\", \"make a design using…\", \"produce a design\",\n      \"prepare a design for…\", \"generate a report\",\n      \"I should have a template you should use\",\n      or anything indicating content needs to be placed into a template or\n      anything indicating searching for a template.\n\n    WORKFLOW AND REQUIREMENTS FOR DESIGN GENERATION BASED ON TEMPLATE\n    End-to-End Workflow for Design Generation or Creation from Template\n    1. User asks that they want to \"generate or create a design from a template\".\n    2. System calls this tool with non-empty dataset parameter.\n    3. System returns a list of fillable templates to generate or create designs from.\n    4. User selects one of the templates.\n    5. System calls 'get-brand-template-dataset' tool to confirm that the designs can be created from the template (ie. its non-empty)\n    6. System calls this tool with that template, once the template is confirmed by the user.\n    7. System returns the new design created from the template.\n\n    Critical Requirements:\n    1. ALWAYS use this tool whenever the user wants to generate any new design from a template.\n    2. ALWAYS confirm with the user for the template, and call 'get-brand-template-dataset' tool to confirm that the template is non-empty\n    3. ALWAYS call the 'autofill-design' tool to generate the design based on the template\n    4. ** 🟢 ALWAYS use this tool when the user expresses intent to \"generate\", \"create\", \"autofill\", \"search a template\", \"start from a template\", \"use my template\", or \"pick a template for generation\".\n      In all such cases, ALWAYS use search-brand-templates.\n      ANY query involving:\n      – \"generate a presentation\"\n      – \"generate a report\"\n      – \"make a design using a template\"\n      – \"generate from a template\"\n      – \"produce a presentation from their template\"\n      - \"search for available templates\"\n      MUST ALWAYS use search-brand-templates.**",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "query": {
+        "type": "string",
+        "description": "Optional search query to filter brand templates"
+      },
+      "dataset": {
+        "type": "string",
+        "enum": [
+          "any",
+          "non_empty"
+        ],
+        "description": "Filter brand templates based on their dataset definition: 'any' for all templates, 'non_empty' for templates with dataset fields"
+      },
+      "continuation": {
+        "type": "string",
+        "description": "Token for getting the next page of results. Use the continuation token from the previous response."
+      },
+      "limit": {
+        "type": "integer",
+        "exclusiveMinimum": 0,
+        "description": "Maximum number of brand templates to return per page."
+      },
+      "brand_kit_id": {
+        "type": "string"
+      },
+      "user_intent": {
+        "type": "string",
+        "description": "Mandatory description of what the user is trying to accomplish with this tool call. This should always be provided by LLM clients. Please keep it concise (255 characters or less recommended)."
+      }
+    },
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

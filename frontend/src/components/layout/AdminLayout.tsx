@@ -1,8 +1,12 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
+import DashboardSkeleton from '@/components/common/DashboardSkeleton';
+import { authService } from '@/services';
+import { getStoredUser, isAdminUser, syncUserSession } from '@/utils/session';
 
 interface AdminLayoutProps {
   children: React.ReactNode;
@@ -10,8 +14,50 @@ interface AdminLayoutProps {
 }
 
 export default function AdminLayout({ children, title }: AdminLayoutProps) {
+  const router = useRouter();
+  const pathname = usePathname();
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [isMobileOpen, setIsMobileOpen] = useState(false);
+  const [authChecked, setAuthChecked] = useState(false);
+
+  useEffect(() => {
+    const verifyAuth = async () => {
+      const token = localStorage.getItem('humass_token');
+      if (!token) {
+        router.replace(`/login?redirect=${encodeURIComponent(pathname)}`);
+        return;
+      }
+
+      try {
+        const profile = await authService.profile();
+        syncUserSession(profile);
+        if (!isAdminUser(profile)) {
+          localStorage.removeItem('humass_token');
+          localStorage.removeItem('humass_user');
+          router.replace('/login?error=admin_only');
+          return;
+        }
+      } catch {
+        const stored = getStoredUser();
+        if (!isAdminUser(stored)) {
+          router.replace('/login?error=admin_only');
+          return;
+        }
+      }
+
+      setAuthChecked(true);
+    };
+
+    verifyAuth();
+  }, [router, pathname]);
+
+  if (!authChecked) {
+    return (
+      <div className="flex h-screen w-full items-center justify-center bg-slate-50">
+        <DashboardSkeleton />
+      </div>
+    );
+  }
 
   return (
     <div className="flex h-screen w-full overflow-hidden bg-slate-50">

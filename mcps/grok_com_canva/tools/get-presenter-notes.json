@@ -1,0 +1,34 @@
+{
+  "name": "get-presenter-notes",
+  "description": "Get the presenter notes from a presentation design in Canva. Use this when you need to read the speaker notes attached to presentation slides. You must provide the design ID, which you can find with the `search-designs` tool. When given a URL to a Canva design, you can extract the design ID from the URL. Example URL: https://www.canva.com/design/{design_id}.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "design_id": {
+        "type": "string",
+        "minLength": 11,
+        "maxLength": 11,
+        "pattern": "^D[a-zA-Z0-9_-]+$",
+        "description": "ID of the design to get presenter notes from"
+      },
+      "pages": {
+        "type": "array",
+        "items": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 500
+        },
+        "description": "Optional array of page numbers to get notes from. If not specified, notes from all pages will be returned. Pages are indexed using one-based numbering, so the first page in a design has the index value `1`."
+      },
+      "user_intent": {
+        "type": "string",
+        "description": "Mandatory description of what the user is trying to accomplish with this tool call. This should always be provided by LLM clients. Please keep it concise (255 characters or less recommended)."
+      }
+    },
+    "required": [
+      "design_id"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

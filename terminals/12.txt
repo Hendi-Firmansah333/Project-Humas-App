@@ -1,0 +1,17 @@
+---
+pid: 4880
+cwd: "D:\MOBILE\HUMAS\Project-Humas-App"
+command: "cd \"D:\\MOBILE\\HUMAS\\Project-Humas-App\\backend\"; npm run db:seed"
+started_at: 2026-07-04T11:28:21.583Z
+running_for_ms: 1880011  
+---
+
+> backend@0.0.1 db:seed
+> prisma db seed
+
+Loaded Prisma config from prisma.config.ts.
+
+Running seed command `ts-node --transpile-only prisma/seed.ts` ...
+Seed selesai: { admin: 'komang.ari', activity: 'Liputan Dies Natalis POLINELA' }
+
+The seed command has been executed.

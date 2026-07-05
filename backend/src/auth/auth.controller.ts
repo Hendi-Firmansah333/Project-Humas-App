@@ -24,4 +24,12 @@ export class AuthController {
   async getProfile(@Request() req: any) {
     return this.authService.getProfile(req.user.id);
   }
+
+  @Get('me')
+  @UseGuards(AuthGuard('jwt'))
+  @ApiBearerAuth()
+  @ApiOperation({ summary: 'Alias profil user (mobile/web)' })
+  async getMe(@Request() req: any) {
+    return this.authService.getProfile(req.user.id);
+  }
 }

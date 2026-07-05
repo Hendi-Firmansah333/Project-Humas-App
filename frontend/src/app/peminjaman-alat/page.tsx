@@ -25,143 +25,17 @@ import {
   CheckCircle2,
   AlertCircle,
   Calendar,
-  User,
   RotateCcw,
 } from 'lucide-react';
-import { EquipmentLoan, LoanStatus } from '@/types';
+import { Equipment, EquipmentLoan, User } from '@/types';
 import { formatDateID } from '@/utils/formatters';
 import { toast } from 'sonner';
-
-const initialLoans: EquipmentLoan[] = [
-  {
-    id: 1,
-    equipmentId: 101,
-    borrowerId: 3,
-    borrowDate: '2025-05-20T08:00:00',
-    returnDate: '2025-05-22T16:00:00',
-    status: 'DIPINJAM',
-    equipment: {
-      id: 101,
-      name: 'Sony FX3 Full-Frame Cinema Camera (Unit #01)',
-      totalUnits: 2,
-      availableUnits: 1,
-    },
-    borrower: {
-      id: 3,
-      fullName: 'Budi Santoso',
-      username: 'budi.s',
-      email: 'budi@polinela.ac.id',
-      role: 'VIDEOGRAFER',
-      roleLabel: 'Videografer Utama',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    },
-  },
-  {
-    id: 2,
-    equipmentId: 102,
-    borrowerId: 4,
-    borrowDate: '2025-05-19T08:30:00',
-    returnDate: '2025-05-20T17:00:00',
-    status: 'TERLAMBAT',
-    equipment: {
-      id: 102,
-      name: 'Lensa Sony FE 24-70mm f/2.8 GM II (Unit #02)',
-      totalUnits: 4,
-      availableUnits: 2,
-    },
-    borrower: {
-      id: 4,
-      fullName: 'Andi Saputra',
-      username: 'andi.s',
-      email: 'andi@polinela.ac.id',
-      role: 'FOTOGRAFER',
-      roleLabel: 'Fotografer Resmi',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-    },
-  },
-  {
-    id: 3,
-    equipmentId: 103,
-    borrowerId: 2,
-    borrowDate: '2025-05-21T09:00:00',
-    returnDate: '2025-05-21T15:00:00',
-    status: 'DIPINJAM',
-    equipment: {
-      id: 103,
-      name: 'Microphone Wireless DJI Mic 2 Set (Unit #01)',
-      totalUnits: 3,
-      availableUnits: 1,
-    },
-    borrower: {
-      id: 2,
-      fullName: 'Rina Wati',
-      username: 'rina.wati',
-      email: 'rina@polinela.ac.id',
-      role: 'JURNALIS',
-      roleLabel: 'Jurnalis Lapangan',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-    },
-  },
-  {
-    id: 4,
-    equipmentId: 104,
-    borrowerId: 1,
-    borrowDate: '2025-05-18T08:00:00',
-    returnDate: '2025-05-19T14:00:00',
-    status: 'DIKEMBALIKAN',
-    equipment: {
-      id: 104,
-      name: 'Gimbal DJI RS 3 Pro Combo (Unit #01)',
-      totalUnits: 2,
-      availableUnits: 2,
-    },
-    borrower: {
-      id: 1,
-      fullName: 'Komang Ari',
-      username: 'komang.ari',
-      email: 'komang@polinela.ac.id',
-      role: 'ADMIN',
-      roleLabel: 'Koordinator Humas',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    },
-  },
-  {
-    id: 5,
-    equipmentId: 105,
-    borrowerId: 4,
-    borrowDate: '2025-05-15T08:00:00',
-    returnDate: '2025-05-16T16:00:00',
-    status: 'DIKEMBALIKAN',
-    equipment: {
-      id: 105,
-      name: 'Lampu Studio Godox SL60W LED Kit (Unit #03)',
-      totalUnits: 4,
-      availableUnits: 3,
-    },
-    borrower: {
-      id: 4,
-      fullName: 'Andi Saputra',
-      username: 'andi.s',
-      email: 'andi@polinela.ac.id',
-      role: 'FOTOGRAFER',
-      roleLabel: 'Fotografer Resmi',
-      status: 'AKTIF',
-      joinedAt: '2025-01-01',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-    },
-  },
-];
+import { loanService, userService } from '@/services';
 
 export default function EquipmentLoanPage() {
-  const [loans, setLoans] = useState<EquipmentLoan[]>(initialLoans);
+  const [loans, setLoans] = useState<EquipmentLoan[]>([]);
+  const [inventory, setInventory] = useState<Equipment[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -178,24 +52,58 @@ export default function EquipmentLoanPage() {
 
   // Form State
   const [formData, setFormData] = useState({
-    equipmentName: 'Sony FX3 Full-Frame Cinema Camera (Unit #02)',
-    borrowerName: 'Budi Santoso',
+    equipmentId: '',
+    borrowerId: '',
     borrowDate: new Date().toISOString().split('T')[0],
     returnDate: new Date().toISOString().split('T')[0],
-    purpose: 'Peliputan Kegiatan Kunjungan Rektorat',
+    purpose: '',
   });
 
+  const loadLoans = async () => {
+    try {
+      const data = await loanService.getAll();
+      setLoans(Array.isArray(data) ? data : []);
+    } catch {
+      toast.error('Gagal memuat data peminjaman dari server.');
+      setLoans([]);
+    }
+  };
+
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    const init = async () => {
+      setLoading(true);
+      try {
+        const [inventoryData, staff] = await Promise.all([
+          loanService.getInventory(),
+          userService.getAll(),
+        ]);
+        setInventory(Array.isArray(inventoryData) ? inventoryData : []);
+        setUsers(Array.isArray(staff) ? staff : []);
+        await loadLoans();
+      } catch {
+        toast.error('Gagal memuat data inventaris dari server.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    init();
   }, []);
+
+  const handleOpenCreate = () => {
+    setFormData({
+      equipmentId: inventory[0] ? String(inventory[0].id) : '',
+      borrowerId: users[0] ? String(users[0].id) : '',
+      borrowDate: new Date().toISOString().split('T')[0],
+      returnDate: new Date().toISOString().split('T')[0],
+      purpose: '',
+    });
+    setIsCreateOpen(true);
+  };
 
   const filteredLoans = loans.filter((item) => {
     const matchSearch =
-      item.equipment.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      item.borrower.fullName.toLowerCase().includes(searchQuery.toLowerCase());
+      (item.equipment?.name ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.borrower?.fullName ?? '').toLowerCase().includes(searchQuery.toLowerCase());
     const matchStatus = statusFilter ? item.status === statusFilter : true;
     return matchSearch && matchStatus;
   });
@@ -206,52 +114,57 @@ export default function EquipmentLoanPage() {
     currentPage * itemsPerPage,
   );
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const newLoan: EquipmentLoan = {
-      id: Date.now(),
-      equipmentId: 106,
-      borrowerId: 3,
-      borrowDate: `${formData.borrowDate}T08:00:00`,
-      returnDate: `${formData.returnDate}T16:00:00`,
-      status: 'DIPINJAM',
-      equipment: {
-        id: 106,
-        name: formData.equipmentName,
-        totalUnits: 2,
-        availableUnits: 1,
-      },
-      borrower: {
-        id: 3,
-        fullName: formData.borrowerName,
-        username: formData.borrowerName.toLowerCase().replace(/\s+/g, '.'),
-        email: `${formData.borrowerName.toLowerCase().replace(/\s+/g, '')}@polinela.ac.id`,
-        role: 'VIDEOGRAFER',
-        roleLabel: 'Petugas Humas',
-        status: 'AKTIF',
-        joinedAt: '2025-01-01',
-      },
-    };
+    if (!formData.equipmentId || !formData.borrowerId) {
+      toast.error('Harap pilih alat dan personel peminjam!');
+      return;
+    }
 
-    setLoans([newLoan, ...loans]);
-    setIsCreateOpen(false);
-    toast.success('Pengajuan peminjaman alat berhasil dicatat!');
+    try {
+      await loanService.create({
+        equipmentId: Number(formData.equipmentId),
+        borrowerId: Number(formData.borrowerId),
+        borrowDate: `${formData.borrowDate}T08:00:00`,
+        returnDate: `${formData.returnDate}T16:00:00`,
+        status: 'DIPINJAM',
+      });
+      setIsCreateOpen(false);
+      toast.success('Pengajuan peminjaman alat berhasil dicatat!');
+      await loadLoans();
+      const inventoryData = await loanService.getInventory();
+      setInventory(Array.isArray(inventoryData) ? inventoryData : []);
+    } catch {
+      toast.error('Gagal menyimpan peminjaman ke server.');
+    }
   };
 
-  const handleConfirmReturn = (e: React.FormEvent) => {
+  const handleConfirmReturn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedLoan) return;
 
-    setLoans(
-      loans.map((l) => (l.id === selectedLoan.id ? { ...l, status: 'DIKEMBALIKAN' as LoanStatus } : l)),
-    );
-    setIsReturnOpen(false);
-    toast.success(
-      `Alat "${selectedLoan.equipment.name}" telah tercatat DIKEMBALIKAN dengan kondisi: ${
-        returnCondition === 'NORMAL' ? 'Normal / Baik' : 'Catatan Khusus'
-      }.`,
-    );
+    try {
+      await loanService.verifyReturn(selectedLoan.id);
+      setIsReturnOpen(false);
+      setReturnCondition('NORMAL');
+      setReturnNote('');
+      toast.success(
+        `Alat "${selectedLoan.equipment.name}" telah tercatat DIKEMBALIKAN dengan kondisi: ${
+          returnCondition === 'NORMAL' ? 'Normal / Baik' : 'Catatan Khusus'
+        }.`,
+      );
+      await loadLoans();
+      const inventoryData = await loanService.getInventory();
+      setInventory(Array.isArray(inventoryData) ? inventoryData : []);
+    } catch {
+      toast.error('Gagal memverifikasi pengembalian alat.');
+    }
   };
+
+  const totalInventoryUnits = inventory.reduce((sum, item) => sum + item.totalUnits, 0);
+  const availableInventoryUnits = inventory.reduce((sum, item) => sum + item.availableUnits, 0);
+  const activeLoanCount = loans.filter((l) => l.status === 'DIPINJAM' || l.status === 'TERLAMBAT').length;
+  const overdueLoanCount = loans.filter((l) => l.status === 'TERLAMBAT').length;
 
   const columns: Column<EquipmentLoan>[] = [
     {
@@ -364,7 +277,7 @@ export default function EquipmentLoanPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <StatCard
           title="Total Inventaris Alat"
-          value="48 Unit"
+          value={`${totalInventoryUnits} Unit`}
           subtitle="Kamera, Lensa, Audio, Lighting"
           icon={Camera}
           iconBgClass="bg-teal-50"
@@ -372,15 +285,15 @@ export default function EquipmentLoanPage() {
         />
         <StatCard
           title="Sedang Dipinjam"
-          value="14 Unit"
-          subtitle="4 personel bertugas di lapangan"
+          value={`${activeLoanCount} Sesi`}
+          subtitle="Peminjaman aktif & berjalan"
           icon={Clock}
           iconBgClass="bg-sky-50"
           iconColorClass="text-sky-600"
         />
         <StatCard
           title="Tersedia di Gudang"
-          value="32 Unit"
+          value={`${availableInventoryUnits} Unit`}
           subtitle="Siap dipinjam peliputan"
           icon={CheckCircle2}
           iconBgClass="bg-green-50"
@@ -388,7 +301,7 @@ export default function EquipmentLoanPage() {
         />
         <StatCard
           title="Terlambat Pengembalian"
-          value="2 Unit"
+          value={`${overdueLoanCount} Sesi`}
           subtitle="Butuh follow-up segera"
           icon={AlertCircle}
           iconBgClass="bg-orange-50"
@@ -405,7 +318,7 @@ export default function EquipmentLoanPage() {
               Catat pergerakan alat multimedia, jadwal peminjaman personel, dan verifikasi pengembalian inventaris.
             </p>
           </div>
-          <CustomButton variant="primary" icon={Plus} onClick={() => setIsCreateOpen(true)}>
+          <CustomButton variant="primary" icon={Plus} onClick={handleOpenCreate}>
             Ajukan Peminjaman
           </CustomButton>
         </div>
@@ -463,14 +376,17 @@ export default function EquipmentLoanPage() {
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5">Pilih Inventaris Alat *</label>
             <select
-              value={formData.equipmentName}
-              onChange={(e) => setFormData({ ...formData, equipmentName: e.target.value })}
+              required
+              value={formData.equipmentId}
+              onChange={(e) => setFormData({ ...formData, equipmentId: e.target.value })}
               className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
             >
-              <option value="Sony FX3 Full-Frame Cinema Camera (Unit #02)">Sony FX3 Cinema Camera (Unit #02)</option>
-              <option value="Lensa Sony FE 70-200mm f/2.8 GM (Unit #01)">Lensa Sony FE 70-200mm f/2.8 GM (Unit #01)</option>
-              <option value="Drone DJI Mavic 3 Cine Combo (Unit #01)">Drone DJI Mavic 3 Cine Combo (Unit #01)</option>
-              <option value="Microphone Rode Wireless GO II (Unit #02)">Microphone Rode Wireless GO II (Unit #02)</option>
+              <option value="">Pilih inventaris alat...</option>
+              {inventory.map((item) => (
+                <option key={item.id} value={item.id}>
+                  {item.name} (Tersedia: {item.availableUnits}/{item.totalUnits})
+                </option>
+              ))}
             </select>
           </div>
 
@@ -478,14 +394,17 @@ export default function EquipmentLoanPage() {
             <div>
               <label className="block text-xs font-semibold text-slate-700 mb-1.5">Personel Peminjam *</label>
               <select
-                value={formData.borrowerName}
-                onChange={(e) => setFormData({ ...formData, borrowerName: e.target.value })}
+                required
+                value={formData.borrowerId}
+                onChange={(e) => setFormData({ ...formData, borrowerId: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
               >
-                <option value="Budi Santoso">Budi Santoso (Videografer)</option>
-                <option value="Komang Ari">Komang Ari (Koordinator)</option>
-                <option value="Rina Wati">Rina Wati (Jurnalis)</option>
-                <option value="Andi Saputra">Andi Saputra (Fotografer)</option>
+                <option value="">Pilih personel peminjam...</option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.fullName} ({user.roleLabel})
+                  </option>
+                ))}
               </select>
             </div>
             <div>

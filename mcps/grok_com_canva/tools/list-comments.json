@@ -1,0 +1,36 @@
+{
+  "name": "list-comments",
+  "description": "Get a list of comments for a particular Canva design.\n\n    Comments are discussions attached to designs that help teams collaborate. Each comment can contain\n    replies, mentions and status.\n\n    You need to provide the design ID, which you can find using the `search-designs` tool.\n    Use the continuation token to get the next page of results, when there are more results.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "design_id": {
+        "type": "string",
+        "minLength": 11,
+        "maxLength": 11,
+        "pattern": "^D[a-zA-Z0-9_-]+$",
+        "description": "ID of the design to get comments for. You can find the design ID using the `search-designs` tool."
+      },
+      "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100,
+        "default": 50,
+        "description": "Maximum number of comments to return (1-100). Defaults to 50 if not specified."
+      },
+      "continuation": {
+        "type": "string",
+        "description": "\n            Pagination token for the current search context.\n\n            CRITICAL RULES:\n            - ONLY set this parameter if the previous response included a continuation token.\n            - If no continuation token was returned → OMIT this parameter completely. NEVER EVER fabricate a token.\n            - Do not set to null, empty string, or any other value when no token was provided.\n\n            Usage:\n            - First request: omit this parameter\n            - Previous response had continuation token: use that exact token\n            - Previous response had NO continuation token: omit this parameter\n            - New search query: omit this parameter\n            "
+      },
+      "user_intent": {
+        "type": "string",
+        "description": "Mandatory description of what the user is trying to accomplish with this tool call. This should always be provided by LLM clients. Please keep it concise (255 characters or less recommended)."
+      }
+    },
+    "required": [
+      "design_id"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

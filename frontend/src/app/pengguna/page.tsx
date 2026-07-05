@@ -33,71 +33,10 @@ import {
 import { User, Role, UserStatus } from '@/types';
 import { formatDateID } from '@/utils/formatters';
 import { toast } from 'sonner';
-
-const initialUsers: User[] = [
-  {
-    id: 1,
-    fullName: 'Komang Ari',
-    username: 'komang.ari',
-    email: 'komang@polinela.ac.id',
-    phone: '0812-3456-7890',
-    role: 'ADMIN',
-    roleLabel: 'Koordinator Humas',
-    status: 'AKTIF',
-    joinedAt: '2025-01-01',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 2,
-    fullName: 'Rina Wati',
-    username: 'rina.wati',
-    email: 'rina@polinela.ac.id',
-    phone: '0813-9876-5432',
-    role: 'JURNALIS',
-    roleLabel: 'Jurnalis Lapangan',
-    status: 'AKTIF',
-    joinedAt: '2025-01-01',
-    avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 3,
-    fullName: 'Budi Santoso',
-    username: 'budi.s',
-    email: 'budi@polinela.ac.id',
-    phone: '0852-1122-3344',
-    role: 'VIDEOGRAFER',
-    roleLabel: 'Videografer Utama',
-    status: 'AKTIF',
-    joinedAt: '2025-01-01',
-    avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 4,
-    fullName: 'Andi Saputra',
-    username: 'andi.s',
-    email: 'andi@polinela.ac.id',
-    phone: '0857-8899-0011',
-    role: 'FOTOGRAFER',
-    roleLabel: 'Fotografer Resmi',
-    status: 'AKTIF',
-    joinedAt: '2025-01-01',
-    avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-  },
-  {
-    id: 5,
-    fullName: 'Siti Aminah',
-    username: 'siti.aminah',
-    email: 'siti@polinela.ac.id',
-    phone: '0819-4455-6677',
-    role: 'TIM_DOKUMENTASI',
-    roleLabel: 'Staf Dokumentasi',
-    status: 'NONAKTIF',
-    joinedAt: '2025-02-15',
-  },
-];
+import { userService } from '@/services';
 
 export default function UserManagementPage() {
-  const [users, setUsers] = useState<User[]>(initialUsers);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
@@ -117,15 +56,25 @@ export default function UserManagementPage() {
     username: '',
     email: '',
     phone: '',
-    role: 'JURNALIS' as Role,
+    role: 'USER' as Role,
     status: 'AKTIF' as UserStatus,
   });
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      const data = await userService.getAll();
+      setUsers(Array.isArray(data) ? data : []);
+    } catch {
+      toast.error('Gagal memuat data personel dari server.');
+      setUsers([]);
+    } finally {
       setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    }
+  };
+
+  useEffect(() => {
+    loadUsers();
   }, []);
 
   const filteredUsers = users.filter((u) => {
@@ -147,15 +96,10 @@ export default function UserManagementPage() {
   const getRoleLabel = (r: Role) => {
     switch (r) {
       case 'ADMIN':
-        return 'Koordinator Humas';
-      case 'JURNALIS':
-        return 'Jurnalis Lapangan';
-      case 'VIDEOGRAFER':
-        return 'Videografer Utama';
-      case 'FOTOGRAFER':
-        return 'Fotografer Resmi';
+        return 'Admin Humas';
+      case 'USER':
       default:
-        return 'Tim Dokumentasi';
+        return 'Anggota Humas';
     }
   };
 
@@ -165,7 +109,7 @@ export default function UserManagementPage() {
       username: '',
       email: '',
       phone: '',
-      role: 'JURNALIS',
+      role: 'USER',
       status: 'AKTIF',
     });
     setIsCreateOpen(true);
@@ -184,59 +128,74 @@ export default function UserManagementPage() {
     setIsEditOpen(true);
   };
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.fullName || !formData.email) {
       toast.error('Harap lengkapi Nama Lengkap dan Email!');
       return;
     }
 
-    const newUser: User = {
-      id: Date.now(),
-      fullName: formData.fullName,
-      username: formData.username || formData.fullName.toLowerCase().replace(/\s+/g, '.'),
-      email: formData.email,
-      phone: formData.phone,
-      role: formData.role,
-      roleLabel: getRoleLabel(formData.role),
-      status: formData.status,
-      joinedAt: new Date().toISOString().split('T')[0],
-    };
-
-    setUsers([newUser, ...users]);
-    setIsCreateOpen(false);
-    toast.success('Personel baru berhasil ditambahkan ke dalam sistem HUMASS!');
+    try {
+      await userService.create({
+        fullName: formData.fullName,
+        username: formData.username || formData.fullName.toLowerCase().replace(/\s+/g, '.'),
+        email: formData.email,
+        phone: formData.phone,
+        role: formData.role,
+        roleLabel: getRoleLabel(formData.role),
+        status: formData.status,
+        password: 'humas123',
+      });
+      setIsCreateOpen(false);
+      toast.success('Personel baru berhasil ditambahkan ke dalam sistem HUMASS!');
+      await loadUsers();
+    } catch {
+      toast.error('Gagal menambahkan personel ke server.');
+    }
   };
 
-  const handleEditSubmit = (e: React.FormEvent) => {
+  const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
 
-    setUsers(
-      users.map((u) => {
-        if (u.id === selectedUser.id) {
-          return {
-            ...u,
-            fullName: formData.fullName,
-            username: formData.username,
-            email: formData.email,
-            phone: formData.phone,
-            role: formData.role,
-            roleLabel: getRoleLabel(formData.role),
-            status: formData.status,
-          };
-        }
-        return u;
-      }),
-    );
-    setIsEditOpen(false);
-    toast.success('Informasi profil personel berhasil diperbarui!');
+    try {
+      await userService.update(selectedUser.id, {
+        fullName: formData.fullName,
+        username: formData.username,
+        email: formData.email,
+        phone: formData.phone,
+        role: formData.role,
+        roleLabel: getRoleLabel(formData.role),
+        status: formData.status,
+      });
+      setIsEditOpen(false);
+      toast.success('Informasi profil personel berhasil diperbarui!');
+      await loadUsers();
+    } catch {
+      toast.error('Gagal memperbarui data personel.');
+    }
   };
 
-  const handleToggleStatus = (user: User) => {
+  const handleToggleStatus = async (user: User) => {
     const nextStatus = user.status === 'AKTIF' ? 'NONAKTIF' : 'AKTIF';
-    setUsers(users.map((u) => (u.id === user.id ? { ...u, status: nextStatus } : u)));
-    toast.info(`Akun "${user.fullName}" diubah menjadi ${nextStatus === 'AKTIF' ? 'Aktif' : 'Nonaktif'}.`);
+    try {
+      await userService.update(user.id, { status: nextStatus });
+      toast.info(`Akun "${user.fullName}" diubah menjadi ${nextStatus === 'AKTIF' ? 'Aktif' : 'Nonaktif'}.`);
+      await loadUsers();
+    } catch {
+      toast.error('Gagal mengubah status akun personel.');
+    }
+  };
+
+  const handleRemoveUser = async (user: User) => {
+    if (!window.confirm(`Hapus personel "${user.fullName}" dari sistem?`)) return;
+    try {
+      await userService.remove(user.id);
+      toast.success(`Personel "${user.fullName}" berhasil dihapus.`);
+      await loadUsers();
+    } catch {
+      toast.error('Gagal menghapus personel.');
+    }
   };
 
   const getRoleBadge = (role: Role, label: string) => {
@@ -247,21 +206,9 @@ export default function UserManagementPage() {
             {label}
           </span>
         );
-      case 'JURNALIS':
+      case 'USER':
         return (
           <span className="bg-sky-50 text-sky-800 font-bold px-2.5 py-1 rounded-lg text-xs border border-sky-200">
-            {label}
-          </span>
-        );
-      case 'VIDEOGRAFER':
-        return (
-          <span className="bg-green-50 text-green-800 font-bold px-2.5 py-1 rounded-lg text-xs border border-green-200">
-            {label}
-          </span>
-        );
-      case 'FOTOGRAFER':
-        return (
-          <span className="bg-amber-50 text-amber-800 font-bold px-2.5 py-1 rounded-lg text-xs border border-amber-200">
             {label}
           </span>
         );
@@ -366,6 +313,13 @@ export default function UserManagementPage() {
           >
             <Power className="w-4 h-4" />
           </button>
+          <button
+            onClick={() => handleRemoveUser(item)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+            title="Hapus Personel"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       ),
       className: 'w-32 text-center',
@@ -386,7 +340,7 @@ export default function UserManagementPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <StatCard
           title="Total Personel"
-          value="24 Orang"
+          value={`${users.length} Orang`}
           subtitle="Tim Humas Politeknik Negeri Lampung"
           icon={Users}
           iconBgClass="bg-teal-50"
@@ -394,7 +348,7 @@ export default function UserManagementPage() {
         />
         <StatCard
           title="Personel Aktif"
-          value="22 Orang"
+          value={`${users.filter((u) => u.status === 'AKTIF').length} Orang`}
           subtitle="Memiliki hak akses sistem HUMASS"
           icon={UserCheck}
           iconBgClass="bg-green-50"
@@ -402,15 +356,15 @@ export default function UserManagementPage() {
         />
         <StatCard
           title="Bertugas Lapangan"
-          value="6 Orang"
-          subtitle="Sedang meliput kegiatan kampus"
+          value={`${users.filter((u) => u.role === 'USER').length} Orang`}
+          subtitle="Anggota Humas terdaftar"
           icon={Radio}
           iconBgClass="bg-sky-50"
           iconColorClass="text-sky-600"
         />
         <StatCard
           title="Nonaktif / Cuti"
-          value="2 Orang"
+          value={`${users.filter((u) => u.status === 'NONAKTIF').length} Orang`}
           subtitle="Akun dinonaktifkan sementara"
           icon={UserX}
           iconBgClass="bg-orange-50"
@@ -446,10 +400,8 @@ export default function UserManagementPage() {
           <div className="flex flex-wrap items-center gap-2.5">
             <FilterDropdown
               options={[
-                { value: 'ADMIN', label: 'Admin / Koordinator' },
-                { value: 'JURNALIS', label: 'Jurnalis Lapangan' },
-                { value: 'VIDEOGRAFER', label: 'Videografer' },
-                { value: 'FOTOGRAFER', label: 'Fotografer' },
+                { value: 'ADMIN', label: 'Admin Humas' },
+                { value: 'USER', label: 'Anggota Humas' },
               ]}
               value={roleFilter}
               onChange={(val) => {
@@ -550,11 +502,8 @@ export default function UserManagementPage() {
                 onChange={(e) => setFormData({ ...formData, role: e.target.value as Role })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
               >
-                <option value="ADMIN">ADMIN (Koordinator Humas)</option>
-                <option value="JURNALIS">JURNALIS (Penulis Berita)</option>
-                <option value="VIDEOGRAFER">VIDEOGRAFER (Produksi Video)</option>
-                <option value="FOTOGRAFER">FOTOGRAFER (Dokumentasi)</option>
-                <option value="TIM_DOKUMENTASI">TIM DOKUMENTASI (Staf)</option>
+                <option value="ADMIN">Admin Humas</option>
+                <option value="USER">Anggota Humas</option>
               </select>
             </div>
           </div>
@@ -620,11 +569,8 @@ export default function UserManagementPage() {
                 onChange={(e) => setFormData({ ...formData, role: e.target.value as Role })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
               >
-                <option value="ADMIN">ADMIN (Koordinator)</option>
-                <option value="JURNALIS">JURNALIS</option>
-                <option value="VIDEOGRAFER">VIDEOGRAFER</option>
-                <option value="FOTOGRAFER">FOTOGRAFER</option>
-                <option value="TIM_DOKUMENTASI">TIM DOKUMENTASI</option>
+                <option value="ADMIN">Admin Humas</option>
+                <option value="USER">Anggota Humas</option>
               </select>
             </div>
             <div>

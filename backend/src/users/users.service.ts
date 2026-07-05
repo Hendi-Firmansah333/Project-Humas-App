@@ -27,7 +27,7 @@ export class UsersService {
       data: {
         ...createUserDto,
         password: hashedPassword,
-        role: createUserDto.role || Role.JURNALIS,
+        role: createUserDto.role || Role.USER,
         status: createUserDto.status || UserStatus.AKTIF,
       },
     });

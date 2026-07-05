@@ -1,9 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import AdminLayout from '@/components/layout/AdminLayout';
+import DashboardSkeleton from '@/components/common/DashboardSkeleton';
 import {
   StatusBadge,
   CustomButton,
@@ -26,98 +27,116 @@ import {
   MapPinCheckInside,
   ShieldCheck,
   Check,
+  ExternalLink,
 } from 'lucide-react';
 import { toast } from 'sonner';
-
-// Sample data for detail view
-const detailActivity = {
-  id: 1,
-  title: 'Liputan Kunjungan Menteri Pendidikan',
-  category: 'Liputan Resmi',
-  date: '2025-05-21',
-  dateFormatted: 'Rabu, 21 Mei 2025',
-  startTime: '09:00',
-  endTime: '12:00',
-  location: 'Gedung Serbaguna Politeknik Negeri Lampung',
-  status: 'SEDANG_BERLANGSUNG' as const,
-  pic: {
-    name: 'Komang Ari',
-    role: 'Koordinator Humas',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-  },
-  description:
-    'Peliputan resmi kunjungan kerja Kementerian Pendidikan dalam rangka peresmian Laboratorium Inovasi Digital Terpadu Politeknik Negeri Lampung. Kegiatan meliputi penyambutan tamu VIP, pengalungan tapis, sidang terbuka, hingga wawancara doorstop pimpinan.',
-  objectives: [
-    'Dokumentasi foto beresolusi tinggi untuk arsip rektorat & rilis berita nasional.',
-    'Produksi video highlight berdurasi 60 detik untuk Reels & TikTok resmi Polinela.',
-    'Publikasi live tweet & story selama acara berlangsung.',
-  ],
-  assignedMembers: [
-    {
-      id: 1,
-      name: 'Komang Ari',
-      role: 'Koordinator / PIC',
-      avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-      status: 'ONLINE',
-      task: 'Pimpinan Redaksi & Protokoler',
-    },
-    {
-      id: 2,
-      name: 'Rina Wati',
-      role: 'Jurnalis Lapangan',
-      avatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-      status: 'ONLINE',
-      task: 'Wawancara & Penulisan Rilis Berita',
-    },
-    {
-      id: 3,
-      name: 'Budi Santoso',
-      role: 'Videografer Utama',
-      avatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-      status: 'ONLINE',
-      task: 'Perekaman Video Multicam & Live Streaming',
-    },
-    {
-      id: 4,
-      name: 'Andi Saputra',
-      role: 'Fotografer Resmi',
-      avatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-      status: 'ONLINE',
-      task: 'Dokumentasi Foto VIP & Panggung',
-    },
-  ],
-  attendance: [
-    { name: 'Komang Ari', checkIn: '08:15 WIB', location: 'Gedung Serbaguna Pintu A', status: 'VERIFIED' },
-    { name: 'Rina Wati', checkIn: '08:25 WIB', location: 'Gedung Serbaguna VIP Room', status: 'VERIFIED' },
-    { name: 'Budi Santoso', checkIn: '08:10 WIB', location: 'Area FOH / Stage Control', status: 'VERIFIED' },
-    { name: 'Andi Saputra', checkIn: '08:30 WIB', location: 'Gedung Serbaguna Lantai 1', status: 'VERIFIED' },
-  ],
-  photos: [
-    { id: 1, title: 'Pembukaan & Sambutan Direktur', url: 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=600&auto=format&fit=crop&q=80' },
-    { id: 2, title: 'Kunjungan Stand Inovasi', url: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&auto=format&fit=crop&q=80' },
-    { id: 3, title: 'Foto Bersama VIP & Pimpinan', url: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=600&auto=format&fit=crop&q=80' },
-  ],
-  videos: [
-    { id: 1, title: 'Highlight Kunjungan Menteri (60s).mp4', size: '48.5 MB', duration: '01:02', status: 'UPLOADED' },
-    { id: 2, title: 'Wawancara Doorstop Resmi.mp4', size: '112.0 MB', duration: '04:15', status: 'UPLOADED' },
-  ],
-  verification: {
-    verifiedBy: 'Dr. Ir. Sarono, M.Si (Direktur Polinela)',
-    verifiedAt: '21 Mei 2025, 14:00 WIB',
-    statusLabel: 'Dokumentasi Lengkap & Disetujui',
-    note: 'Seluruh materi peliputan telah terverifikasi dan memenuhi standar kehumasan Polinela.',
-  },
-};
+import { activityService } from '@/services';
+import { Activity } from '@/types';
+import { formatDateID, isValidImageSrc } from '@/utils/formatters';
 
 export default function ActivityDetailPage() {
   const params = useParams();
   const router = useRouter();
   const [selectedPhoto, setSelectedPhoto] = useState<string | null>(null);
+  const [activity, setActivity] = useState<Activity | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      const id = Number(params.id);
+      if (!id) return;
+      setLoading(true);
+      try {
+        const data = await activityService.getById(id);
+        setActivity(data);
+      } catch {
+        toast.error('Gagal memuat detail kegiatan.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [params.id]);
+
+  const detailActivity = activity
+    ? {
+        id: activity.id,
+        title: activity.title,
+        category: activity.category,
+        date: activity.date,
+        dateFormatted: formatDateID(activity.date),
+        startTime: activity.startTime,
+        endTime: activity.endTime,
+        location: activity.location,
+        status: activity.status,
+        pic: { name: activity.pic?.fullName ?? '-', role: activity.pic?.roleLabel ?? '-', avatar: activity.pic?.avatar },
+        description: activity.description,
+        objectives: activity.description
+          ? activity.description.split(/[.\n]/).map((s) => s.trim()).filter(Boolean).slice(0, 3)
+          : [],
+        assignedMembers: (activity.members ?? []).map((m) => ({
+          id: m.user.id,
+          name: m.user.fullName,
+          role: m.role,
+          avatar: m.user.avatar,
+          status: m.checkInStatus === 'SUCCESS' ? 'ONLINE' : 'OFFLINE',
+          task: m.role,
+        })),
+        attendance: (activity.members ?? [])
+          .filter((m) => m.checkInTime)
+          .map((m) => ({
+            name: m.user.fullName,
+            checkIn: m.checkInTime ?? '-',
+            location: activity.location,
+            status: m.checkInStatus === 'SUCCESS' ? 'VERIFIED' : 'PENDING',
+          })),
+        photos: (activity.media ?? [])
+          .filter((m) => m.fileType.startsWith('image/'))
+          .map((m) => ({
+            id: m.id,
+            title: m.fileName,
+            url: m.fileUrl,
+          })),
+        videos: (activity.media ?? [])
+          .filter((m) => m.fileType.startsWith('video/'))
+          .map((m) => ({
+            id: m.id,
+            title: m.fileName,
+            size: m.fileSize ? `${(m.fileSize / (1024 * 1024)).toFixed(1)} MB` : '0 MB',
+            duration: '0:00',
+            status: 'SELESAI',
+          })),
+        verification: {
+          verifiedBy: activity.pic?.fullName ?? 'PIC Kegiatan',
+          verifiedAt: formatDateID(activity.date),
+          statusLabel: activity.status === 'SELESAI' ? 'Dokumentasi Lengkap & Disetujui' : 'Menunggu Verifikasi',
+          note: 'Data kegiatan diambil langsung dari database terpusat HUMAS.',
+        },
+      }
+    : null;
 
   const handleCopyLink = () => {
     navigator.clipboard.writeText(window.location.href);
     toast.success('Tautan detail kegiatan berhasil disalin!');
   };
+
+  if (loading) {
+    return (
+      <AdminLayout title="Detail Kegiatan Kehumasan">
+        <DashboardSkeleton />
+      </AdminLayout>
+    );
+  }
+
+  if (!detailActivity) {
+    return (
+      <AdminLayout title="Detail Kegiatan Kehumasan">
+        <div className="bg-white rounded-2xl border border-slate-200 p-8 text-center text-slate-500">
+          Kegiatan tidak ditemukan.
+        </div>
+      </AdminLayout>
+    );
+  }
 
   return (
     <AdminLayout title="Detail Kegiatan Kehumasan">
@@ -244,67 +263,128 @@ export default function ActivityDetailPage() {
                 <h3 className="text-base font-bold text-slate-800">Dokumentasi Peliputan</h3>
               </div>
               <span className="text-xs bg-slate-100 text-slate-600 font-bold px-3 py-1 rounded-full">
-                5 File Tersedia
+                {(activity?.media ?? []).length} File Tersedia
               </span>
             </div>
 
             {/* Photo Gallery Grid */}
-            <div>
-              <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <span>📸 Galeri Foto Resmi</span>
-              </h4>
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                {detailActivity.photos.map((photo) => (
-                  <div
-                    key={photo.id}
-                    onClick={() => setSelectedPhoto(photo.url)}
-                    className="group relative rounded-xl overflow-hidden border border-slate-200 cursor-pointer shadow-2xs hover:shadow-md transition-all"
-                  >
-                    <img
-                      src={photo.url}
-                      alt={photo.title}
-                      className="w-full h-36 object-cover group-hover:scale-105 transition-transform duration-300"
-                    />
-                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/80 via-slate-900/40 to-transparent p-2.5">
-                      <p className="text-[11px] font-bold text-white truncate">{photo.title}</p>
+            {detailActivity.photos.length > 0 && (
+              <div>
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <span>📸 Galeri Foto Resmi</span>
+                </h4>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                  {detailActivity.photos.filter((photo) => isValidImageSrc(photo.url)).map((photo) => (
+                    <div
+                      key={photo.id}
+                      onClick={() => setSelectedPhoto(photo.url)}
+                      className="group relative rounded-xl overflow-hidden border border-slate-200 cursor-pointer shadow-2xs hover:shadow-md transition-all"
+                    >
+                      <img
+                        src={photo.url}
+                        alt={photo.title}
+                        className="w-full h-36 object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-slate-900/80 via-slate-900/40 to-transparent p-2.5">
+                        <p className="text-[11px] font-bold text-white truncate">{photo.title}</p>
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
 
             {/* Video Recordings Archive */}
+            {detailActivity.videos.length > 0 && (
+              <div className="pt-2">
+                <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                  <span>🎥 Arsip Video Liputan</span>
+                </h4>
+                <div className="space-y-3">
+                  {detailActivity.videos.map((vid) => (
+                    <div
+                      key={vid.id}
+                      className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:shadow-2xs transition-all"
+                    >
+                      <div className="flex items-center gap-3">
+                        <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center shrink-0 font-bold">
+                          <Video className="w-5 h-5" />
+                        </div>
+                        <div>
+                          <p className="text-xs sm:text-sm font-bold text-slate-800">{vid.title}</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">
+                            Ukuran: {vid.size} • Durasi: {vid.duration}
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => toast.success(`Mengunduh berkas ${vid.title}...`)}
+                        className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-teal-50 hover:text-teal-600 text-slate-600 transition-colors cursor-pointer"
+                        title="Unduh Berkas"
+                      >
+                        <Download className="w-4 h-4" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Google Drive Links Section */}
             <div className="pt-2">
               <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
-                <span>🎥 Arsip Video Liputan</span>
+                <span>🔗 Tautan Dokumentasi (Google Drive)</span>
               </h4>
-              <div className="space-y-3">
-                {detailActivity.videos.map((vid) => (
-                  <div
-                    key={vid.id}
-                    className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:shadow-2xs transition-all"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center shrink-0 font-bold">
-                        <Video className="w-5 h-5" />
+              {(() => {
+                const docLinks = (activity?.media ?? []).filter(
+                  (m) => m.fileType === 'application/link',
+                );
+                if (docLinks.length === 0) {
+                  return (
+                    <p className="text-xs text-slate-400 italic">
+                      Belum ada tautan Google Drive yang diunggah untuk kegiatan ini.
+                    </p>
+                  );
+                }
+                return (
+                  <div className="space-y-3">
+                    {docLinks.map((doc) => (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:shadow-2xs transition-all text-xs"
+                      >
+                        <div className="flex items-center gap-3 min-w-0 flex-1">
+                          <div className="w-10 h-10 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center shrink-0 font-bold">
+                            <Share2 className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="font-bold text-slate-800 truncate">
+                              Dokumentasi Drive ({doc.uploader?.fullName ?? 'Tim Lapangan'})
+                            </p>
+                            <a
+                              href={doc.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-teal-600 hover:underline truncate block text-[11px] mt-0.5"
+                            >
+                              {doc.fileUrl}
+                            </a>
+                          </div>
+                        </div>
+                        <a
+                          href={doc.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-teal-50 hover:text-teal-600 text-slate-600 transition-colors shrink-0 cursor-pointer ml-2"
+                          title="Buka Tautan"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
                       </div>
-                      <div>
-                        <p className="text-xs sm:text-sm font-bold text-slate-800">{vid.title}</p>
-                        <p className="text-[11px] text-slate-400 mt-0.5">
-                          Ukuran: {vid.size} • Durasi: {vid.duration}
-                        </p>
-                      </div>
-                    </div>
-                    <button
-                      onClick={() => toast.success(`Mengunduh berkas ${vid.title}...`)}
-                      className="p-2 rounded-lg bg-white border border-slate-200 hover:bg-teal-50 hover:text-teal-600 text-slate-600 transition-colors cursor-pointer"
-                      title="Unduh Berkas"
-                    >
-                      <Download className="w-4 h-4" />
-                    </button>
+                    ))}
                   </div>
-                ))}
-              </div>
+                );
+              })()}
             </div>
           </div>
 
@@ -402,7 +482,7 @@ export default function ActivityDetailPage() {
         title="Pratinjau Galeri Foto"
         maxWidth="2xl"
       >
-        {selectedPhoto && (
+        {isValidImageSrc(selectedPhoto) && (
           <div className="space-y-4">
             <img src={selectedPhoto} alt="Pratinjau" className="w-full max-h-[70vh] object-contain rounded-xl" />
             <div className="flex justify-end">

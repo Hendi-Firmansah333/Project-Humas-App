@@ -1,0 +1,23 @@
+{
+  "name": "resolve-shortlink",
+  "description": "Resolves a Canva shortlink ID to its target URL. IMPORTANT: Use this tool FIRST when a user provides a shortlink (e.g. https://canva.link/abc123). Shortlinks need to be resolved before you can use other tools. After resolving, extract the design ID from the target URL and use it with tools like get-design, start-editing-transaction, or get-design-content.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "shortlink_id": {
+        "type": "string",
+        "minLength": 1,
+        "description": "The shortlink ID to resolve (e.g., \"abc123\" from https://canva.link/abc123)"
+      },
+      "user_intent": {
+        "type": "string",
+        "description": "Mandatory description of what the user is trying to accomplish with this tool call. This should always be provided by LLM clients. Please keep it concise (255 characters or less recommended)."
+      }
+    },
+    "required": [
+      "shortlink_id"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

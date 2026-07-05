@@ -20,22 +20,28 @@ import {
   Lock,
 } from 'lucide-react';
 import { toast } from 'sonner';
+import { authService } from '@/services';
+import { formatDateID, isValidImageSrc } from '@/utils/formatters';
+import { syncUserSession } from '@/utils/session';
+
+const DEFAULT_UNIT = 'Unit Kehumasan & Publikasi Politeknik Negeri Lampung';
 
 export default function ProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [accountStatus, setAccountStatus] = useState('AKTIF');
 
   // Profile State
   const [profileData, setProfileData] = useState({
-    fullName: 'Komang Ari, S.I.Kom',
-    username: 'komang.ari',
-    nip: '19880512 201504 1 002',
-    email: 'komang.ari@polinela.ac.id',
-    phone: '0812-3456-7890',
-    roleLabel: 'Koordinator Humas Polinela',
-    unit: 'Unit Kehumasan & Publikasi Politeknik Negeri Lampung',
-    joinedAt: '01 Januari 2025',
-    avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=300&auto=format&fit=crop&q=80',
+    fullName: '',
+    username: '',
+    nip: '',
+    email: '',
+    phone: '',
+    roleLabel: '',
+    unit: DEFAULT_UNIT,
+    joinedAt: '',
+    avatar: '',
   });
 
   // Password State
@@ -46,10 +52,30 @@ export default function ProfilePage() {
   });
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    const loadProfile = async () => {
+      setLoading(true);
+      try {
+        const user = await authService.profile();
+        syncUserSession(user);
+        setProfileData({
+          fullName: user.fullName,
+          username: user.username,
+          nip: '',
+          email: user.email,
+          phone: user.phone || '',
+          roleLabel: user.roleLabel,
+          unit: DEFAULT_UNIT,
+          joinedAt: formatDateID(user.joinedAt),
+          avatar: user.avatar || '',
+        });
+        setAccountStatus(user.status);
+      } catch {
+        toast.error('Gagal memuat profil dari server.');
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadProfile();
   }, []);
 
   const handleProfileSubmit = (e: React.FormEvent) => {
@@ -111,7 +137,7 @@ export default function ProfilePage() {
         </div>
 
         <div className="flex items-center gap-2.5">
-          <StatusBadge status="AKTIF" />
+          <StatusBadge status={accountStatus} />
         </div>
       </div>
 
@@ -122,7 +148,13 @@ export default function ProfilePage() {
           {/* Avatar Area */}
           <div className="relative group cursor-pointer" onClick={handleAvatarClick} title="Ganti Foto Profil">
             <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-teal-500/20 shadow-md">
-              <img src={profileData.avatar} alt={profileData.fullName} className="w-full h-full object-cover" />
+              {isValidImageSrc(profileData.avatar) ? (
+                <img src={profileData.avatar} alt={profileData.fullName} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full bg-teal-100 flex items-center justify-center text-teal-700 font-bold text-2xl">
+                  {profileData.fullName ? profileData.fullName.charAt(0) : '?'}
+                </div>
+              )}
             </div>
             <div className="absolute inset-0 bg-slate-900/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
               <Camera className="w-6 h-6 text-white" />

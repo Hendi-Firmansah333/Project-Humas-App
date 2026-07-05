@@ -1,0 +1,113 @@
+{
+  "name": "export-design",
+  "description": "Export a Canva design, doc, presentation, whiteboard, videos and other Canva content types to various formats (PDF, JPG, PNG, PPTX, GIF, MP4, CSV). You should use the `get-export-formats` tool first to check which export formats are supported for the design. This tool provides a download URL for the exported file that you can share with users. Always display this download URL to users so they can access their exported content.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "design_id": {
+        "type": "string",
+        "minLength": 11,
+        "maxLength": 11,
+        "pattern": "^D[a-zA-Z0-9_-]+$",
+        "description": "ID of the design to export. Design ID starts with \"D\"."
+      },
+      "format": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "pdf",
+              "png",
+              "jpg",
+              "gif",
+              "pptx",
+              "mp4",
+              "csv"
+            ],
+            "description": "Format to export the design as."
+          },
+          "quality": {
+            "anyOf": [
+              {
+                "type": "number",
+                "minimum": 1,
+                "maximum": 100,
+                "description": "Use for types: jpg. Image quality from 1-100"
+              },
+              {
+                "type": "string",
+                "description": "Required for types: mp4. Video quality (e.g., 'horizontal_1080p')"
+              }
+            ]
+          },
+          "pages": {
+            "type": "array",
+            "items": {
+              "type": "number",
+              "minimum": 1
+            },
+            "description": "Use for types: pdf, png, jpg, gif, pptx, mp4, csv. Page numbers to export (1-based). If not specified, all pages will be exported."
+          },
+          "export_quality": {
+            "type": "string",
+            "enum": [
+              "regular",
+              "pro"
+            ],
+            "description": "Use for types: pdf, png, jpg, gif, pptx, mp4. Export quality (regular or pro)"
+          },
+          "size": {
+            "type": "string",
+            "enum": [
+              "a4",
+              "a3",
+              "letter",
+              "legal"
+            ],
+            "description": "Use for types: pdf. Paper size for PDF export"
+          },
+          "height": {
+            "type": "number",
+            "minimum": 40,
+            "maximum": 25000,
+            "description": "Use for types: png, jpg, gif. Height of the exported image in pixels"
+          },
+          "width": {
+            "type": "number",
+            "minimum": 40,
+            "maximum": 25000,
+            "description": "Use for types: png, jpg, gif. Width of the exported image in pixels"
+          },
+          "lossless": {
+            "type": "boolean",
+            "description": "Use for types: png. Whether to use lossless compression (default: true)"
+          },
+          "transparent_background": {
+            "type": "boolean",
+            "description": "Use for types: png. Whether to use a transparent background (default: false)"
+          },
+          "as_single_image": {
+            "type": "boolean",
+            "description": "Use for types: png. When true, multi-page designs are merged into a single image"
+          }
+        },
+        "required": [
+          "type"
+        ],
+        "additionalProperties": false,
+        "description": "Format options for the export"
+      },
+      "user_intent": {
+        "type": "string",
+        "description": "Mandatory description of what the user is trying to accomplish with this tool call. This should always be provided by LLM clients. Please keep it concise (255 characters or less recommended)."
+      }
+    },
+    "required": [
+      "design_id",
+      "format"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

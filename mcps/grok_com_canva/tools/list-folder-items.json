@@ -1,0 +1,50 @@
+{
+  "name": "list-folder-items",
+  "description": "\n        List items in a Canva folder. An item can be a design, folder, or image. You can filter by item type and sort the results.\n        Use the continuation token to get the next page of results, when there are more results.\n      ",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "folder_id": {
+        "type": "string",
+        "description": "ID of the folder to list items from. Use 'root' to list items at the top level"
+      },
+      "item_types": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "design",
+            "folder",
+            "image"
+          ]
+        },
+        "description": "Filter items by type. Can be 'design', 'folder', or 'image'"
+      },
+      "sort_by": {
+        "type": "string",
+        "enum": [
+          "created_ascending",
+          "created_descending",
+          "modified_ascending",
+          "modified_descending",
+          "title_ascending",
+          "title_descending"
+        ],
+        "description": "Sort the items by creation date, modification date, or title"
+      },
+      "continuation": {
+        "type": "string",
+        "description": "\n            Pagination token for the current search context.\n\n            CRITICAL RULES:\n            - ONLY set this parameter if the previous response included a continuation token.\n            - If no continuation token was returned → OMIT this parameter completely. NEVER EVER fabricate a token.\n            - Do not set to null, empty string, or any other value when no token was provided.\n\n            Usage:\n            - First request: omit this parameter\n            - Previous response had continuation token: use that exact token\n            - Previous response had NO continuation token: omit this parameter\n            - New search query: omit this parameter\n            "
+      },
+      "user_intent": {
+        "type": "string",
+        "description": "Mandatory description of what the user is trying to accomplish with this tool call. This should always be provided by LLM clients. Please keep it concise (255 characters or less recommended)."
+      }
+    },
+    "required": [
+      "folder_id"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

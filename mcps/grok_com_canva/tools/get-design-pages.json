@@ -1,0 +1,36 @@
+{
+  "name": "get-design-pages",
+  "description": "Get a list of pages in a Canva design, such as a presentation. Each page includes its index and thumbnail. This tool doesn't work on designs that don't have pages (e.g. Canva docs). You must provide the design ID, which you can find using tools like `search-designs` or `list-folder-items`. You can use 'offset' and 'limit' to paginate through the pages. Use `get-design` to find out the total number of pages, if needed.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "design_id": {
+        "type": "string",
+        "minLength": 11,
+        "maxLength": 11,
+        "pattern": "^D[a-zA-Z0-9_-]+$",
+        "description": "The design ID to get pages from"
+      },
+      "offset": {
+        "type": "integer",
+        "minimum": 1,
+        "description": "The page index to start the range of pages to return, for pagination. The first page in a design has an index value of 1"
+      },
+      "limit": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100,
+        "description": "Maximum number of pages to return (for pagination)"
+      },
+      "user_intent": {
+        "type": "string",
+        "description": "Mandatory description of what the user is trying to accomplish with this tool call. This should always be provided by LLM clients. Please keep it concise (255 characters or less recommended)."
+      }
+    },
+    "required": [
+      "design_id"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

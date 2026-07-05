@@ -35,87 +35,9 @@ import {
   Legend,
 } from 'recharts';
 import { toast } from 'sonner';
-
-interface MonthlyReportItem {
-  id: number;
-  period: string;
-  kegiatanCount: number;
-  kontenCount: number;
-  loanCount: number;
-  picName: string;
-  picRole: string;
-  picAvatar?: string;
-  status: string;
-}
-
-const initialReports: MonthlyReportItem[] = [
-  {
-    id: 1,
-    period: 'Juni 2025',
-    kegiatanCount: 24,
-    kontenCount: 68,
-    loanCount: 16,
-    picName: 'Komang Ari',
-    picRole: 'Koordinator Humas',
-    picAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    status: 'SELESAI',
-  },
-  {
-    id: 2,
-    period: 'Mei 2025',
-    kegiatanCount: 34,
-    kontenCount: 82,
-    loanCount: 22,
-    picName: 'Budi Santoso',
-    picRole: 'Videografer Utama',
-    picAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    status: 'SELESAI',
-  },
-  {
-    id: 3,
-    period: 'April 2025',
-    kegiatanCount: 28,
-    kontenCount: 64,
-    loanCount: 18,
-    picName: 'Rina Wati',
-    picRole: 'Jurnalis Lapangan',
-    picAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-    status: 'SELESAI',
-  },
-  {
-    id: 4,
-    period: 'Maret 2025',
-    kegiatanCount: 15,
-    kontenCount: 45,
-    loanCount: 10,
-    picName: 'Andi Saputra',
-    picRole: 'Fotografer Resmi',
-    picAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-    status: 'SELESAI',
-  },
-  {
-    id: 5,
-    period: 'Februari 2025',
-    kegiatanCount: 19,
-    kontenCount: 52,
-    loanCount: 12,
-    picName: 'Komang Ari',
-    picRole: 'Koordinator Humas',
-    picAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    status: 'SELESAI',
-  },
-  {
-    id: 6,
-    period: 'Januari 2025',
-    kegiatanCount: 12,
-    kontenCount: 38,
-    loanCount: 8,
-    picName: 'Budi Santoso',
-    picRole: 'Videografer Utama',
-    picAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    status: 'SELESAI',
-  },
-];
+import { dashboardService, reportService } from '@/services';
+import { ReportItem } from '@/types';
+import { formatDateID } from '@/utils/formatters';
 
 const categoryDistribution = [
   { name: 'Instagram Reels & Carousel', value: 45, color: '#0D9488' },
@@ -124,19 +46,51 @@ const categoryDistribution = [
   { name: 'YouTube Video Dokumenter', value: 10, color: '#EF4444' },
 ];
 
+interface MonthlyChartPoint {
+  month: string;
+  kegiatan: number;
+  konten: number;
+}
+
 export default function ReportPage() {
-  const [reports] = useState<MonthlyReportItem[]>(initialReports);
+  const [reports, setReports] = useState<ReportItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [periodFilter, setPeriodFilter] = useState('TAHUN_2025');
   const [currentPage, setCurrentPage] = useState(1);
+  const [stats, setStats] = useState({
+    totalActivities: 0,
+    totalContentPlans: 0,
+    activeLoans: 0,
+    totalUsers: 0,
+  });
+  const [monthlyStats, setMonthlyStats] = useState<MonthlyChartPoint[]>([]);
   const itemsPerPage = 5;
 
   useEffect(() => {
-    const timer = setTimeout(() => {
-      setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    const loadReportData = async () => {
+      setLoading(true);
+      try {
+        const [reportData, summary] = await Promise.all([
+          reportService.getAll(),
+          dashboardService.summary(),
+        ]);
+        setReports(Array.isArray(reportData) ? reportData : []);
+        setStats(summary.statistics ?? {
+          totalActivities: 0,
+          totalContentPlans: 0,
+          activeLoans: 0,
+          totalUsers: 0,
+        });
+        setMonthlyStats(summary.monthlyStats ?? []);
+      } catch {
+        toast.error('Gagal memuat data laporan dari server.');
+        setReports([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+    loadReportData();
   }, []);
 
   const handleExportPDF = () => {
@@ -147,10 +101,15 @@ export default function ReportPage() {
     toast.success('Rekapitulasi data statistik berhasil diunduh dalam format Excel (.xlsx)!');
   };
 
-  const filteredReports = reports.filter((item) =>
-    item.period.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.picName.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  const filteredReports = reports.filter((item) => {
+    const periodLabel = formatDateID(item.date);
+    return (
+      item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      item.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      periodLabel.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.pic?.fullName ?? '').toLowerCase().includes(searchQuery.toLowerCase())
+    );
+  });
 
   const totalPages = Math.ceil(filteredReports.length / itemsPerPage);
   const paginatedReports = filteredReports.slice(
@@ -158,7 +117,7 @@ export default function ReportPage() {
     currentPage * itemsPerPage,
   );
 
-  const columns: Column<MonthlyReportItem>[] = [
+  const columns: Column<ReportItem>[] = [
     {
       key: 'no',
       header: 'No',
@@ -170,55 +129,46 @@ export default function ReportPage() {
       className: 'w-12 text-center',
     },
     {
-      key: 'period',
-      header: 'Periode / Bulan',
+      key: 'title',
+      header: 'Judul Laporan',
       render: (item) => (
-        <span className="font-bold text-slate-800 text-xs sm:text-sm">{item.period}</span>
+        <span className="font-bold text-slate-800 text-xs sm:text-sm">{item.title}</span>
       ),
     },
     {
-      key: 'kegiatan',
-      header: 'Kegiatan Diliput',
+      key: 'period',
+      header: 'Periode / Tanggal',
       render: (item) => (
         <span className="font-semibold text-teal-700 bg-teal-50 px-2.5 py-1 rounded-lg text-xs">
-          {item.kegiatanCount} Agenda
+          {formatDateID(item.date)}
         </span>
       ),
     },
     {
-      key: 'konten',
-      header: 'Konten Dipublikasi',
+      key: 'category',
+      header: 'Kategori',
       render: (item) => (
         <span className="font-semibold text-sky-700 bg-sky-50 px-2.5 py-1 rounded-lg text-xs">
-          {item.kontenCount} Media
-        </span>
-      ),
-    },
-    {
-      key: 'loan',
-      header: 'Alat Dipinjam',
-      render: (item) => (
-        <span className="font-semibold text-slate-700 bg-slate-100 px-2.5 py-1 rounded-lg text-xs">
-          {item.loanCount} Sesi
+          {item.category}
         </span>
       ),
     },
     {
       key: 'pic',
-      header: 'PIC Teraktif',
+      header: 'PIC Laporan',
       render: (item) => (
         <div className="flex items-center gap-2 whitespace-nowrap">
-          <UserAvatar src={item.picAvatar} name={item.picName} size="sm" />
+          <UserAvatar src={item.pic?.avatar} name={item.pic?.fullName ?? '-'} size="sm" />
           <div>
-            <p className="font-medium text-slate-700 text-xs">{item.picName}</p>
-            <p className="text-[10px] text-slate-400">{item.picRole}</p>
+            <p className="font-medium text-slate-700 text-xs">{item.pic?.fullName ?? '-'}</p>
+            <p className="text-[10px] text-slate-400">{item.pic?.roleLabel ?? '-'}</p>
           </div>
         </div>
       ),
     },
     {
       key: 'status',
-      header: 'Status Target',
+      header: 'Status',
       render: (item) => <StatusBadge status={item.status} />,
     },
     {
@@ -227,14 +177,14 @@ export default function ReportPage() {
       render: (item) => (
         <div className="flex items-center gap-1.5 justify-center">
           <button
-            onClick={() => toast.info(`Mengunduh rincian laporan periode ${item.period}...`)}
+            onClick={() => toast.info(`Mengunduh rincian laporan "${item.title}"...`)}
             className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors cursor-pointer"
-            title="Unduh Laporan Periode Ini"
+            title="Unduh Laporan"
           >
             <Download className="w-4 h-4" />
           </button>
           <button
-            onClick={() => toast.info(`Membuka ringkasan eksekutif ${item.period}`)}
+            onClick={() => toast.info(`Membuka ringkasan eksekutif: ${item.title}`)}
             className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors cursor-pointer"
             title="Lihat Detail Statistik"
           >
@@ -289,7 +239,7 @@ export default function ReportPage() {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
         <StatCard
           title="Total Kegiatan Diliput"
-          value="142 Agenda"
+          value={`${stats.totalActivities} Agenda`}
           subtitle="Liputan resmi & kemahasiswaan"
           icon={CalendarCheck2}
           iconBgClass="bg-teal-50"
@@ -297,7 +247,7 @@ export default function ReportPage() {
         />
         <StatCard
           title="Total Konten Dipublikasi"
-          value="384 Konten"
+          value={`${stats.totalContentPlans} Konten`}
           subtitle="Reels, Carousel, Berita & TikTok"
           icon={Share2}
           iconBgClass="bg-sky-50"
@@ -305,16 +255,16 @@ export default function ReportPage() {
         />
         <StatCard
           title="Peminjaman Alat"
-          value="86 Sesi"
-          subtitle="Pemanfaatan kamera & drone"
+          value={`${stats.activeLoans} Sesi`}
+          subtitle="Peminjaman aktif saat ini"
           icon={Wrench}
           iconBgClass="bg-green-50"
           iconColorClass="text-green-600"
         />
         <StatCard
-          title="Tingkat Kehadiran Tim"
-          value="98.5%"
-          subtitle="Produktivitas & check-in GPS"
+          title="Personel Aktif"
+          value={`${stats.totalUsers} Orang`}
+          subtitle="Tim kehumasan terdaftar aktif"
           icon={TrendingUp}
           iconBgClass="bg-amber-50"
           iconColorClass="text-amber-600"
@@ -325,7 +275,10 @@ export default function ReportPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
         {/* Left Column (Span 2): Monthly Bar Chart */}
         <div className="lg:col-span-2">
-          <ActivityChart title="Grafik Publikasi Konten & Peliputan Bulanan (Semester 1 2025)" />
+          <ActivityChart
+            data={monthlyStats.length > 0 ? monthlyStats : undefined}
+            title="Grafik Publikasi Konten & Peliputan Bulanan (6 Bulan Terakhir)"
+          />
         </div>
 
         {/* Right Column (Span 1): Category Distribution Pie Chart */}
@@ -388,7 +341,7 @@ export default function ReportPage() {
             <p className="text-xs text-slate-400">Data detail jumlah peliputan, tayangan, dan utilisasi per periode.</p>
           </div>
 
-          <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder="Cari periode bulan atau PIC..." className="w-full sm:w-72" />
+          <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder="Cari judul, kategori, tanggal, atau PIC..." className="w-full sm:w-72" />
         </div>
 
         <div className="overflow-hidden rounded-xl border border-slate-200">

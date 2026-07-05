@@ -1,49 +1,87 @@
-import { Injectable } from '@nestjs/common';
-
-export interface NotificationItem {
-  id: number;
-  title: string;
-  message: string;
-  type: 'INFO' | 'SUCCESS' | 'WARNING' | 'ALERT';
-  time: string;
-  read: boolean;
-}
+import { Injectable, NotFoundException } from '@nestjs/common';
+import { PrismaService } from '../prisma/prisma.service';
+import { buildPaginatedResult, parsePagination } from '../common/utils/pagination.util';
+import { mapNotificationForMobile } from '../common/mappers/mobile.mapper';
 
 @Injectable()
 export class NotificationsService {
-  private notifications: NotificationItem[] = [
-    {
-      id: 1,
-      title: 'Jadwal Liputan Baru',
-      message: 'Anda ditugaskan meliput Kunjungan Industri pukul 09:00 WIB di Gedung Serbaguna.',
-      type: 'INFO',
-      time: '10 menit yang lalu',
-      read: false,
-    },
-    {
-      id: 2,
-      title: 'Verifikasi Konten',
-      message: 'Reels Instagram "Dies Natalis ke-41" telah disetujui oleh Koordinator Humas.',
-      type: 'SUCCESS',
-      time: '1 jam yang lalu',
-      read: false,
-    },
-    {
-      id: 3,
-      title: 'Peminjaman Alat',
-      message: 'Pengembalian Kamera Sony A7III dijadwalkan hari ini sebelum pukul 16:00 WIB.',
-      type: 'WARNING',
-      time: '3 jam yang lalu',
-      read: true,
-    },
-  ];
+  constructor(private prisma: PrismaService) {}
 
-  async findAll() {
-    return this.notifications;
+  private buildWhere(userId: number, filter?: string, search?: string) {
+    const readFilter =
+      filter === 'Belum Dibaca'
+        ? { isRead: false }
+        : filter === 'Sudah Dibaca'
+          ? { isRead: true }
+          : {};
+
+    return {
+      deletedAt: null,
+      OR: [{ userId }, { userId: null }],
+      ...readFilter,
+      AND: search
+        ? {
+            OR: [
+              { title: { contains: search, mode: 'insensitive' as const } },
+              { message: { contains: search, mode: 'insensitive' as const } },
+            ],
+          }
+        : undefined,
+    };
   }
 
-  async markAllAsRead() {
-    this.notifications = this.notifications.map((n) => ({ ...n, read: true }));
+  async findAllForUser(
+    userId: number,
+    query: { page?: number; pageSize?: number; filter?: string; search?: string; mobile?: boolean },
+  ) {
+    const { page, pageSize, skip, take } = parsePagination(query);
+    const where = this.buildWhere(userId, query.filter, query.search);
+
+    const [rows, total] = await Promise.all([
+      this.prisma.notification.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip,
+        take,
+      }),
+      this.prisma.notification.count({ where }),
+    ]);
+
+    const items = query.mobile ? rows.map(mapNotificationForMobile) : rows;
+    return buildPaginatedResult<typeof items[number]>(items, total, page, pageSize);
+  }
+
+  async markAsRead(id: number, userId: number) {
+    const notification = await this.prisma.notification.findFirst({
+      where: { id, deletedAt: null, OR: [{ userId }, { userId: null }] },
+    });
+    if (!notification) throw new NotFoundException('Notifikasi tidak ditemukan.');
+
+    await this.prisma.notification.update({
+      where: { id },
+      data: { isRead: true },
+    });
+    return { message: 'Notifikasi ditandai sudah dibaca.' };
+  }
+
+  async markAllAsRead(userId: number) {
+    await this.prisma.notification.updateMany({
+      where: { deletedAt: null, OR: [{ userId }, { userId: null }], isRead: false },
+      data: { isRead: true },
+    });
     return { message: 'Semua notifikasi ditandai sudah dibaca.' };
+  }
+
+  async remove(id: number, userId: number) {
+    const notification = await this.prisma.notification.findFirst({
+      where: { id, deletedAt: null, OR: [{ userId }, { userId: null }] },
+    });
+    if (!notification) throw new NotFoundException('Notifikasi tidak ditemukan.');
+
+    await this.prisma.notification.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
+    return { message: 'Notifikasi berhasil dihapus.' };
   }
 }

@@ -30,8 +30,11 @@ import {
   FileText,
   Share2,
 } from 'lucide-react';
-import { formatDateID } from '@/utils/formatters';
+import { formatDateID, isValidImageSrc } from '@/utils/formatters';
 import { toast } from 'sonner';
+import { contentService, userService } from '@/services';
+import { contentPlanToItem, mapContentStatusToApi, mapPlatformToApi } from '@/utils/api-helpers';
+import { User } from '@/types';
 
 interface ContentItem {
   id: number;
@@ -45,92 +48,15 @@ interface ContentItem {
   picAvatar?: string;
   status: 'MENUNGGU_REVIEW' | 'DISETUJUI' | 'REVISI' | 'DITOLAK';
   caption: string;
-  mediaUrl: string;
+  mediaUrl?: string;
+  videoUrl?: string;
   mediaType: 'image' | 'video';
   revisionNote?: string;
 }
 
-const initialContents: ContentItem[] = [
-  {
-    id: 1,
-    title: 'Teaser Video Dies Natalis Polinela ke-41',
-    category: 'Kampanye Resmi',
-    platform: 'Instagram Reels',
-    deadline: '2025-05-23',
-    time: '16:00 WIB',
-    picName: 'Budi Santoso',
-    picRole: 'Videografer Utama',
-    picAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    status: 'MENUNGGU_REVIEW',
-    caption: 'Semangat baru di usia ke-41 tahun! Saksikan kemeriahan Dies Natalis Politeknik Negeri Lampung. #Polinela41 #BanggaPolinela',
-    mediaUrl: 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=600&auto=format&fit=crop&q=80',
-    mediaType: 'video',
-  },
-  {
-    id: 2,
-    title: 'Infografis Jalur Penerimaan Mahasiswa Baru 2025',
-    category: 'PMB 2025',
-    platform: 'Instagram Carousel',
-    deadline: '2025-05-24',
-    time: '12:00 WIB',
-    picName: 'Rina Wati',
-    picRole: 'Jurnalis & Kreator',
-    picAvatar: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&auto=format&fit=crop&q=80',
-    status: 'DISETUJUI',
-    caption: 'Catat tanggal penting pendaftaran jalur SNBP, SNBT, dan Mandiri Politeknik Negeri Lampung 2025. Geser untuk detail lengkapnya! 👉',
-    mediaUrl: 'https://images.unsplash.com/photo-1540575467063-178a50c2df87?w=600&auto=format&fit=crop&q=80',
-    mediaType: 'image',
-  },
-  {
-    id: 3,
-    title: 'A-Day-In-My-Life Mahasiswa D4 Teknologi Benih',
-    category: 'Life At Polinela',
-    platform: 'TikTok Video',
-    deadline: '2025-05-25',
-    time: '19:00 WIB',
-    picName: 'Budi Santoso',
-    picRole: 'Videografer Utama',
-    picAvatar: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&auto=format&fit=crop&q=80',
-    status: 'REVISI',
-    caption: 'Serunya praktikum di green house dan laboratorium benih modern Polinela! Mau kuliah di sini? Komen di bawah ya! 🌱',
-    mediaUrl: 'https://images.unsplash.com/photo-1523580494863-6f3031224c94?w=600&auto=format&fit=crop&q=80',
-    mediaType: 'video',
-    revisionNote: 'Audio backsound sedikit terlalu keras di detik 15-25, tolong disesuaikan dengan suara talent.',
-  },
-  {
-    id: 4,
-    title: 'Rilis Resmi Peresmian Lab Inovasi Digital Terpadu',
-    category: 'Berita Website',
-    platform: 'Website Rilis',
-    deadline: '2025-05-21',
-    time: '15:00 WIB',
-    picName: 'Komang Ari',
-    picRole: 'Koordinator Humas',
-    picAvatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-    status: 'DISETUJUI',
-    caption: 'Bandar Lampung – Politeknik Negeri Lampung resmi mengoperasikan Laboratorium Inovasi Digital Terpadu untuk mendukung pembelajaran vokasi 4.0.',
-    mediaUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=600&auto=format&fit=crop&q=80',
-    mediaType: 'image',
-  },
-  {
-    id: 5,
-    title: 'Dokumenter Singkat Inovasi Pertanian Berkelanjutan',
-    category: 'Riset & Inovasi',
-    platform: 'YouTube Video',
-    deadline: '2025-05-30',
-    time: '10:00 WIB',
-    picName: 'Andi Saputra',
-    picRole: 'Fotografer & Kreator',
-    picAvatar: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=150&auto=format&fit=crop&q=80',
-    status: 'MENUNGGU_REVIEW',
-    caption: 'Menyelami inovasi riset dosen dan mahasiswa Polinela dalam mewujudkan ketahanan pangan nasional melalui pertanian organik terpadu.',
-    mediaUrl: 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=600&auto=format&fit=crop&q=80',
-    mediaType: 'video',
-  },
-];
-
 export default function ContentPlanPage() {
-  const [contents, setContents] = useState<ContentItem[]>(initialContents);
+  const [contents, setContents] = useState<ContentItem[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [platformFilter, setPlatformFilter] = useState('');
@@ -152,16 +78,45 @@ export default function ContentPlanPage() {
     platform: 'Instagram Reels' as ContentItem['platform'],
     deadline: new Date().toISOString().split('T')[0],
     time: '16:00 WIB',
-    picName: 'Komang Ari',
+    picName: '',
     caption: '',
-    mediaUrl: 'https://images.unsplash.com/photo-1511578314322-379afb476865?w=600&auto=format&fit=crop&q=80',
+    mediaUrl: '',
   });
 
-  useEffect(() => {
-    const timer = setTimeout(() => {
+  const loadContents = async () => {
+    setLoading(true);
+    try {
+      const result = await contentService.getAll({ page: 1, pageSize: 100 });
+      const items = (result.items ?? []).map(contentPlanToItem);
+      setContents(items);
+    } catch {
+      toast.error('Gagal memuat data content plan dari server.');
+      setContents([]);
+    } finally {
       setLoading(false);
-    }, 500);
-    return () => clearTimeout(timer);
+    }
+  };
+
+  const resolvePicId = () => {
+    const match = users.find((u) => u.fullName === formData.picName);
+    return match?.id ?? users[0]?.id ?? 1;
+  };
+
+  useEffect(() => {
+    const init = async () => {
+      try {
+        const staff = await userService.getAll();
+        const userList = Array.isArray(staff) ? staff : [];
+        setUsers(userList);
+        if (userList.length > 0) {
+          setFormData((prev) => ({ ...prev, picName: userList[0].fullName }));
+        }
+      } catch {
+        setUsers([]);
+      }
+      await loadContents();
+    };
+    init();
   }, []);
 
   const filteredContents = contents.filter((item) => {
@@ -180,16 +135,26 @@ export default function ContentPlanPage() {
     currentPage * itemsPerPage,
   );
 
-  const handleApprove = (item: ContentItem) => {
-    setContents(contents.map((c) => (c.id === item.id ? { ...c, status: 'DISETUJUI', revisionNote: undefined } : c)));
-    setIsViewerOpen(false);
-    toast.success(`Konten "${item.title}" berhasil DISETUJUI untuk dipublikasikan!`);
+  const handleApprove = async (item: ContentItem) => {
+    try {
+      await contentService.update(item.id, { status: 'SELESAI' });
+      setIsViewerOpen(false);
+      toast.success(`Konten "${item.title}" berhasil DISETUJUI untuk dipublikasikan!`);
+      await loadContents();
+    } catch {
+      toast.error('Gagal menyetujui konten.');
+    }
   };
 
-  const handleReject = (item: ContentItem) => {
-    setContents(contents.map((c) => (c.id === item.id ? { ...c, status: 'DITOLAK' } : c)));
-    setIsViewerOpen(false);
-    toast.error(`Konten "${item.title}" DITOLAK.`);
+  const handleReject = async (item: ContentItem) => {
+    try {
+      await contentService.update(item.id, { status: 'DITOLAK' });
+      setIsViewerOpen(false);
+      toast.error(`Konten "${item.title}" DITOLAK.`);
+      await loadContents();
+    } catch {
+      toast.error('Gagal menolak konten.');
+    }
   };
 
   const handleOpenRevision = (item: ContentItem) => {
@@ -198,7 +163,7 @@ export default function ContentPlanPage() {
     setIsRevisionOpen(true);
   };
 
-  const handleSubmitRevision = (e: React.FormEvent) => {
+  const handleSubmitRevision = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedItem) return;
     if (!revisionText.trim()) {
@@ -206,41 +171,46 @@ export default function ContentPlanPage() {
       return;
     }
 
-    setContents(
-      contents.map((c) =>
-        c.id === selectedItem.id ? { ...c, status: 'REVISI', revisionNote: revisionText } : c,
-      ),
-    );
-    setIsRevisionOpen(false);
-    setIsViewerOpen(false);
-    toast.info(`Permintaan revisi dikirimkan kepada ${selectedItem.picName}.`);
+    try {
+      await contentService.update(selectedItem.id, {
+        status: 'REVISI' as 'PROSES',
+        revisionNote: revisionText,
+      });
+      setIsRevisionOpen(false);
+      setIsViewerOpen(false);
+      toast.info(`Permintaan revisi dikirimkan kepada ${selectedItem.picName}.`);
+      await loadContents();
+    } catch {
+      toast.error('Gagal mengirim permintaan revisi.');
+    }
   };
 
-  const handleCreateSubmit = (e: React.FormEvent) => {
+  const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.title) {
       toast.error('Harap lengkapi judul konten!');
       return;
     }
 
-    const newItem: ContentItem = {
-      id: Date.now(),
-      title: formData.title,
-      category: formData.category,
-      platform: formData.platform,
-      deadline: formData.deadline,
-      time: formData.time,
-      picName: formData.picName,
-      picRole: 'Petugas Humas',
-      status: 'MENUNGGU_REVIEW',
-      caption: formData.caption || 'Draft caption belum dilengkapi.',
-      mediaUrl: formData.mediaUrl,
-      mediaType: formData.platform.includes('Video') || formData.platform.includes('Reels') ? 'video' : 'image',
-    };
+    const { platform, contentType } = mapPlatformToApi(formData.platform);
 
-    setContents([newItem, ...contents]);
-    setIsCreateOpen(false);
-    toast.success('Rencana konten baru berhasil ditambahkan untuk direview!');
+    try {
+      await contentService.create({
+        title: formData.title,
+        category: formData.category,
+        platform: platform as 'INSTAGRAM' | 'TIKTOK' | 'YOUTUBE',
+        contentType: contentType as 'REELS' | 'VIDEO_PENDEK' | 'VIDEO_DOKUMENTER',
+        picId: resolvePicId(),
+        deadline: formData.deadline,
+        status: 'TERENCANA',
+        description: formData.caption || 'Draft caption belum dilengkapi.',
+      });
+      setIsCreateOpen(false);
+      toast.success('Rencana konten baru berhasil ditambahkan untuk direview!');
+      await loadContents();
+    } catch {
+      toast.error('Gagal menyimpan content plan ke server.');
+    }
   };
 
   const getPlatformBadge = (platform: ContentItem['platform']) => {
@@ -347,7 +317,13 @@ export default function ContentPlanPage() {
           className="group relative w-16 h-11 rounded-lg overflow-hidden border border-slate-200 shadow-2xs hover:border-teal-500 transition-all cursor-pointer"
           title="Lihat Media Viewer"
         >
-          <img src={item.mediaUrl} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+          {isValidImageSrc(item.mediaUrl) ? (
+            <img src={item.mediaUrl} alt={item.title} className="w-full h-full object-cover group-hover:scale-105 transition-transform" />
+          ) : (
+            <div className="w-full h-full bg-slate-100 flex items-center justify-center">
+              <ImageIcon className="w-4 h-4 text-slate-400" />
+            </div>
+          )}
           <div className="absolute inset-0 bg-slate-900/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
             <Eye className="w-4 h-4 text-white" />
           </div>
@@ -506,12 +482,37 @@ export default function ContentPlanPage() {
               </div>
             </div>
 
+            {selectedItem.videoUrl && (
+              <div className="p-3.5 rounded-xl bg-sky-50 border border-sky-200">
+                <h5 className="text-xs font-bold text-sky-700 uppercase tracking-wider mb-1.5">Link Video dari Kreator</h5>
+                <a
+                  href={selectedItem.videoUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-sky-800 break-all underline font-medium"
+                >
+                  {selectedItem.videoUrl}
+                </a>
+              </div>
+            )}
+
             {/* Visual Preview Box */}
-            <div className="relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 max-h-[380px] flex items-center justify-center">
-              <img src={selectedItem.mediaUrl} alt={selectedItem.title} className="w-full max-h-[380px] object-contain" />
-              {selectedItem.mediaType === 'video' && (
-                <div className="absolute inset-0 bg-black/30 flex items-center justify-center">
-                  <div className="w-14 h-14 rounded-full bg-teal-600/90 text-white flex items-center justify-center shadow-lg border-2 border-white/40 cursor-pointer hover:scale-110 transition-transform">
+            <div className="relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 max-h-[380px] flex items-center justify-center min-h-[200px]">
+              {isValidImageSrc(selectedItem.mediaUrl) ? (
+                <img src={selectedItem.mediaUrl} alt={selectedItem.title} className="w-full max-h-[380px] object-contain" />
+              ) : (
+                <div className="flex flex-col items-center gap-2 text-slate-400 py-12 px-6 text-center">
+                  <ImageIcon className="w-10 h-10" />
+                  <p className="text-xs">
+                    {selectedItem.videoUrl
+                      ? 'Poster belum tersedia di server. Buka link video di atas untuk melihat konten.'
+                      : 'Belum ada bukti konten dari kreator.'}
+                  </p>
+                </div>
+              )}
+              {selectedItem.mediaType === 'video' && isValidImageSrc(selectedItem.mediaUrl) && (
+                <div className="absolute inset-0 bg-black/30 flex items-center justify-center pointer-events-none">
+                  <div className="w-14 h-14 rounded-full bg-teal-600/90 text-white flex items-center justify-center shadow-lg border-2 border-white/40">
                     <Video className="w-6 h-6" />
                   </div>
                 </div>
@@ -543,30 +544,34 @@ export default function ContentPlanPage() {
               <CustomButton variant="outline" size="sm" onClick={() => setIsViewerOpen(false)}>
                 Tutup
               </CustomButton>
-              <CustomButton
-                variant="danger-outline"
-                size="sm"
-                icon={XCircle}
-                onClick={() => handleReject(selectedItem)}
-              >
-                Tolak (Reject)
-              </CustomButton>
-              <CustomButton
-                variant="secondary"
-                size="sm"
-                icon={RotateCcw}
-                onClick={() => handleOpenRevision(selectedItem)}
-              >
-                Minta Revisi
-              </CustomButton>
-              <CustomButton
-                variant="primary"
-                size="sm"
-                icon={CheckCircle2}
-                onClick={() => handleApprove(selectedItem)}
-              >
-                Setujui (Approve)
-              </CustomButton>
+              {selectedItem.status === 'MENUNGGU_REVIEW' && (
+                <>
+                  <CustomButton
+                    variant="danger-outline"
+                    size="sm"
+                    icon={XCircle}
+                    onClick={() => handleReject(selectedItem)}
+                  >
+                    Tolak (Reject)
+                  </CustomButton>
+                  <CustomButton
+                    variant="secondary"
+                    size="sm"
+                    icon={RotateCcw}
+                    onClick={() => handleOpenRevision(selectedItem)}
+                  >
+                    Minta Revisi
+                  </CustomButton>
+                  <CustomButton
+                    variant="primary"
+                    size="sm"
+                    icon={CheckCircle2}
+                    onClick={() => handleApprove(selectedItem)}
+                  >
+                    Setujui (Approve)
+                  </CustomButton>
+                </>
+              )}
             </div>
           </div>
         )}
@@ -684,10 +689,15 @@ export default function ContentPlanPage() {
                 onChange={(e) => setFormData({ ...formData, picName: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
               >
-                <option value="Komang Ari">Komang Ari</option>
-                <option value="Rina Wati">Rina Wati</option>
-                <option value="Budi Santoso">Budi Santoso</option>
-                <option value="Andi Saputra">Andi Saputra</option>
+                {users.length > 0 ? (
+                  users.map((u) => (
+                    <option key={u.id} value={u.fullName}>
+                      {u.fullName}
+                    </option>
+                  ))
+                ) : (
+                  <option value="">Memuat data anggota...</option>
+                )}
               </select>
             </div>
           </div>

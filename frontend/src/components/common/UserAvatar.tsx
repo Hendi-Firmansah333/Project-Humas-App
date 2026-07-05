@@ -1,5 +1,5 @@
 import React from 'react';
-import { getInitials } from '@/utils/formatters';
+import { getInitials, isValidImageSrc } from '@/utils/formatters';
 
 interface UserAvatarProps {
   src?: string;
@@ -25,7 +25,7 @@ export default function UserAvatar({
     <div
       className={`relative rounded-full overflow-hidden bg-teal-100 text-teal-800 font-bold flex items-center justify-center border border-teal-200 shadow-xs shrink-0 ${sizeClasses[size]} ${className}`}
     >
-      {src ? (
+      {isValidImageSrc(src) ? (
         <img src={src} alt={name} className="w-full h-full object-cover" />
       ) : (
         <span>{getInitials(name)}</span>

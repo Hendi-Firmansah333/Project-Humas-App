@@ -43,6 +43,11 @@ export class CreateContentPlanDto {
   @IsOptional()
   description?: string;
 
+  @ApiProperty({ example: 'Perbaiki hook video pada detik ke-3.', required: false })
+  @IsString()
+  @IsOptional()
+  revisionNote?: string;
+
   @ApiProperty({ example: 'https://images.unsplash.com/...', required: false })
   @IsString()
   @IsOptional()

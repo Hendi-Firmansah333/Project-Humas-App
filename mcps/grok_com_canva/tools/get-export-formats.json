@@ -1,0 +1,25 @@
+{
+  "name": "get-export-formats",
+  "description": "Get the available export formats for a Canva design — the formats (PDF, JPG, PNG, PPTX, GIF, MP4, CSV) supported for exporting it, and which pages support each. For each format the response may include `page_numbers`: the 1-indexed pages supporting it (omitted means every page). Use this for any question about which pages or page numbers can be exported in a format — e.g. \"which pages can be exported as MP4/PNG\", \"which pages support PDF export\", or \"which page numbers export as a video\" — rather than `get-design-pages`. Whenever a user wants to export or download a design as a specific format (PDF, PowerPoint, MP4, etc.), start here, before calling `export-design`, to confirm the format is supported — do not use `get-design` for export or download requests.",
+  "inputSchema": {
+    "type": "object",
+    "properties": {
+      "design_id": {
+        "type": "string",
+        "minLength": 11,
+        "maxLength": 11,
+        "pattern": "^D[a-zA-Z0-9_-]+$",
+        "description": "ID of the design to get export formats for. Design ID starts with \"D\"."
+      },
+      "user_intent": {
+        "type": "string",
+        "description": "Mandatory description of what the user is trying to accomplish with this tool call. This should always be provided by LLM clients. Please keep it concise (255 characters or less recommended)."
+      }
+    },
+    "required": [
+      "design_id"
+    ],
+    "additionalProperties": false,
+    "$schema": "http://json-schema.org/draft-07/schema#"
+  }
+}

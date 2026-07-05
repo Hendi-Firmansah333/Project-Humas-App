@@ -28,7 +28,7 @@ export class CreateUserDto {
   @MinLength(6)
   password: string;
 
-  @ApiProperty({ enum: Role, default: Role.JURNALIS })
+  @ApiProperty({ enum: Role, default: Role.USER })
   @IsEnum(Role)
   @IsOptional()
   role?: Role;

@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "mysql"
+  provider = "postgresql"
 }
 
 // ==========================================
@@ -12,10 +12,7 @@ datasource db {
 
 enum Role {
   ADMIN
-  TIM_DOKUMENTASI
-  FOTOGRAFER
-  VIDEOGRAFER
-  JURNALIS
+  USER
 }
 
 enum UserStatus {
@@ -194,7 +191,7 @@ model ActivityMember {
   id            Int           @id @default(autoincrement())
   activityId    Int
   userId        Int
-  role          String        @default("Fotografer")
+  role          String        @default("Anggota Humas")
   checkInStatus CheckInStatus @default(SUCCESS)
   checkInTime   String?
   selfieUrl     String?
@@ -275,9 +272,11 @@ model ContentPlan {
   deadline     DateTime
   status       ContentStatus @default(TERENCANA)
   description  String?       @db.Text
+  revisionNote String?       @db.Text
   thumbnailUrl String?
   draftUrl     String?
   videoUrl     String?
+  submittedAt  DateTime?
   media        Media[]       @relation("ContentPlanMedia")
 
   createdAt    DateTime      @default(now())
@@ -441,8 +440,8 @@ model AuditLog {
   action    String
   entity    String
   entityId  String?
-  oldValue  String?  @db.LongText
-  newValue  String?  @db.LongText
+  oldValue  String?  @db.Text
+  newValue  String?  @db.Text
   ipAddress String?
   userAgent String?
 

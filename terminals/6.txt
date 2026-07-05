@@ -1,0 +1,34 @@
+---
+pid: 23996
+cwd: "D:\MOBILE\HUMAS\Project-Humas-App"
+command: "cd \"D:\\MOBILE\\HUMAS\\Project-Humas-App\\frontend\"; npm run build"
+started_at: 2026-07-04T11:05:05.206Z
+running_for_ms: 705003   
+---
+
+> frontend@0.1.0 build
+> next build
+
+▲ Next.js 16.2.10 (Turbopack)
+- Environments: .env.local
+
+  Creating an optimized production build ...
+✓ Compiled successfully in 6.0s
+  Running TypeScript ...
+Failed to type check.
+
+./src/types/index.ts:54:18
+Type error: Interface 'ActivityInput' incorrectly extends interface 'Partial<Activity>'.
+  Types of property 'members' are incompatible.
+    Type 'ActivityMemberInput[] | undefined' is not assignable to type 'ActivityMember[] | undefined'.
+      Type 'ActivityMemberInput[]' is not assignable to type 'ActivityMember[]'.
+        Type 'ActivityMemberInput' is missing the following properties from type 'ActivityMember': id, activityId, checkInStatus, user
+
+  52 | }
+  53 |
+> 54 | export interface ActivityInput extends Partial<Activity> {
+     |                  ^
+  55 |   members?: ActivityMemberInput[];
+  56 | }
+  57 |
+Next.js build worker exited with code: 1 and signal: null

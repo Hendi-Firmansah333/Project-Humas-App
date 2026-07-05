@@ -9,7 +9,6 @@ export const api = axios.create({
   },
 });
 
-// Interceptor to inject JWT token
 api.interceptors.request.use(
   (config) => {
     if (typeof window !== 'undefined') {
@@ -22,3 +21,27 @@ api.interceptors.request.use(
   },
   (error) => Promise.reject(error),
 );
+
+api.interceptors.response.use(
+  (response) => {
+    const payload = response.data;
+    if (payload && typeof payload === 'object' && 'success' in payload && 'data' in payload) {
+      response.data = payload.data;
+    }
+    return response;
+  },
+  (error) => {
+    if (error.response?.status === 401 && typeof window !== 'undefined') {
+      localStorage.removeItem('humass_token');
+      localStorage.removeItem('humass_user');
+      if (!window.location.pathname.startsWith('/login')) {
+        window.location.href = '/login';
+      }
+    }
+    return Promise.reject(error);
+  },
+);
+
+export function unwrapData<T>(response: { data: T }): T {
+  return response.data;
+}

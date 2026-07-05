@@ -7,10 +7,17 @@ export const APP_CONFIG = {
 
 export const ROLE_OPTIONS = [
   { value: 'ADMIN', label: 'Admin Humas' },
-  { value: 'TIM_DOKUMENTASI', label: 'Tim Dokumentasi' },
-  { value: 'FOTOGRAFER', label: 'Fotografer' },
-  { value: 'VIDEOGRAFER', label: 'Videografer' },
-  { value: 'JURNALIS', label: 'Jurnalis' },
+  { value: 'USER', label: 'Anggota Humas' },
+];
+
+export const JOB_DESK_OPTIONS = [
+  'Reporter',
+  'Dokumentasi',
+  'Live Report',
+  'Operator',
+  'MC Pendamping',
+  'Koordinator Lapangan',
+  'Humas Pendamping',
 ];
 
 export const ACTIVITY_STATUS_BADGES: Record<string, { label: string; className: string }> = {
@@ -25,6 +32,10 @@ export const ACTIVITY_STATUS_BADGES: Record<string, { label: string; className: 
   AKAN_DATANG: {
     label: 'Akan Datang',
     className: 'bg-orange-100 text-orange-700 font-semibold px-3 py-1 rounded-full text-xs',
+  },
+  DIBATALKAN: {
+    label: 'Dibatalkan',
+    className: 'bg-red-100 text-red-700 font-semibold px-3 py-1 rounded-full text-xs',
   },
 };
 

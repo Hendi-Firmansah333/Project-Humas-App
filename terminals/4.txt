@@ -1,0 +1,24 @@
+---
+pid: 23408
+cwd: "D:\MOBILE\HUMAS\Project-Humas-App"
+command: "cd D:\\MOBILE\\HUMAS\\Project-Humas-App\\backend; npx prisma migrate resolve --applied 20260704120000_simplify_roles; npm run db:seed"
+started_at: 2026-07-04T10:55:36.566Z
+running_for_ms: 125014   
+---
+Loaded Prisma config from prisma.config.ts.
+
+Datasource "db": PostgreSQL database "Polihumas", schema "public" at "localhost:5432"
+Prisma schema loaded from prisma\schema.prisma.
+
+Migration 20260704120000_simplify_roles marked as applied.
+
+
+> backend@0.0.1 db:seed
+> prisma db seed
+
+Loaded Prisma config from prisma.config.ts.
+
+Running seed command `ts-node --transpile-only prisma/seed.ts` ...
+Seed selesai: { admin: 'komang.ari', activity: 'Liputan Dies Natalis POLINELA' }
+
+The seed command has been executed.

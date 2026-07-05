@@ -1,0 +1,9 @@
+---
+pid: 24712
+cwd: "D:\MOBILE\HUMAS\Project-Humas-App"
+command: "cd \"D:\\MOBILE\\HUMAS\\Project-Humas-App\\mobile\"; flutter analyze lib 2>&1 | Select-Object -First 30"
+started_at: 2026-07-04T10:30:06.679Z
+running_for_ms: 1655013  
+---
+Analyzing lib...                                                
+No issues found! (ran in 111.3s)
