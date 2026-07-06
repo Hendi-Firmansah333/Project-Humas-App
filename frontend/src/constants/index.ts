@@ -55,12 +55,12 @@ export const CONTENT_STATUS_BADGES: Record<string, { label: string; className: s
 };
 
 export const LOAN_STATUS_BADGES: Record<string, { label: string; className: string }> = {
-  DIKEMBALIKAN: {
-    label: 'Dikembalikan',
+  SELESAI: {
+    label: 'Selesai',
     className: 'bg-green-100 text-green-700 font-semibold px-3 py-1 rounded-full text-xs',
   },
-  DIPINJAM: {
-    label: 'Dipinjam',
+  SEDANG_DIPINJAM: {
+    label: 'Sedang Dipinjam',
     className: 'bg-sky-100 text-sky-700 font-semibold px-3 py-1 rounded-full text-xs',
   },
   TERLAMBAT: {

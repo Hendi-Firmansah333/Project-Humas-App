@@ -11,7 +11,7 @@ export class DashboardService {
         this.prisma.activity.count({ where: { deletedAt: null } }),
         this.prisma.user.count({ where: { status: 'AKTIF', deletedAt: null } }),
         this.prisma.contentPlan.count({ where: { deletedAt: null } }),
-        this.prisma.equipmentLoan.count({ where: { status: 'DIPINJAM', deletedAt: null } }),
+        this.prisma.equipmentLoan.count({ where: { status: 'SEDANG_DIPINJAM', deletedAt: null } }),
         this.prisma.equipmentLoan.count({ where: { status: 'TERLAMBAT', deletedAt: null } }),
         this.prisma.contentPlan.count({
           where: { deletedAt: null, status: { in: ['PROSES', 'TERENCANA', 'REVISI'] } },

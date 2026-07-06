@@ -24,12 +24,6 @@ import { LoanStatus } from '@prisma/client';
 export class EquipmentLoansController {
   constructor(private readonly equipmentLoansService: EquipmentLoansService) {}
 
-  @Get('inventory')
-  @ApiOperation({ summary: 'Daftar inventaris alat humas' })
-  getEquipmentList() {
-    return this.equipmentLoansService.getEquipmentList();
-  }
-
   @Post()
   @ApiOperation({ summary: 'Catat peminjaman alat baru' })
   create(@Body() createLoanDto: CreateLoanDto) {

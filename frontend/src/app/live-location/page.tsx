@@ -14,8 +14,9 @@ import {
   Clock,
   CheckCircle2,
   AlertCircle,
-  ExternalLink,
   Smartphone,
+  Phone,
+  MessageCircle,
 } from 'lucide-react';
 import { LocationData } from '@/types';
 import { locationService } from '@/services';
@@ -282,9 +283,9 @@ export default function LiveLocationPage() {
                 </span>
               </div>
 
-              <div className="pt-3 space-y-2 text-xs">
+              <div className="pt-3 space-y-2.5 text-xs">
                 <div>
-                  <p className="text-teal-200 font-semibold">{selectedLocation.user?.fullName}</p>
+                  <p className="text-teal-200 font-bold text-sm">{selectedLocation.user?.fullName}</p>
                   <p className="text-[11px] text-teal-100/80">{selectedLocation.user?.roleLabel}</p>
                 </div>
                 <div className="p-3 rounded-xl bg-black/20 border border-white/10 space-y-1.5">
@@ -296,9 +297,38 @@ export default function LiveLocationPage() {
                     Koordinat: {selectedLocation.latitude.toFixed(4)}, {selectedLocation.longitude.toFixed(4)}
                   </p>
                 </div>
-                <div className="flex items-center justify-between text-[11px] pt-1 text-teal-200/90">
+                <div className="flex items-center justify-between text-[11px] text-teal-200/90">
                   <span>Jarak: {selectedLocation.distance}</span>
                   <span>Sync: {selectedLocation.updatedAt}</span>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="pt-2 flex items-center gap-2">
+                  {selectedLocation.user?.phone ? (
+                    <a
+                      href={`https://wa.me/${(selectedLocation.user.phone || '').replace(/[^\d]/g, '')}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex-1 flex items-center justify-center gap-1.5 bg-green-500/20 hover:bg-green-500/30 border border-green-400/30 text-green-300 font-semibold py-2 px-3 rounded-xl text-xs transition-colors"
+                    >
+                      <MessageCircle className="w-3.5 h-3.5" />
+                      <span>WhatsApp</span>
+                    </a>
+                  ) : (
+                    <span className="flex-1 flex items-center justify-center gap-1.5 bg-slate-500/20 border border-slate-400/20 text-slate-400 font-semibold py-2 px-3 rounded-xl text-xs">
+                      <Phone className="w-3.5 h-3.5" />
+                      <span>No HP Kosong</span>
+                    </span>
+                  )}
+                  <a
+                    href={`https://www.google.com/maps?q=${selectedLocation.latitude},${selectedLocation.longitude}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex-1 flex items-center justify-center gap-1.5 bg-teal-500/20 hover:bg-teal-500/30 border border-teal-400/30 text-teal-300 font-semibold py-2 px-3 rounded-xl text-xs transition-colors"
+                  >
+                    <MapPin className="w-3.5 h-3.5" />
+                    <span>Google Maps</span>
+                  </a>
                 </div>
               </div>
             </div>

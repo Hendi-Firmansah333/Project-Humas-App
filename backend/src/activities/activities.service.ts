@@ -26,6 +26,46 @@ export class ActivitiesService {
     },
   };
 
+  private async syncStatus() {
+    const activities = await this.prisma.activity.findMany({
+      where: {
+        status: { in: [ActivityStatus.AKAN_DATANG, ActivityStatus.SEDANG_BERLANGSUNG] },
+        deletedAt: null
+      }
+    });
+
+    const now = new Date();
+    
+    for (const activity of activities) {
+      let currentStatus = activity.status;
+
+      const activityDate = new Date(activity.date);
+      const startParts = activity.startTime.split(':');
+      const endParts = activity.endTime.split(':');
+
+      const startDateTime = new Date(activityDate);
+      startDateTime.setHours(parseInt(startParts[0] || '0', 10), parseInt(startParts[1] || '0', 10), 0, 0);
+
+      const endDateTime = new Date(activityDate);
+      endDateTime.setHours(parseInt(endParts[0] || '23', 10), parseInt(endParts[1] || '59', 10), 59, 999);
+
+      if (now > endDateTime) {
+        currentStatus = ActivityStatus.SELESAI;
+      } else if (now >= startDateTime && now <= endDateTime) {
+        currentStatus = ActivityStatus.SEDANG_BERLANGSUNG;
+      } else {
+        currentStatus = ActivityStatus.AKAN_DATANG;
+      }
+
+      if (currentStatus !== activity.status) {
+        await this.prisma.activity.update({
+          where: { id: activity.id },
+          data: { status: currentStatus }
+        });
+      }
+    }
+  }
+
   private buildMemberCreates(
     members?: { userId: number; role: string }[],
     memberIds?: number[],
@@ -131,6 +171,8 @@ export class ActivitiesService {
     mobile?: boolean;
     userId?: number;
   }) {
+    await this.syncStatus();
+
     const { page, pageSize, skip, take } = parsePagination(query);
     const where = {
       ...this.buildWhere(query.status, query.search, query.history),
@@ -156,6 +198,8 @@ export class ActivitiesService {
   }
 
   async findOne(id: number, mobile = false) {
+    await this.syncStatus();
+
     const activity = await this.prisma.activity.findFirst({
       where: { id, deletedAt: null },
       include: this.activityInclude,

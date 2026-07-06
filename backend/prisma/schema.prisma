@@ -60,10 +60,9 @@ enum ContentStatus {
 }
 
 enum LoanStatus {
-  DIPINJAM
-  DIKEMBALIKAN
+  SEDANG_DIPINJAM
+  SELESAI
   TERLAMBAT
-  DIBATALKAN
 }
 
 enum NotificationType {
@@ -143,7 +142,6 @@ model User {
   contentPlans   ContentPlan[]    @relation("ContentPic")
   uploadedMedia  Media[]          @relation("MediaUploader")
   locations      Location[]
-  loans          EquipmentLoan[]  @relation("LoanBorrower")
   reports        Report[]         @relation("ReportPic")
   notifications  Notification[]
   auditLogs      AuditLog[]
@@ -313,47 +311,24 @@ model Media {
 }
 
 // ==========================================
-// MODELS: Equipment & Loans
+// MODELS: Equipment Loans (Inventory Recording)
 // ==========================================
-
-model Equipment {
-  id             Int             @id @default(autoincrement())
-  name           String
-  code           String?         @unique
-  category       String          @default("Kamera & Audio")
-  icon           String?
-  totalUnits     Int             @default(1)
-  availableUnits Int             @default(1)
-  condition      String          @default("Baik")
-  loans          EquipmentLoan[]
-
-  createdAt      DateTime        @default(now())
-  updatedAt      DateTime        @updatedAt
-  deletedAt      DateTime?
-
-  @@index([category])
-  @@index([deletedAt])
-}
 
 model EquipmentLoan {
   id               Int        @id @default(autoincrement())
-  equipmentId      Int
-  borrowerId       Int
+  borrowerName     String
+  borrowerPhone    String
+  equipmentName    String
   borrowDate       DateTime
   returnDate       DateTime
   actualReturnDate DateTime?
-  status           LoanStatus @default(DIPINJAM)
-  purpose          String?
-
-  equipment        Equipment  @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
-  borrower         User       @relation("LoanBorrower", fields: [borrowerId], references: [id], onDelete: Cascade)
+  status           LoanStatus @default(SEDANG_DIPINJAM)
+  purpose          String?    @db.Text
 
   createdAt        DateTime   @default(now())
   updatedAt        DateTime   @updatedAt
   deletedAt        DateTime?
 
-  @@index([equipmentId])
-  @@index([borrowerId])
   @@index([status, borrowDate])
   @@index([deletedAt])
 }
@@ -388,18 +363,19 @@ model Report {
 // ==========================================
 
 model Notification {
-  id        Int              @id @default(autoincrement())
-  userId    Int?
-  user      User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String
-  message   String           @db.Text
-  type      NotificationType @default(INFO)
-  isRead    Boolean          @default(false)
-  link      String?
+  id          Int              @id @default(autoincrement())
+  userId      Int?
+  user        User?            @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  message     String           @db.Text
+  type        NotificationType @default(INFO)
+  isRead      Boolean          @default(false)
+  link        String?
+  creatorName String?
 
-  createdAt DateTime         @default(now())
-  updatedAt DateTime         @updatedAt
-  deletedAt DateTime?
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+  deletedAt   DateTime?
 
   @@index([userId, isRead])
   @@index([createdAt])

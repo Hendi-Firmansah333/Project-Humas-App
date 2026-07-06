@@ -8,52 +8,54 @@ import { LoanStatus } from '@prisma/client';
 export class EquipmentLoansService {
   constructor(private prisma: PrismaService) {}
 
-  async getEquipmentList() {
-    return this.prisma.equipment.findMany();
+  // Auto-update status for overdue items
+  private async syncStatus() {
+    await this.prisma.equipmentLoan.updateMany({
+      where: {
+        status: LoanStatus.SEDANG_DIPINJAM,
+        returnDate: { lt: new Date() },
+      },
+      data: { status: LoanStatus.TERLAMBAT },
+    });
   }
 
   async createLoan(dto: CreateLoanDto) {
     return this.prisma.equipmentLoan.create({
       data: {
-        equipmentId: dto.equipmentId,
-        borrowerId: dto.borrowerId,
+        borrowerName: dto.borrowerName,
+        borrowerPhone: dto.borrowerPhone,
+        equipmentName: dto.equipmentName,
+        purpose: dto.purpose,
         borrowDate: new Date(dto.borrowDate),
         returnDate: new Date(dto.returnDate),
-        status: dto.status || LoanStatus.DIPINJAM,
-      },
-      include: {
-        equipment: true,
-        borrower: { select: { id: true, fullName: true, username: true, roleLabel: true, avatar: true } },
+        status: dto.status || LoanStatus.SEDANG_DIPINJAM,
       },
     });
   }
 
   async findAll(status?: LoanStatus, search?: string) {
+    await this.syncStatus();
+
     return this.prisma.equipmentLoan.findMany({
       where: {
         status: status || undefined,
         OR: search
           ? [
-              { equipment: { name: { contains: search } } },
-              { borrower: { fullName: { contains: search } } },
+              { equipmentName: { contains: search, mode: 'insensitive' } },
+              { borrowerName: { contains: search, mode: 'insensitive' } },
+              { borrowerPhone: { contains: search, mode: 'insensitive' } },
             ]
           : undefined,
-      },
-      include: {
-        equipment: true,
-        borrower: { select: { id: true, fullName: true, username: true, roleLabel: true, avatar: true } },
       },
       orderBy: { borrowDate: 'desc' },
     });
   }
 
   async findOne(id: number) {
+    await this.syncStatus();
+
     const loan = await this.prisma.equipmentLoan.findUnique({
       where: { id },
-      include: {
-        equipment: true,
-        borrower: { select: { id: true, fullName: true, username: true, roleLabel: true, avatar: true } },
-      },
     });
 
     if (!loan) {
@@ -63,19 +65,28 @@ export class EquipmentLoansService {
   }
 
   async update(id: number, dto: UpdateLoanDto) {
-    await this.findOne(id);
+    await this.findOne(id); // Ensure it exists and syncs
+    
+    // Check if we need to auto-update status based on the new dates
+    let currentStatus = dto.status;
+    if (dto.returnDate && (!dto.status || dto.status === LoanStatus.SEDANG_DIPINJAM)) {
+      if (new Date(dto.returnDate) < new Date()) {
+        currentStatus = LoanStatus.TERLAMBAT;
+      } else {
+        currentStatus = LoanStatus.SEDANG_DIPINJAM;
+      }
+    }
+
     return this.prisma.equipmentLoan.update({
       where: { id },
       data: {
-        equipmentId: dto.equipmentId,
-        borrowerId: dto.borrowerId,
+        borrowerName: dto.borrowerName,
+        borrowerPhone: dto.borrowerPhone,
+        equipmentName: dto.equipmentName,
+        purpose: dto.purpose,
         borrowDate: dto.borrowDate ? new Date(dto.borrowDate) : undefined,
         returnDate: dto.returnDate ? new Date(dto.returnDate) : undefined,
-        status: dto.status,
-      },
-      include: {
-        equipment: true,
-        borrower: { select: { id: true, fullName: true, username: true, roleLabel: true, avatar: true } },
+        status: currentStatus,
       },
     });
   }
@@ -84,10 +95,9 @@ export class EquipmentLoansService {
     await this.findOne(id);
     return this.prisma.equipmentLoan.update({
       where: { id },
-      data: { status: LoanStatus.DIKEMBALIKAN },
-      include: {
-        equipment: true,
-        borrower: { select: { id: true, fullName: true, username: true, roleLabel: true, avatar: true } },
+      data: { 
+        status: LoanStatus.SELESAI,
+        actualReturnDate: new Date()
       },
     });
   }

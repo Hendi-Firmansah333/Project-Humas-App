@@ -78,7 +78,7 @@ async function main() {
   const activity = existingActivity ?? await prisma.activity.create({
     data: {
       title: 'Liputan Dies Natalis POLINELA',
-      category: 'Liputan Internal',
+      category: 'Dokumentasi Kegiatan',
       date: new Date(),
       startTime: '09:00',
       endTime: '12:00',
@@ -133,29 +133,18 @@ async function main() {
   });
   }
 
-  const equipment = await prisma.equipment.upsert({
-    where: { code: 'KAM-001' },
-    update: {},
-    create: {
-      name: 'Kamera Sony A7III',
-      code: 'KAM-001',
-      category: 'Kamera & Audio',
-      totalUnits: 2,
-      availableUnits: 1,
-    },
-  });
-
   const existingLoan = await prisma.equipmentLoan.findFirst({
-    where: { equipmentId: equipment.id, borrowerId: staff.id, status: LoanStatus.DIPINJAM },
+    where: { borrowerName: staff.fullName, equipmentName: 'Kamera Sony A7III', status: LoanStatus.SEDANG_DIPINJAM },
   });
   if (!existingLoan) {
   await prisma.equipmentLoan.create({
     data: {
-      equipmentId: equipment.id,
-      borrowerId: staff.id,
+      borrowerName: staff.fullName,
+      borrowerPhone: staff.phone || '08123456789',
+      equipmentName: 'Kamera Sony A7III',
       borrowDate: new Date(),
       returnDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-      status: LoanStatus.DIPINJAM,
+      status: LoanStatus.SEDANG_DIPINJAM,
       purpose: 'Liputan Dies Natalis',
     },
   });

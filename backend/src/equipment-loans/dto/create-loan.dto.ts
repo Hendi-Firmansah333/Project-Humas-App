@@ -1,17 +1,22 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { LoanStatus } from '@prisma/client';
 
 export class CreateLoanDto {
-  @ApiProperty({ example: 1 })
-  @IsInt()
+  @ApiProperty({ example: 'Budi Santoso' })
+  @IsString()
   @IsNotEmpty()
-  equipmentId: number;
+  borrowerName: string;
 
-  @ApiProperty({ example: 2 })
-  @IsInt()
+  @ApiProperty({ example: '08123456789' })
+  @IsString()
   @IsNotEmpty()
-  borrowerId: number;
+  borrowerPhone: string;
+
+  @ApiProperty({ example: 'Kamera Sony A7III' })
+  @IsString()
+  @IsNotEmpty()
+  equipmentName: string;
 
   @ApiProperty({ example: '2025-06-01T08:00:00Z' })
   @IsString()
@@ -23,7 +28,12 @@ export class CreateLoanDto {
   @IsNotEmpty()
   returnDate: string;
 
-  @ApiProperty({ enum: LoanStatus, default: LoanStatus.DIPINJAM })
+  @ApiProperty({ example: 'Dokumentasi Acara' })
+  @IsString()
+  @IsOptional()
+  purpose?: string;
+
+  @ApiProperty({ enum: LoanStatus, default: LoanStatus.SEDANG_DIPINJAM })
   @IsEnum(LoanStatus)
   @IsOptional()
   status?: LoanStatus;

@@ -5,7 +5,8 @@ export type CheckInStatus = 'SUCCESS' | 'MISSED';
 export type Platform = 'INSTAGRAM' | 'TIKTOK' | 'YOUTUBE';
 export type ContentType = 'REELS' | 'VIDEO_PENDEK' | 'VIDEO_DOKUMENTER';
 export type ContentStatus = 'SELESAI' | 'PROSES' | 'TERENCANA' | 'REVISI' | 'DITOLAK';
-export type LoanStatus = 'DIPINJAM' | 'DIKEMBALIKAN' | 'TERLAMBAT';
+export type LoanStatus = 'SEDANG_DIPINJAM' | 'SELESAI' | 'TERLAMBAT';
+export type NotificationType = 'INFO' | 'SUCCESS' | 'WARNING' | 'ALERT';
 
 export interface User {
   id: number;
@@ -36,6 +37,7 @@ export interface ActivityMedia {
   fileName: string;
   fileUrl: string;
   fileType: string;
+  fileSize?: number;
   createdAt: string;
   uploader?: { fullName: string } | null;
 }
@@ -115,23 +117,16 @@ export interface LocationData {
   updatedAt: string;
 }
 
-export interface Equipment {
-  id: number;
-  name: string;
-  icon?: string;
-  totalUnits: number;
-  availableUnits: number;
-}
-
 export interface EquipmentLoan {
   id: number;
-  equipmentId: number;
-  borrowerId: number;
+  borrowerName: string;
+  borrowerPhone: string;
+  equipmentName: string;
   borrowDate: string;
   returnDate: string;
   status: LoanStatus;
-  equipment: Equipment;
-  borrower: User;
+  purpose?: string;
+  actualReturnDate?: string;
 }
 
 export interface ReportItem {
@@ -142,6 +137,20 @@ export interface ReportItem {
   picId: number;
   pic: User;
   status: string;
+}
+
+export interface Notification {
+  id: number;
+  userId: number | null;
+  user?: User | null;
+  title: string;
+  message: string;
+  type: NotificationType;
+  isRead: boolean;
+  link?: string | null;
+  creatorName?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface PaginatedResponse<T> {

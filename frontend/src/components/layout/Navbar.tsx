@@ -1,16 +1,27 @@
 'use client';
 
-import React, { useEffect, useState, useRef } from 'react';
-import { Search, Calendar, Bell, Menu, User as UserIcon, Settings, LogOut, ChevronRight, CheckCircle2 } from 'lucide-react';
+import React, { useEffect, useState, useRef, useCallback } from 'react';
+import { Search, Calendar, Bell, Menu, User as UserIcon, Settings, LogOut, ChevronRight, CheckCircle2, Info, AlertTriangle, AlertCircle } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import UserAvatar from '@/components/common/UserAvatar';
-import { authService } from '@/services';
+import { authService, notificationService } from '@/services';
 import { syncUserSession } from '@/utils/session';
+import { Notification } from '@/types';
+import { formatDateID } from '@/utils/formatters';
 
 interface NavbarProps {
   title?: string;
   onOpenMobileMenu?: () => void;
 }
+
+const notifIcon = (type: string) => {
+  switch (type) {
+    case 'SUCCESS': return <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />;
+    case 'WARNING': return <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />;
+    case 'ALERT': return <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />;
+    default: return <Info className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />;
+  }
+};
 
 export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu }: NavbarProps) {
   const pathname = usePathname();
@@ -24,8 +35,31 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
 
   const [showNotifs, setShowNotifs] = useState(false);
   const [showProfileMenu, setShowProfileMenu] = useState(false);
+  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const notifRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      const result = await notificationService.getAll({ pageSize: 10 });
+      const items = (result?.items ?? []) as Notification[];
+      setNotifications(items);
+      setUnreadCount(items.filter((n) => !n.isRead).length);
+    } catch {
+      // Silently fail — notifications are non-critical
+    }
+  }, []);
+
+  const handleMarkAllRead = async () => {
+    try {
+      await notificationService.markAllRead();
+      setUnreadCount(0);
+      setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    } catch {
+      // ignore
+    }
+  };
 
   useEffect(() => {
     const dateStr = new Intl.DateTimeFormat('id-ID', {
@@ -63,6 +97,7 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
     };
 
     loadUser();
+    loadNotifications();
 
     const handleClickOutside = (e: MouseEvent) => {
       if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
@@ -74,7 +109,7 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
     };
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, [pathname]);
+  }, [pathname, loadNotifications]);
 
   const handleLogout = () => {
     localStorage.removeItem('humass_token');
@@ -132,45 +167,68 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
 
         <div className="relative" ref={notifRef}>
           <button
-            onClick={() => setShowNotifs(!showNotifs)}
+            onClick={() => {
+              setShowNotifs(!showNotifs);
+              if (!showNotifs) loadNotifications();
+            }}
             className="relative p-2 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer"
           >
             <Bell className="w-5 h-5" />
-            <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center ring-2 ring-white">
-              3
-            </span>
+            {unreadCount > 0 && (
+              <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center ring-2 ring-white">
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
           </button>
 
           {showNotifs && (
             <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-xl border border-slate-200 p-4 z-50 animate-in fade-in zoom-in-95 duration-150">
               <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-3">
                 <h3 className="font-bold text-sm text-slate-800">Notifikasi Sistem</h3>
-                <span className="text-[10px] font-semibold bg-teal-100 text-teal-800 px-2 py-0.5 rounded-full">
-                  3 Baru
-                </span>
+                <div className="flex items-center gap-2">
+                  {unreadCount > 0 && (
+                    <span className="text-[10px] font-semibold bg-red-100 text-red-700 px-2 py-0.5 rounded-full">
+                      {unreadCount} Belum Dibaca
+                    </span>
+                  )}
+                  {unreadCount > 0 && (
+                    <button
+                      onClick={handleMarkAllRead}
+                      className="text-[10px] font-semibold text-teal-600 hover:text-teal-800 transition-colors cursor-pointer"
+                    >
+                      Tandai Semua
+                    </button>
+                  )}
+                </div>
               </div>
-              <div className="space-y-3 max-h-72 overflow-y-auto pr-1">
-                <div className="p-2.5 rounded-xl bg-teal-50/60 border border-teal-100 flex gap-3 text-xs">
-                  <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-slate-800">Jadwal Piket Dipublikasikan</p>
-                    <p className="text-slate-500 text-[11px] mt-0.5">Anda dijadwalkan bertugas pada minggu ini.</p>
+              <div className="space-y-2.5 max-h-72 overflow-y-auto pr-1">
+                {notifications.length === 0 ? (
+                  <div className="py-6 text-center text-slate-400 text-xs">
+                    <Bell className="w-8 h-8 mx-auto mb-2 text-slate-300" />
+                    <p>Belum ada notifikasi baru.</p>
                   </div>
-                </div>
-                <div className="p-2.5 rounded-xl hover:bg-slate-50 transition-colors flex gap-3 text-xs">
-                  <CheckCircle2 className="w-4 h-4 text-sky-600 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-slate-800">Peminjaman Alat Disetujui</p>
-                    <p className="text-slate-500 text-[11px] mt-0.5">Pengajuan pinjaman alat telah disetujui untuk kegiatan Wisuda.</p>
-                  </div>
-                </div>
-                <div className="p-2.5 rounded-xl hover:bg-slate-50 transition-colors flex gap-3 text-xs">
-                  <CheckCircle2 className="w-4 h-4 text-orange-600 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-semibold text-slate-800">Review Pengajuan Konten</p>
-                    <p className="text-slate-500 text-[11px] mt-0.5">Reels Profil Kampus membutuhkan validasi Anda.</p>
-                  </div>
-                </div>
+                ) : (
+                  notifications.map((n) => (
+                    <div
+                      key={n.id}
+                      className={`p-2.5 rounded-xl flex gap-3 text-xs transition-colors ${
+                        !n.isRead
+                          ? 'bg-teal-50/60 border border-teal-100'
+                          : 'hover:bg-slate-50 border border-transparent'
+                      }`}
+                    >
+                      {notifIcon(n.type)}
+                      <div className="flex-1 min-w-0">
+                        <p className="font-semibold text-slate-800 leading-snug">{n.title}</p>
+                        <p className="text-slate-500 text-[11px] mt-0.5 line-clamp-2">{n.message}</p>
+                        <p className="text-[10px] text-slate-400 mt-1">{formatDateID(n.createdAt)}</p>
+                      </div>
+                      {!n.isRead && (
+                        <span className="w-2 h-2 rounded-full bg-teal-500 shrink-0 mt-1" />
+                      )}
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -233,3 +291,4 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
     </header>
   );
 }
+

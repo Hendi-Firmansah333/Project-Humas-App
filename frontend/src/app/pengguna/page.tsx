@@ -29,6 +29,7 @@ import {
   Calendar,
   Shield,
   Power,
+  KeyRound,
 } from 'lucide-react';
 import { User, Role, UserStatus } from '@/types';
 import { formatDateID } from '@/utils/formatters';
@@ -48,7 +49,9 @@ export default function UserManagementPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isResetPwOpen, setIsResetPwOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [newPassword, setNewPassword] = useState('');
 
   // Form State
   const [formData, setFormData] = useState({
@@ -198,6 +201,23 @@ export default function UserManagementPage() {
     }
   };
 
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+    if (newPassword.length < 6) {
+      toast.error('Password minimal 6 karakter!');
+      return;
+    }
+    try {
+      await userService.update(selectedUser.id, { password: newPassword } as Partial<User>);
+      setIsResetPwOpen(false);
+      setNewPassword('');
+      toast.success(`Password untuk "${selectedUser.fullName}" berhasil direset!`);
+    } catch {
+      toast.error('Gagal mereset password.');
+    }
+  };
+
   const getRoleBadge = (role: Role, label: string) => {
     switch (role) {
       case 'ADMIN':
@@ -301,6 +321,17 @@ export default function UserManagementPage() {
             title="Edit Data Personel"
           >
             <Edit3 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => {
+              setSelectedUser(item);
+              setNewPassword('');
+              setIsResetPwOpen(true);
+            }}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-purple-600 hover:bg-purple-50 transition-colors cursor-pointer"
+            title="Reset Password"
+          >
+            <KeyRound className="w-4 h-4" />
           </button>
           <button
             onClick={() => handleToggleStatus(item)}
@@ -628,6 +659,47 @@ export default function UserManagementPage() {
               </CustomButton>
             </div>
           </div>
+        )}
+      </CustomModal>
+      {/* Reset Password Modal */}
+      <CustomModal
+        isOpen={isResetPwOpen}
+        onClose={() => { setIsResetPwOpen(false); setNewPassword(''); }}
+        title="Reset Password Personel"
+        subtitle={selectedUser ? `Akun: @${selectedUser.username}` : ''}
+        maxWidth="sm"
+      >
+        {selectedUser && (
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-purple-50 border border-purple-100">
+              <UserAvatar src={selectedUser.avatar} name={selectedUser.fullName} size="md" />
+              <div>
+                <p className="font-bold text-sm text-slate-800">{selectedUser.fullName}</p>
+                <p className="text-xs text-teal-600 font-semibold">{selectedUser.roleLabel}</p>
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Password Baru *</label>
+              <input
+                type="password"
+                required
+                minLength={6}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Minimal 6 karakter"
+                className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 transition-all"
+              />
+              <p className="text-[11px] text-slate-400 mt-1">Password akan dienkripsi (bcrypt) secara otomatis oleh server.</p>
+            </div>
+            <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+              <CustomButton type="button" variant="outline" onClick={() => { setIsResetPwOpen(false); setNewPassword(''); }}>
+                Batal
+              </CustomButton>
+              <CustomButton type="submit" variant="primary">
+                Reset Password
+              </CustomButton>
+            </div>
+          </form>
         )}
       </CustomModal>
     </AdminLayout>

@@ -1,5 +1,5 @@
 import { api } from '@/lib/api';
-import { Activity, ActivityInput, ContentPlan, EquipmentLoan, LocationData, ReportItem, User } from '@/types';
+import { Activity, ActivityInput, ContentPlan, EquipmentLoan, LocationData, ReportItem, User, Notification } from '@/types';
 
 export interface PaginatedApiResponse<T> {
   items: T[];
@@ -112,10 +112,6 @@ export const loanService = {
     const res = await api.get('/equipment-loans', { params });
     return res.data;
   },
-  getInventory: async () => {
-    const res = await api.get('/equipment-loans/inventory');
-    return res.data;
-  },
   create: async (data: Partial<EquipmentLoan>) => {
     const res = await api.post('/equipment-loans', data);
     return res.data;
@@ -178,7 +174,7 @@ export const reportService = {
 
 export const notificationService = {
   getAll: async (params?: Record<string, unknown>) => {
-    const res = await api.get('/notifications', { params });
+    const res = await api.get<PaginatedApiResponse<Notification>>('/notifications', { params });
     return res.data;
   },
   markAllRead: async () => {

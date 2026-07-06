@@ -349,9 +349,11 @@ export default function DashboardPage() {
               />
               <FilterDropdown
                 options={[
-                  { value: 'Liputan Resmi', label: 'Liputan Resmi' },
-                  { value: 'Konferensi Pers', label: 'Konferensi Pers' },
-                  { value: 'Media Produksi', label: 'Media Produksi' },
+                  { value: 'Peliputan Berita', label: 'Peliputan Berita' },
+                  { value: 'Dokumentasi Kegiatan', label: 'Dokumentasi Kegiatan' },
+                  { value: 'Pembuatan Konten Medsos', label: 'Pembuatan Konten Medsos' },
+                  { value: 'Live Streaming', label: 'Live Streaming' },
+                  { value: 'Publikasi Eksternal', label: 'Publikasi Eksternal' },
                 ]}
                 value={filterCategory}
                 onChange={setFilterCategory}
@@ -383,8 +385,8 @@ export default function DashboardPage() {
             <div className="space-y-3">
               <div className="p-3.5 rounded-xl bg-orange-50/60 border border-orange-100 flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-bold text-slate-800">Peminjaman Butuh Persetujuan</p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">{alerts.activeLoans} peminjaman alat sedang aktif</p>
+                  <p className="text-xs font-bold text-slate-800">Peminjaman Sedang Berjalan</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{alerts.activeLoans} pencatatan inventaris aktif</p>
                 </div>
                 <a href="/peminjaman-alat" className="text-xs font-bold text-orange-600 hover:underline">
                   Review

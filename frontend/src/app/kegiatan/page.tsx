@@ -50,7 +50,7 @@ export default function ActivityManagementPage() {
   // Form State
   const [formData, setFormData] = useState({
     title: '',
-    category: 'Liputan Resmi',
+    category: 'Peliputan Berita',
     date: new Date().toISOString().split('T')[0],
     startTime: '08:00',
     endTime: '12:00',
@@ -136,7 +136,7 @@ export default function ActivityManagementPage() {
   const handleOpenCreate = () => {
     setFormData({
       title: '',
-      category: 'Liputan Resmi',
+      category: 'Peliputan Berita',
       date: new Date().toISOString().split('T')[0],
       startTime: '08:00',
       endTime: '12:00',
@@ -412,11 +412,11 @@ export default function ActivityManagementPage() {
           <div className="flex flex-wrap items-center gap-2.5">
             <FilterDropdown
               options={[
-                { value: 'Liputan Resmi', label: 'Liputan Resmi' },
-                { value: 'Konferensi Pers', label: 'Konferensi Pers' },
-                { value: 'Media Produksi', label: 'Media Produksi' },
-                { value: 'Kerjasama', label: 'Kerjasama' },
-                { value: 'Rilis Berita', label: 'Rilis Berita' },
+                { value: 'Peliputan Berita', label: 'Peliputan Berita' },
+                { value: 'Dokumentasi Kegiatan', label: 'Dokumentasi Kegiatan' },
+                { value: 'Pembuatan Konten Medsos', label: 'Pembuatan Konten Medsos' },
+                { value: 'Live Streaming', label: 'Live Streaming' },
+                { value: 'Publikasi Eksternal', label: 'Publikasi Eksternal' },
               ]}
               value={categoryFilter}
               onChange={(val) => {
@@ -487,11 +487,11 @@ export default function ActivityManagementPage() {
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
               >
-                <option value="Liputan Resmi">Liputan Resmi</option>
-                <option value="Konferensi Pers">Konferensi Pers</option>
-                <option value="Media Produksi">Media Produksi</option>
-                <option value="Kerjasama">Kerjasama</option>
-                <option value="Rilis Berita">Rilis Berita</option>
+                <option value="Peliputan Berita">Peliputan Berita</option>
+                <option value="Dokumentasi Kegiatan">Dokumentasi Kegiatan</option>
+                <option value="Pembuatan Konten Medsos">Pembuatan Konten Medsos</option>
+                <option value="Live Streaming">Live Streaming</option>
+                <option value="Publikasi Eksternal">Publikasi Eksternal</option>
               </select>
             </div>
 
@@ -667,11 +667,11 @@ export default function ActivityManagementPage() {
                 onChange={(e) => setFormData({ ...formData, category: e.target.value })}
                 className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
               >
-                <option value="Liputan Resmi">Liputan Resmi</option>
-                <option value="Konferensi Pers">Konferensi Pers</option>
-                <option value="Media Produksi">Media Produksi</option>
-                <option value="Kerjasama">Kerjasama</option>
-                <option value="Rilis Berita">Rilis Berita</option>
+                <option value="Peliputan Berita">Peliputan Berita</option>
+                <option value="Dokumentasi Kegiatan">Dokumentasi Kegiatan</option>
+                <option value="Pembuatan Konten Medsos">Pembuatan Konten Medsos</option>
+                <option value="Live Streaming">Live Streaming</option>
+                <option value="Publikasi Eksternal">Publikasi Eksternal</option>
               </select>
             </div>
 
