@@ -19,10 +19,10 @@ import {
   User,
   MapPin,
   Trash2,
-  Edit3,
   Filter,
   Check,
   AlertCircle,
+  FileText,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { scheduleService, userService } from '@/services';
@@ -43,12 +43,13 @@ interface ScheduleEvent {
     shift: string;
     note?: string;
     avatar?: string;
+    status: string;
   };
 }
 
 type MemberOption = ReturnType<typeof userToMemberOption>;
 
-function mapScheduleToEvent(schedule: DutySchedule & { notes?: string }): ScheduleEvent {
+function mapScheduleToEvent(schedule: DutySchedule & { notes?: string; location?: string; status?: string }): ScheduleEvent {
   const dateStr = formatApiDate(schedule.date);
   const { startTime, endTime, user } = schedule;
 
@@ -62,10 +63,11 @@ function mapScheduleToEvent(schedule: DutySchedule & { notes?: string }): Schedu
       memberId: schedule.userId,
       memberName: user.fullName,
       role: user.roleLabel,
-      location: 'Posko Humas Rektorat Lt. 1',
+      location: schedule.location || 'Kantor Humas',
       shift: `${startTime} - ${endTime} WIB`,
       note: schedule.notes,
       avatar: user.avatar,
+      status: schedule.status || 'AKAN_DATANG',
     },
   };
 }
@@ -75,6 +77,12 @@ export default function SchedulePage() {
   const [membersList, setMembersList] = useState<MemberOption[]>([]);
   const [mounted, setMounted] = useState(false);
   const [searchMember, setSearchMember] = useState('');
+
+  // Filtering states
+  const [dayFilter, setDayFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [monthFilter, setMonthFilter] = useState('');
+  const [yearFilter, setYearFilter] = useState('');
   const [selectedMemberFilters, setSelectedMemberFilters] = useState<number[]>([]);
 
   // Modals state
@@ -87,21 +95,32 @@ export default function SchedulePage() {
   const [formMemberId, setFormMemberId] = useState(0);
   const [formStartTime, setFormStartTime] = useState('08:00');
   const [formEndTime, setFormEndTime] = useState('16:00');
-  const [formLocation, setFormLocation] = useState('Posko Humas Rektorat Lt. 1');
+  const [formLocation, setFormLocation] = useState('Kantor Humas');
   const [formNote, setFormNote] = useState('');
 
   const calendarRef = useRef<any>(null);
 
   const loadSchedules = async () => {
     try {
-      const schedules = await scheduleService.getAll();
+      const params: any = {};
+      if (searchMember) params.search = searchMember;
+      if (statusFilter) params.status = statusFilter;
+      if (dayFilter) params.day = dayFilter;
+      if (monthFilter) params.month = Number(monthFilter);
+      if (yearFilter) params.year = Number(yearFilter);
+
+      const schedules = await scheduleService.getAll(params);
       const list = Array.isArray(schedules) ? schedules : [];
-      setEvents(list.map((schedule) => mapScheduleToEvent(schedule as DutySchedule & { notes?: string })));
+      setEvents(list.map((schedule) => mapScheduleToEvent(schedule as DutySchedule & { notes?: string; location?: string })));
     } catch {
       toast.error('Gagal memuat jadwal piket dari server.');
       setEvents([]);
     }
   };
+
+  useEffect(() => {
+    loadSchedules();
+  }, [searchMember, statusFilter, dayFilter, monthFilter, yearFilter]);
 
   useEffect(() => {
     setMounted(true);
@@ -120,8 +139,6 @@ export default function SchedulePage() {
         setMembersList([]);
         setSelectedMemberFilters([]);
       }
-
-      await loadSchedules();
     };
 
     init();
@@ -140,11 +157,7 @@ export default function SchedulePage() {
   };
 
   const filteredEvents = events.filter((ev) => {
-    const matchMember = selectedMemberFilters.includes(ev.extendedProps.memberId);
-    const matchSearch =
-      ev.extendedProps.memberName.toLowerCase().includes(searchMember.toLowerCase()) ||
-      ev.extendedProps.location.toLowerCase().includes(searchMember.toLowerCase());
-    return matchMember && matchSearch;
+    return selectedMemberFilters.includes(ev.extendedProps.memberId);
   });
 
   const handleDateClick = (arg: any) => {
@@ -169,9 +182,10 @@ export default function SchedulePage() {
       await scheduleService.update(Number(arg.event.id), { date: `${newDate}T00:00:00Z` });
       await loadSchedules();
       toast.success(`Jadwal "${ev.extendedProps.memberName}" dipindahkan ke tanggal ${newDate}.`);
-    } catch {
+    } catch (err: any) {
       arg.revert();
-      toast.error('Gagal memindahkan jadwal piket.');
+      const msg = err.response?.data?.message || 'Gagal memindahkan jadwal piket.';
+      toast.error(msg);
     }
   };
 
@@ -189,13 +203,17 @@ export default function SchedulePage() {
         date: `${formDate}T00:00:00Z`,
         startTime: formStartTime,
         endTime: formEndTime,
+        location: formLocation,
+        notes: formNote,
       });
       await loadSchedules();
       setIsAssignOpen(false);
       setFormNote('');
+      setFormLocation('Kantor Humas');
       toast.success(`Jadwal piket berhasil ditambahkan untuk ${member.name}!`);
-    } catch {
-      toast.error('Gagal menyimpan jadwal piket.');
+    } catch (err: any) {
+      const msg = err.response?.data?.message || 'Gagal menyimpan jadwal piket.';
+      toast.error(msg);
     }
   };
 
@@ -214,6 +232,75 @@ export default function SchedulePage() {
 
   return (
     <AdminLayout title="Jadwal Piket Tim Humas">
+      {/* Spacing & Responsive Filter Bar */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div className="flex flex-col">
+          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Cari Jadwal</label>
+          <SearchBox
+            value={searchMember}
+            onChange={setSearchMember}
+            placeholder="Nama personel / lokasi..."
+            className="w-full"
+          />
+        </div>
+        <div className="flex flex-col">
+          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Hari Piket</label>
+          <select
+            value={dayFilter}
+            onChange={(e) => setDayFilter(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-850 py-2.5 px-3 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 transition-all font-medium"
+          >
+            <option value="">Semua Hari</option>
+            <option value="Senin">Senin</option>
+            <option value="Selasa">Selasa</option>
+            <option value="Rabu">Rabu</option>
+            <option value="Kamis">Kamis</option>
+            <option value="Jumat">Jumat</option>
+            <option value="Sabtu">Sabtu</option>
+            <option value="Minggu">Minggu</option>
+          </select>
+        </div>
+        <div className="flex flex-col">
+          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Status</label>
+          <select
+            value={statusFilter}
+            onChange={(e) => setStatusFilter(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-850 py-2.5 px-3 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 transition-all font-medium"
+          >
+            <option value="">Semua Status</option>
+            <option value="AKAN_DATANG">Akan Datang</option>
+            <option value="SEDANG_BERLANGSUNG">Sedang Berlangsung</option>
+            <option value="SELESAI">Selesai</option>
+          </select>
+        </div>
+        <div className="flex flex-col">
+          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Bulan</label>
+          <select
+            value={monthFilter}
+            onChange={(e) => setMonthFilter(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-850 py-2.5 px-3 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 transition-all font-medium"
+          >
+            <option value="">Semua Bulan</option>
+            {['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'].map((m, idx) => (
+              <option key={idx} value={String(idx + 1)}>{m}</option>
+            ))}
+          </select>
+        </div>
+        <div className="flex flex-col">
+          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Tahun</label>
+          <select
+            value={yearFilter}
+            onChange={(e) => setYearFilter(e.target.value)}
+            className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-850 py-2.5 px-3 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 transition-all font-medium"
+          >
+            <option value="">Semua Tahun</option>
+            <option value="2025">2025</option>
+            <option value="2026">2026</option>
+            <option value="2027">2027</option>
+          </select>
+        </div>
+      </div>
+
       <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
         {/* Calendar Sidebar - 1 Column */}
         <div className="lg:col-span-1 space-y-6">
@@ -237,7 +324,7 @@ export default function SchedulePage() {
           </div>
 
           {/* Member Filter Sidebar */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
+          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4 max-h-[500px] overflow-y-auto">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-teal-600" />
@@ -250,13 +337,6 @@ export default function SchedulePage() {
                 Reset
               </button>
             </div>
-
-            <SearchBox
-              value={searchMember}
-              onChange={setSearchMember}
-              placeholder="Cari nama personel..."
-              className="w-full"
-            />
 
             <div className="space-y-2.5 pt-1">
               {membersList.map((m) => {
@@ -272,8 +352,8 @@ export default function SchedulePage() {
                     <div className="flex items-center gap-2.5 min-w-0">
                       <UserAvatar src={m.avatar} name={m.name} size="sm" />
                       <div className="truncate">
-                        <p className="font-bold truncate">{m.name}</p>
-                        <p className="text-[10px] opacity-80 truncate">{m.role}</p>
+                        <p className="font-bold truncate text-slate-800">{m.name}</p>
+                        <p className="text-[10px] text-slate-400 truncate">{m.role}</p>
                       </div>
                     </div>
                     <div
@@ -298,7 +378,6 @@ export default function SchedulePage() {
               ref={calendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
               initialView="dayGridMonth"
-              initialDate="2025-05-01" // Default May 2025 matching Image 3 specification
               headerToolbar={{
                 left: 'prev,next today',
                 center: 'title',
@@ -324,7 +403,7 @@ export default function SchedulePage() {
           ) : (
             <div className="w-full h-[600px] bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 text-xs gap-2">
               <div className="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
-              Memuat Jadwal Piket FullCalendar...
+              Memuat Jadwal Piket...
             </div>
           )}
         </div>
@@ -395,7 +474,7 @@ export default function SchedulePage() {
               required
               value={formLocation}
               onChange={(e) => setFormLocation(e.target.value)}
-              placeholder="Contoh: Posko Humas Rektorat Lt. 1"
+              placeholder="Contoh: Kantor Humas"
               className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
             />
           </div>
@@ -447,6 +526,21 @@ export default function SchedulePage() {
               <div className="flex items-center gap-2.5">
                 <MapPin className="w-4 h-4 text-teal-600 shrink-0" />
                 <span><strong>Lokasi Posko:</strong> {selectedEvent.extendedProps.location}</span>
+              </div>
+              <div className="flex items-center gap-2.5">
+                <FileText className="w-4 h-4 text-teal-600 shrink-0" />
+                <span>
+                  <strong>Status Piket: </strong>
+                  <span className={`font-semibold px-2 py-0.5 rounded-md text-[10px] uppercase ${
+                    selectedEvent.extendedProps.status === 'SELESAI'
+                      ? 'bg-emerald-50 text-emerald-700 border border-emerald-250'
+                      : selectedEvent.extendedProps.status === 'SEDANG_BERLANGSUNG'
+                        ? 'bg-amber-50 text-amber-700 border border-amber-250 animate-pulse'
+                        : 'bg-blue-50 text-blue-700 border border-blue-250'
+                  }`}>
+                    {selectedEvent.extendedProps.status.replace('_', ' ')}
+                  </span>
+                </span>
               </div>
               {selectedEvent.extendedProps.note && (
                 <div className="p-3 bg-teal-50/50 rounded-xl border border-teal-100/80 text-teal-900 mt-2">

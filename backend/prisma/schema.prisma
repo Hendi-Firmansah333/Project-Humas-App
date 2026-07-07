@@ -26,6 +26,7 @@ enum ActivityStatus {
   SEDANG_BERLANGSUNG
   AKAN_DATANG
   DIBATALKAN
+  MENUNGGU_VALIDASI
 }
 
 enum CheckInStatus {
@@ -52,11 +53,13 @@ enum ContentType {
 }
 
 enum ContentStatus {
-  SELESAI
+  DRAFT
+  MENUNGGU
   PROSES
-  TERENCANA
   REVISI
-  DITOLAK
+  PUBLISHED
+  SELESAI
+  DIBATALKAN
 }
 
 enum LoanStatus {
@@ -145,6 +148,7 @@ model User {
   reports        Report[]         @relation("ReportPic")
   notifications  Notification[]
   auditLogs      AuditLog[]
+  validatedActivities Activity[] @relation("ActivityValidator")
 
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
@@ -175,6 +179,10 @@ model Activity {
   members     ActivityMember[]
   attendances Attendance[]
   media       Media[]          @relation("ActivityMedia")
+  validatedById Int?
+  validatedBy User?            @relation("ActivityValidator", fields: [validatedById], references: [id])
+  validatedAt DateTime?
+  validationNotes String?
 
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
@@ -244,7 +252,9 @@ model DutySchedule {
   userId      Int
   user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   shiftName   String?      @default("Pagi")
-  notes       String?
+  notes       String?      // Keterangan
+  location    String?      // Lokasi
+  status      String       @default("AKAN_DATANG") // AKAN_DATANG, SEDANG_BERLANGSUNG, SELESAI
   attendances Attendance[]
 
   createdAt   DateTime     @default(now())
@@ -264,11 +274,11 @@ model ContentPlan {
   title        String
   category     String?
   platform     Platform      @default(INSTAGRAM)
-  contentType  ContentType   @default(REELS)
+  contentType  String        @default("Reels")
   picId        Int
   pic          User          @relation("ContentPic", fields: [picId], references: [id])
   deadline     DateTime
-  status       ContentStatus @default(TERENCANA)
+  status       ContentStatus @default(DRAFT)
   description  String?       @db.Text
   revisionNote String?       @db.Text
   thumbnailUrl String?

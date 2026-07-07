@@ -6,55 +6,126 @@ export class DashboardService {
   constructor(private prisma: PrismaService) {}
 
   async getDashboardSummary() {
-    const [totalActivities, totalUsers, totalContentPlans, activeLoans, overdueLoans, pendingContent] =
-      await Promise.all([
-        this.prisma.activity.count({ where: { deletedAt: null } }),
-        this.prisma.user.count({ where: { status: 'AKTIF', deletedAt: null } }),
-        this.prisma.contentPlan.count({ where: { deletedAt: null } }),
-        this.prisma.equipmentLoan.count({ where: { status: 'SEDANG_DIPINJAM', deletedAt: null } }),
-        this.prisma.equipmentLoan.count({ where: { status: 'TERLAMBAT', deletedAt: null } }),
-        this.prisma.contentPlan.count({
-          where: { deletedAt: null, status: { in: ['PROSES', 'TERENCANA', 'REVISI'] } },
-        }),
-      ]);
+    const [
+      // Statistik Kegiatan
+      totalActivities,
+      upcomingActivities,
+      ongoingActivities,
+      completedActivities,
+      // Statistik Content Plan
+      totalContentPlans,
+      draftContent,
+      processContent,
+      publishedContent,
+      // Statistik Peminjaman
+      totalLoans,
+      activeLoans,
+      returnedLoans,
+      overdueLoans,
+      // Statistik Pengguna
+      totalUsers,
+      adminUsers,
+      memberUsers,
+      // Lists for display
+      recentActivities,
+      recentNotifications,
+      upcomingActivitiesList,
+      upcomingContentPlansList,
+      dueLoansList,
+      recentCheckIns,
+    ] = await Promise.all([
+      // Statistik Kegiatan
+      this.prisma.activity.count({ where: { deletedAt: null } }),
+      this.prisma.activity.count({ where: { status: 'AKAN_DATANG', deletedAt: null } }),
+      this.prisma.activity.count({ where: { status: 'SEDANG_BERLANGSUNG', deletedAt: null } }),
+      this.prisma.activity.count({ where: { status: 'SELESAI', deletedAt: null } }),
 
-    const recentActivities = await this.prisma.activity.findMany({
-      where: { deletedAt: null },
-      take: 5,
-      orderBy: { date: 'desc' },
-      include: {
-        pic: {
-          select: {
-            id: true,
-            fullName: true,
-            username: true,
-            roleLabel: true,
-            avatar: true,
-          },
+      // Statistik Content Plan
+      this.prisma.contentPlan.count({ where: { deletedAt: null } }),
+      this.prisma.contentPlan.count({ where: { status: 'DRAFT', deletedAt: null } }),
+      this.prisma.contentPlan.count({ where: { status: 'PROSES', deletedAt: null } }),
+      this.prisma.contentPlan.count({ where: { status: 'PUBLISHED', deletedAt: null } }),
+
+      // Statistik Peminjaman
+      this.prisma.equipmentLoan.count({ where: { deletedAt: null } }),
+      this.prisma.equipmentLoan.count({ where: { status: 'SEDANG_DIPINJAM', deletedAt: null } }),
+      this.prisma.equipmentLoan.count({ where: { status: 'SELESAI', deletedAt: null } }),
+      this.prisma.equipmentLoan.count({ where: { status: 'TERLAMBAT', deletedAt: null } }),
+
+      // Statistik Pengguna
+      this.prisma.user.count({ where: { deletedAt: null } }),
+      this.prisma.user.count({ where: { role: 'ADMIN', deletedAt: null } }),
+      this.prisma.user.count({ where: { role: 'USER', deletedAt: null } }),
+
+      // Lists for display
+      this.prisma.activity.findMany({
+        where: { deletedAt: null },
+        take: 5,
+        orderBy: { date: 'desc' },
+        include: { pic: { select: { id: true, fullName: true, username: true, roleLabel: true, avatar: true } } },
+      }),
+      this.prisma.notification.findMany({
+        where: { deletedAt: null },
+        take: 5,
+        orderBy: { createdAt: 'desc' },
+      }),
+      this.prisma.activity.findMany({
+        where: { status: 'AKAN_DATANG', deletedAt: null },
+        take: 5,
+        orderBy: { date: 'asc' },
+        include: { pic: { select: { id: true, fullName: true, username: true, roleLabel: true, avatar: true } } },
+      }),
+      this.prisma.contentPlan.findMany({
+        where: { status: { in: ['DRAFT', 'MENUNGGU', 'PROSES', 'REVISI'] }, deletedAt: null },
+        take: 5,
+        orderBy: { deadline: 'asc' },
+        include: { pic: { select: { id: true, fullName: true, username: true, roleLabel: true, avatar: true } } },
+      }),
+      this.prisma.equipmentLoan.findMany({
+        where: { status: { in: ['SEDANG_DIPINJAM', 'TERLAMBAT'] }, deletedAt: null },
+        take: 5,
+        orderBy: { returnDate: 'asc' },
+      }),
+      this.prisma.activityMember.findMany({
+        where: { checkInTime: { not: null } },
+        take: 5,
+        orderBy: { updatedAt: 'desc' },
+        include: {
+          user: { select: { fullName: true, roleLabel: true } },
+          activity: { select: { location: true } },
         },
-      },
-    });
-
-    const recentCheckIns = await this.prisma.activityMember.findMany({
-      where: { checkInTime: { not: null } },
-      take: 5,
-      orderBy: { updatedAt: 'desc' },
-      include: {
-        user: { select: { fullName: true, roleLabel: true } },
-        activity: { select: { location: true } },
-      },
-    });
+      }),
+    ]);
 
     const monthlyStats = await this.buildMonthlyStats();
 
     return {
       statistics: {
+        // Kegiatan
         totalActivities,
-        totalUsers,
+        upcomingActivities,
+        ongoingActivities,
+        completedActivities,
+        // Content Plan
         totalContentPlans,
+        draftContent,
+        processContent,
+        publishedContent,
+        // Peminjaman
+        totalLoans,
         activeLoans,
+        returnedLoans,
+        overdueLoans,
+        // Pengguna
+        totalUsers,
+        adminUsers,
+        memberUsers,
       },
       recentActivities,
+      recentNotifications,
+      upcomingActivitiesList,
+      upcomingContentPlansList,
+      dueLoansList,
       recentCheckIns: recentCheckIns.map((row) => ({
         id: row.id,
         name: row.user.fullName,
@@ -64,11 +135,6 @@ export class DashboardService {
         status: row.checkInStatus === 'SUCCESS' ? 'SUCCESS' : 'MISSED',
       })),
       monthlyStats,
-      alerts: {
-        pendingContent,
-        activeLoans,
-        overdueLoans,
-      },
     };
   }
 

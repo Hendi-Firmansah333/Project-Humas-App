@@ -14,6 +14,7 @@ import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger'
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdatePasswordDto } from './dto/update-password.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -59,6 +60,16 @@ export class UsersController {
     @Body() updateUserDto: UpdateUserDto,
   ) {
     return this.usersService.update(id, updateUserDto);
+  }
+
+  @Patch(':id/password')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Reset password personel oleh Admin' })
+  updatePassword(
+    @Param('id', ParseIntPipe) id: number,
+    @Body() dto: UpdatePasswordDto,
+  ) {
+    return this.usersService.updatePassword(id, dto);
   }
 
   @Delete(':id')

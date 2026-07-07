@@ -53,6 +53,9 @@ export default function UserManagementPage() {
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
   const [newPassword, setNewPassword] = useState('');
 
+  const [createdCredentials, setCreatedCredentials] = useState<{ username: string; email: string } | null>(null);
+  const [isCredsOpen, setIsCredsOpen] = useState(false);
+
   // Form State
   const [formData, setFormData] = useState({
     fullName: '',
@@ -138,18 +141,22 @@ export default function UserManagementPage() {
       return;
     }
 
+    const finalUsername = formData.username || formData.fullName.toLowerCase().replace(/\s+/g, '.');
+
     try {
       await userService.create({
         fullName: formData.fullName,
-        username: formData.username || formData.fullName.toLowerCase().replace(/\s+/g, '.'),
+        username: finalUsername,
         email: formData.email,
         phone: formData.phone,
         role: formData.role,
         roleLabel: getRoleLabel(formData.role),
         status: formData.status,
-        password: 'humas123',
+        password: 'polinela123',
       });
       setIsCreateOpen(false);
+      setCreatedCredentials({ username: finalUsername, email: formData.email });
+      setIsCredsOpen(true);
       toast.success('Personel baru berhasil ditambahkan ke dalam sistem HUMASS!');
       await loadUsers();
     } catch {
@@ -204,15 +211,10 @@ export default function UserManagementPage() {
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedUser) return;
-    if (newPassword.length < 6) {
-      toast.error('Password minimal 6 karakter!');
-      return;
-    }
     try {
-      await userService.update(selectedUser.id, { password: newPassword } as Partial<User>);
+      await userService.updatePassword(selectedUser.id, { password: 'polinela123' });
       setIsResetPwOpen(false);
-      setNewPassword('');
-      toast.success(`Password untuk "${selectedUser.fullName}" berhasil direset!`);
+      toast.success(`Password untuk "${selectedUser.fullName}" berhasil direset menjadi "polinela123"!`);
     } catch {
       toast.error('Gagal mereset password.');
     }
@@ -664,42 +666,74 @@ export default function UserManagementPage() {
       {/* Reset Password Modal */}
       <CustomModal
         isOpen={isResetPwOpen}
-        onClose={() => { setIsResetPwOpen(false); setNewPassword(''); }}
+        onClose={() => { setIsResetPwOpen(false); }}
         title="Reset Password Personel"
         subtitle={selectedUser ? `Akun: @${selectedUser.username}` : ''}
         maxWidth="sm"
       >
         {selectedUser && (
           <form onSubmit={handleResetPassword} className="space-y-4">
-            <div className="flex items-center gap-3 p-3 rounded-xl bg-purple-50 border border-purple-100">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-250">
               <UserAvatar src={selectedUser.avatar} name={selectedUser.fullName} size="md" />
               <div>
                 <p className="font-bold text-sm text-slate-800">{selectedUser.fullName}</p>
-                <p className="text-xs text-teal-600 font-semibold">{selectedUser.roleLabel}</p>
+                <p className="text-xs text-teal-650 font-semibold">{selectedUser.roleLabel}</p>
               </div>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Password Baru *</label>
-              <input
-                type="password"
-                required
-                minLength={6}
-                value={newPassword}
-                onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Minimal 6 karakter"
-                className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-purple-500/20 focus:border-purple-600 transition-all"
-              />
-              <p className="text-[11px] text-slate-400 mt-1">Password akan dienkripsi (bcrypt) secara otomatis oleh server.</p>
+            <div className="py-2">
+              <p className="text-xs text-slate-650 leading-relaxed">
+                Apakah Anda yakin ingin mereset password personel ini? Password akan diatur kembali ke password default: <strong className="text-teal-600 font-bold">polinela123</strong>.
+              </p>
             </div>
             <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
-              <CustomButton type="button" variant="outline" onClick={() => { setIsResetPwOpen(false); setNewPassword(''); }}>
+              <CustomButton type="button" variant="outline" onClick={() => { setIsResetPwOpen(false); }}>
                 Batal
               </CustomButton>
               <CustomButton type="submit" variant="primary">
-                Reset Password
+                Ya, Reset Password
               </CustomButton>
             </div>
           </form>
+        )}
+      </CustomModal>
+
+      {/* Credentials Confirmation Dialog */}
+      <CustomModal
+        isOpen={isCredsOpen}
+        onClose={() => setIsCredsOpen(false)}
+        title="Personel Berhasil Ditambahkan"
+        subtitle="Bagikan informasi kredensial login berikut."
+        maxWidth="sm"
+      >
+        {createdCredentials && (
+          <div className="space-y-4">
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
+              <p><strong>Username:</strong> <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-150">{createdCredentials.username}</span></p>
+              <p><strong>Password Default:</strong> <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-150">polinela123</span></p>
+              <p className="text-[11px] text-slate-400">Gunakan kredensial di atas untuk masuk ke sistem HUMASS.</p>
+            </div>
+            <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
+              <CustomButton
+                type="button"
+                variant="primary"
+                className="w-full justify-center"
+                onClick={() => {
+                  navigator.clipboard.writeText(`Halo! Berikut kredensial login Anda untuk sistem HUMASS:\nUsername: ${createdCredentials.username}\nPassword Default: polinela123\nSilakan login di portal resmi.`);
+                  toast.success('Kredensial disalin ke clipboard!');
+                }}
+              >
+                Salin Kredensial
+              </CustomButton>
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(`Halo! Berikut kredensial login Anda untuk sistem HUMASS:\nUsername: ${createdCredentials.username}\nPassword Default: polinela123`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-colors w-full"
+              >
+                Bagikan via WhatsApp
+              </a>
+            </div>
+          </div>
         )}
       </CustomModal>
     </AdminLayout>

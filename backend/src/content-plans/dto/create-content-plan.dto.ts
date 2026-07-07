@@ -1,6 +1,6 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
-import { Platform, ContentType, ContentStatus } from '@prisma/client';
+import { Platform, ContentStatus } from '@prisma/client';
 
 export class CreateContentPlanDto {
   @ApiProperty({ example: 'Rilis Berita Prestasi Mahasiswa' })
@@ -8,20 +8,15 @@ export class CreateContentPlanDto {
   @IsNotEmpty()
   title: string;
 
-  @ApiProperty({ example: 'Prestasi Akademik', required: false })
-  @IsString()
-  @IsOptional()
-  category?: string;
-
   @ApiProperty({ enum: Platform, default: Platform.INSTAGRAM })
   @IsEnum(Platform)
   @IsOptional()
   platform?: Platform;
 
-  @ApiProperty({ enum: ContentType, default: ContentType.REELS })
-  @IsEnum(ContentType)
+  @ApiProperty({ example: 'Reels', default: 'Reels' })
+  @IsString()
   @IsOptional()
-  contentType?: ContentType;
+  contentType?: string;
 
   @ApiProperty({ example: 1 })
   @IsInt()
@@ -33,7 +28,7 @@ export class CreateContentPlanDto {
   @IsNotEmpty()
   deadline: string;
 
-  @ApiProperty({ enum: ContentStatus, default: ContentStatus.TERENCANA })
+  @ApiProperty({ enum: ContentStatus, default: ContentStatus.DRAFT })
   @IsEnum(ContentStatus)
   @IsOptional()
   status?: ContentStatus;

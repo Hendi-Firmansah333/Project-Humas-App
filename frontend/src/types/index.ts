@@ -1,10 +1,10 @@
 export type Role = 'ADMIN' | 'USER';
 export type UserStatus = 'AKTIF' | 'NONAKTIF';
 export type ActivityStatus = 'SELESAI' | 'SEDANG_BERLANGSUNG' | 'AKAN_DATANG' | 'DIBATALKAN';
-export type CheckInStatus = 'SUCCESS' | 'MISSED';
+export type CheckInStatus = 'SUCCESS' | 'MISSED' | 'TERLAMBAT';
 export type Platform = 'INSTAGRAM' | 'TIKTOK' | 'YOUTUBE';
 export type ContentType = 'REELS' | 'VIDEO_PENDEK' | 'VIDEO_DOKUMENTER';
-export type ContentStatus = 'SELESAI' | 'PROSES' | 'TERENCANA' | 'REVISI' | 'DITOLAK';
+export type ContentStatus = 'DRAFT' | 'MENUNGGU' | 'PROSES' | 'REVISI' | 'PUBLISHED' | 'SELESAI' | 'DIBATALKAN';
 export type LoanStatus = 'SEDANG_DIPINJAM' | 'SELESAI' | 'TERLAMBAT';
 export type NotificationType = 'INFO' | 'SUCCESS' | 'WARNING' | 'ALERT';
 
@@ -18,6 +18,7 @@ export interface User {
   roleLabel: string;
   avatar?: string;
   status: UserStatus;
+  isActive?: boolean;
   joinedAt: string;
 }
 
@@ -47,6 +48,16 @@ export interface ActivityMemberInput {
   role: string;
 }
 
+export interface ActivityAttendance {
+  id: number;
+  activityId: number;
+  userId: number;
+  latitude?: number;
+  longitude?: number;
+  checkInAt?: string;
+  user?: User;
+}
+
 export interface Activity {
   id: number;
   title: string;
@@ -61,6 +72,13 @@ export interface Activity {
   pic: User;
   members?: ActivityMember[];
   media?: ActivityMedia[];
+  attendances?: ActivityAttendance[];
+  updatedAt: string;
+  createdAt?: string;
+  validatedById?: number;
+  validatedBy?: User;
+  validatedAt?: string;
+  validationNotes?: string;
 }
 
 export interface ActivityInput {
@@ -87,12 +105,21 @@ export interface DutySchedule {
   shiftName?: string;
 }
 
+export interface ContentPlanMedia {
+  id: number;
+  fileName: string;
+  fileUrl: string;
+  fileType: string;
+  fileSize?: number;
+  createdAt: string;
+  uploader?: { fullName: string } | null;
+}
+
 export interface ContentPlan {
   id: number;
   title: string;
-  category?: string;
   platform: Platform;
-  contentType: ContentType;
+  contentType: string;
   picId: number;
   pic: User;
   deadline: string;
@@ -103,6 +130,7 @@ export interface ContentPlan {
   draftUrl?: string;
   videoUrl?: string;
   submittedAt?: string;
+  media?: ContentPlanMedia[];
 }
 
 export interface LocationData {

@@ -30,15 +30,58 @@ export class EquipmentLoansController {
     return this.equipmentLoansService.createLoan(createLoanDto);
   }
 
-  @Get()
+  @Get('history')
   @ApiOperation({ summary: 'Daftar riwayat peminjaman peralatan' })
   @ApiQuery({ name: 'status', enum: LoanStatus, required: false })
   @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'startDate', required: false })
+  @ApiQuery({ name: 'endDate', required: false })
+  @ApiQuery({ name: 'month', required: false })
+  @ApiQuery({ name: 'year', required: false })
+  findHistory(
+    @Query('status') status?: LoanStatus,
+    @Query('search') search?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('month') month?: number,
+    @Query('year') year?: number,
+  ) {
+    return this.equipmentLoansService.findAll({
+      status,
+      search,
+      startDate,
+      endDate,
+      month: month ? Number(month) : undefined,
+      year: year ? Number(year) : undefined,
+      history: true,
+    });
+  }
+
+  @Get()
+  @ApiOperation({ summary: 'Daftar peminjaman peralatan aktif' })
+  @ApiQuery({ name: 'status', enum: LoanStatus, required: false })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'startDate', required: false })
+  @ApiQuery({ name: 'endDate', required: false })
+  @ApiQuery({ name: 'month', required: false })
+  @ApiQuery({ name: 'year', required: false })
   findAll(
     @Query('status') status?: LoanStatus,
     @Query('search') search?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('month') month?: number,
+    @Query('year') year?: number,
   ) {
-    return this.equipmentLoansService.findAll(status, search);
+    return this.equipmentLoansService.findAll({
+      status,
+      search,
+      startDate,
+      endDate,
+      month: month ? Number(month) : undefined,
+      year: year ? Number(year) : undefined,
+      history: false,
+    });
   }
 
   @Get(':id')
@@ -60,6 +103,12 @@ export class EquipmentLoansController {
   @ApiOperation({ summary: 'Verifikasi pengembalian alat' })
   verifyReturn(@Param('id', ParseIntPipe) id: number) {
     return this.equipmentLoansService.verifyReturn(id);
+  }
+
+  @Patch(':id/restore')
+  @ApiOperation({ summary: 'Mengaktifkan kembali peminjaman alat yang sudah selesai' })
+  restore(@Param('id', ParseIntPipe) id: number) {
+    return this.equipmentLoansService.restore(id);
   }
 
   @Delete(':id')

@@ -15,14 +15,17 @@ const activityStatusLabel: Record<ActivityStatus, string> = {
   SEDANG_BERLANGSUNG: 'Sedang Berlangsung',
   SELESAI: 'Selesai',
   DIBATALKAN: 'Dibatalkan',
+  MENUNGGU_VALIDASI: 'Menunggu Validasi',
 };
 
 const contentStatusToMobile: Record<ContentStatus, string> = {
-  TERENCANA: 'belumDikerjakan',
+  DRAFT: 'belumDikerjakan',
+  MENUNGGU: 'belumDikerjakan',
   PROSES: 'sedangDikerjakan',
   REVISI: 'sedangDikerjakan',
+  PUBLISHED: 'selesai',
   SELESAI: 'selesai',
-  DITOLAK: 'belumDikerjakan',
+  DIBATALKAN: 'belumDikerjakan',
 };
 
 const checkInStatusToState = (status?: CheckInStatus | null) => {
@@ -97,16 +100,16 @@ export function mapActivityForMobile(
 }
 
 function resolveMobileContentStatus(plan: ContentPlan) {
-  if (plan.status === 'SELESAI') return 'selesai';
+  if (plan.status === 'SELESAI' || plan.status === 'PUBLISHED') return 'selesai';
   if (plan.status === 'REVISI') return 'perluRevisi';
-  if (plan.status === 'DITOLAK') return 'ditolak';
+  if (plan.status === 'DIBATALKAN') return 'ditolak';
   if (plan.status === 'PROSES' && plan.videoUrl) return 'menungguReview';
   if (plan.status === 'PROSES') return 'sedangDikerjakan';
   return 'belumDikerjakan';
 }
 
 function canSubmitContent(plan: ContentPlan) {
-  if (plan.status === 'SELESAI' || plan.status === 'DITOLAK') return false;
+  if (plan.status === 'SELESAI' || plan.status === 'PUBLISHED' || plan.status === 'DIBATALKAN') return false;
   if (plan.status === 'PROSES' && plan.videoUrl) return false;
   return true;
 }

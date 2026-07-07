@@ -42,6 +42,10 @@ export class ActivitiesController {
   @ApiQuery({ name: 'pageSize', required: false })
   @ApiQuery({ name: 'search', required: false })
   @ApiQuery({ name: 'status', required: false })
+  @ApiQuery({ name: 'startDate', required: false })
+  @ApiQuery({ name: 'endDate', required: false })
+  @ApiQuery({ name: 'month', required: false })
+  @ApiQuery({ name: 'year', required: false })
   @ApiQuery({ name: 'mobile', required: false })
   findHistory(
     @Request() req: any,
@@ -49,6 +53,10 @@ export class ActivitiesController {
     @Query('pageSize') pageSize?: number,
     @Query('search') search?: string,
     @Query('status') status?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('month') month?: number,
+    @Query('year') year?: number,
     @Query('mobile') mobile?: string,
   ) {
     const isMobile = mobile === 'true' || mobile === '1';
@@ -58,6 +66,10 @@ export class ActivitiesController {
       pageSize,
       search,
       status: parsedStatus,
+      startDate,
+      endDate,
+      month: month ? Number(month) : undefined,
+      year: year ? Number(year) : undefined,
       history: true,
       mobile: isMobile,
       userId: isMobile ? req.user.id : undefined,
@@ -70,6 +82,10 @@ export class ActivitiesController {
   @ApiQuery({ name: 'pageSize', required: false })
   @ApiQuery({ name: 'status', enum: ActivityStatus, required: false })
   @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'startDate', required: false })
+  @ApiQuery({ name: 'endDate', required: false })
+  @ApiQuery({ name: 'month', required: false })
+  @ApiQuery({ name: 'year', required: false })
   @ApiQuery({ name: 'mobile', required: false })
   findAll(
     @Request() req: any,
@@ -77,6 +93,10 @@ export class ActivitiesController {
     @Query('pageSize') pageSize?: number,
     @Query('status') status?: string,
     @Query('search') search?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('month') month?: number,
+    @Query('year') year?: number,
     @Query('mobile') mobile?: string,
   ) {
     const isMobile = mobile === 'true' || mobile === '1';
@@ -86,9 +106,19 @@ export class ActivitiesController {
       pageSize,
       status: parsedStatus,
       search,
+      startDate,
+      endDate,
+      month: month ? Number(month) : undefined,
+      year: year ? Number(year) : undefined,
       mobile: isMobile,
       userId: isMobile ? req.user.id : undefined,
     });
+  }
+
+  @Get('categories')
+  @ApiOperation({ summary: 'Daftar semua kategori kegiatan yang ada' })
+  getCategories() {
+    return this.activitiesService.getCategories();
   }
 
   @Get(':id')
@@ -96,6 +126,24 @@ export class ActivitiesController {
   @ApiQuery({ name: 'mobile', required: false })
   findOne(@Param('id', ParseIntPipe) id: number, @Query('mobile') mobile?: string) {
     return this.activitiesService.findOne(id, mobile === 'true' || mobile === '1');
+  }
+
+  @Patch(':id/restore')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Aktifkan kembali kegiatan yang sudah selesai' })
+  restore(@Param('id', ParseIntPipe) id: number) {
+    return this.activitiesService.restore(id);
+  }
+
+  @Patch(':id/validate')
+  @Roles(Role.ADMIN)
+  @ApiOperation({ summary: 'Validasi penyelesaian kegiatan oleh Admin' })
+  validate(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: any,
+    @Body('notes') notes?: string,
+  ) {
+    return this.activitiesService.validateActivity(id, req.user.id, notes);
   }
 
   @Patch(':id')

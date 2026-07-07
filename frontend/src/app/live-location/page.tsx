@@ -32,6 +32,7 @@ export default function LiveLocationPage() {
   const [mapCenter, setMapCenter] = useState<[number, number]>(DEFAULT_CENTER);
   const [mapZoom, setMapZoom] = useState<number>(16);
   const [searchQuery, setSearchQuery] = useState('');
+  const [statusRosterFilter, setStatusRosterFilter] = useState('semua');
   const [refreshing, setRefreshing] = useState(false);
 
   const loadLocations = async () => {
@@ -78,10 +79,18 @@ export default function LiveLocationPage() {
     toast.info(`Fokus ke lokasi: ${loc.user?.fullName}`);
   };
 
-  const filteredLocations = locations.filter((l) =>
-    (l.user?.fullName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
-    l.address.toLowerCase().includes(searchQuery.toLowerCase()),
-  );
+  const filteredLocations = locations.filter((l) => {
+    const matchSearch =
+      (l.user?.fullName || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      l.address.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchStatus =
+      statusRosterFilter === 'semua'
+        ? true
+        : statusRosterFilter === 'online'
+        ? l.isOnline
+        : !l.isOnline;
+    return matchSearch && matchStatus;
+  });
 
   const onlineList = filteredLocations.filter((l) => l.isOnline);
   const offlineList = filteredLocations.filter((l) => !l.isOnline);
@@ -194,6 +203,28 @@ export default function LiveLocationPage() {
             </h3>
 
             <SearchBox value={searchQuery} onChange={setSearchQuery} placeholder="Cari nama personel..." className="w-full" />
+
+            {/* Status Roster Filter Pills */}
+            <div className="flex gap-1 border-b border-slate-100 pb-2">
+              {[
+                { value: 'semua', label: 'Semua' },
+                { value: 'online', label: 'Online' },
+                { value: 'offline', label: 'Offline' },
+              ].map((pill) => (
+                <button
+                  key={pill.value}
+                  onClick={() => setStatusRosterFilter(pill.value)}
+                  className={`px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase transition-all cursor-pointer flex-1 text-center ${
+                    statusRosterFilter === pill.value
+                      ? 'bg-teal-650 text-white shadow-2xs'
+                      : 'bg-slate-50 text-slate-550 hover:bg-slate-100'
+                  }`}
+                  style={{ backgroundColor: statusRosterFilter === pill.value ? '#0d9488' : undefined }}
+                >
+                  {pill.label}
+                </button>
+              ))}
+            </div>
 
             {/* Online Members Section */}
             <div className="space-y-2.5">

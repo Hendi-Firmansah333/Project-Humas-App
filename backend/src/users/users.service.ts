@@ -1,7 +1,8 @@
-import { Injectable, NotFoundException, ConflictException } from '@nestjs/common';
+import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
+import { UpdatePasswordDto } from './dto/update-password.dto';
 import * as bcrypt from 'bcrypt';
 import { Role, UserStatus } from '@prisma/client';
 
@@ -29,6 +30,14 @@ export class UsersService {
         password: hashedPassword,
         role: createUserDto.role || Role.USER,
         status: createUserDto.status || UserStatus.AKTIF,
+      },
+    });
+
+    await this.prisma.notification.create({
+      data: {
+        title: 'Pengguna Baru Terdaftar',
+        message: `${user.fullName} telah bergabung sebagai ${user.roleLabel || 'Personel Humas'}.`,
+        type: 'SUCCESS',
       },
     });
 
@@ -93,5 +102,17 @@ export class UsersService {
     await this.findOne(id);
     await this.prisma.user.delete({ where: { id } });
     return { message: `Personel ID #${id} berhasil dihapus.` };
+  }
+
+  async updatePassword(id: number, dto: UpdatePasswordDto) {
+    if (dto.password !== dto.confirmPassword) {
+      throw new BadRequestException('Password baru dan konfirmasi password tidak cocok.');
+    }
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    await this.prisma.user.update({
+      where: { id },
+      data: { password: hashedPassword },
+    });
+    return { message: 'Password berhasil diperbarui.' };
   }
 }

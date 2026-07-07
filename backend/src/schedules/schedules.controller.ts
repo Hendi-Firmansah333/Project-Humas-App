@@ -32,8 +32,27 @@ export class SchedulesController {
   @Get()
   @ApiOperation({ summary: 'Daftar jadwal piket kehumasan' })
   @ApiQuery({ name: 'userId', required: false })
-  findAll(@Query('userId') userId?: number) {
-    return this.schedulesService.findAll(userId);
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'status', required: false })
+  @ApiQuery({ name: 'day', required: false })
+  @ApiQuery({ name: 'month', required: false })
+  @ApiQuery({ name: 'year', required: false })
+  findAll(
+    @Query('userId') userId?: number,
+    @Query('search') search?: string,
+    @Query('status') status?: string,
+    @Query('day') day?: string,
+    @Query('month') month?: number,
+    @Query('year') year?: number,
+  ) {
+    return this.schedulesService.findAll({
+      userId,
+      search,
+      status,
+      day,
+      month: month ? Number(month) : undefined,
+      year: year ? Number(year) : undefined,
+    });
   }
 
   @Get(':id')

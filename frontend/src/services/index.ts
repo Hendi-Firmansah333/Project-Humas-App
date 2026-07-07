@@ -52,6 +52,18 @@ export const activityService = {
     const res = await api.delete(`/activities/${id}`);
     return res.data;
   },
+  restore: async (id: number) => {
+    const res = await api.patch<Activity>(`/activities/${id}/restore`);
+    return res.data;
+  },
+  getCategories: async () => {
+    const res = await api.get<string[]>('/activities/categories');
+    return res.data;
+  },
+  validate: async (id: number, notes?: string) => {
+    const res = await api.patch<Activity>(`/activities/${id}/validate`, { notes });
+    return res.data;
+  },
 };
 
 export const scheduleService = {
@@ -78,6 +90,10 @@ export const contentService = {
     const res = await api.get<PaginatedApiResponse<ContentPlan>>('/content-plans', { params });
     return res.data;
   },
+  getHistory: async (params?: Record<string, unknown>) => {
+    const res = await api.get<PaginatedApiResponse<ContentPlan>>('/content-plans/history', { params });
+    return res.data;
+  },
   getById: async (id: number) => {
     const res = await api.get<ContentPlan>(`/content-plans/${id}`);
     return res.data;
@@ -92,6 +108,10 @@ export const contentService = {
   },
   remove: async (id: number) => {
     const res = await api.delete(`/content-plans/${id}`);
+    return res.data;
+  },
+  restore: async (id: number) => {
+    const res = await api.patch<ContentPlan>(`/content-plans/${id}/restore`);
     return res.data;
   },
 };
@@ -112,6 +132,10 @@ export const loanService = {
     const res = await api.get('/equipment-loans', { params });
     return res.data;
   },
+  getHistory: async (params?: Record<string, unknown>) => {
+    const res = await api.get('/equipment-loans/history', { params });
+    return res.data;
+  },
   create: async (data: Partial<EquipmentLoan>) => {
     const res = await api.post('/equipment-loans', data);
     return res.data;
@@ -126,6 +150,10 @@ export const loanService = {
   },
   remove: async (id: number) => {
     const res = await api.delete(`/equipment-loans/${id}`);
+    return res.data;
+  },
+  restore: async (id: number) => {
+    const res = await api.patch(`/equipment-loans/${id}/restore`);
     return res.data;
   },
 };
@@ -151,6 +179,10 @@ export const userService = {
     const res = await api.delete(`/users/${id}`);
     return res.data;
   },
+  updatePassword: async (id: number, data: Record<string, unknown>) => {
+    const res = await api.patch(`/users/${id}/password`, data);
+    return res.data;
+  },
 };
 
 export const reportService = {
@@ -170,6 +202,26 @@ export const reportService = {
     const res = await api.delete(`/reports/${id}`);
     return res.data;
   },
+  getActivities: async (params?: Record<string, unknown>) => {
+    const res = await api.get('/reports/activities', { params });
+    return res.data;
+  },
+  getContentPlans: async (params?: Record<string, unknown>) => {
+    const res = await api.get('/reports/content-plans', { params });
+    return res.data;
+  },
+  getLoans: async (params?: Record<string, unknown>) => {
+    const res = await api.get('/reports/loans', { params });
+    return res.data;
+  },
+  getUsers: async (params?: Record<string, unknown>) => {
+    const res = await api.get('/reports/users', { params });
+    return res.data;
+  },
+  getUserEvaluation: async (params?: Record<string, unknown>) => {
+    const res = await api.get('/reports/user-evaluation', { params });
+    return res.data;
+  },
 };
 
 export const notificationService = {
@@ -179,6 +231,14 @@ export const notificationService = {
   },
   markAllRead: async () => {
     const res = await api.patch('/notifications/read-all');
+    return res.data;
+  },
+  markRead: async (id: number) => {
+    const res = await api.patch(`/notifications/${id}/read`);
+    return res.data;
+  },
+  remove: async (id: number) => {
+    const res = await api.delete(`/notifications/${id}`);
     return res.data;
   },
 };

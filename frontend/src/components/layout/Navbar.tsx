@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useRef, useCallback } from 'react';
-import { Search, Calendar, Bell, Menu, User as UserIcon, Settings, LogOut, ChevronRight, CheckCircle2, Info, AlertTriangle, AlertCircle } from 'lucide-react';
+import { Search, Calendar, Bell, Menu, User as UserIcon, Settings, LogOut, ChevronRight, CheckCircle2, Info, AlertTriangle, AlertCircle, X } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import UserAvatar from '@/components/common/UserAvatar';
 import { authService, notificationService } from '@/services';
@@ -56,6 +56,31 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
       await notificationService.markAllRead();
       setUnreadCount(0);
       setNotifications((prev) => prev.map((n) => ({ ...n, isRead: true })));
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleMarkRead = async (id: number) => {
+    try {
+      await notificationService.markRead(id);
+      setNotifications((prev) =>
+        prev.map((n) => (n.id === id ? { ...n, isRead: true } : n))
+      );
+      setUnreadCount((c) => Math.max(0, c - 1));
+    } catch {
+      // ignore
+    }
+  };
+
+  const handleDeleteNotif = async (id: number) => {
+    try {
+      await notificationService.remove(id);
+      setNotifications((prev) => prev.filter((n) => n.id !== id));
+      setUnreadCount((c) => {
+        const removed = notifications.find((n) => n.id === id);
+        return removed && !removed.isRead ? Math.max(0, c - 1) : c;
+      });
     } catch {
       // ignore
     }
@@ -211,7 +236,7 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
                   notifications.map((n) => (
                     <div
                       key={n.id}
-                      className={`p-2.5 rounded-xl flex gap-3 text-xs transition-colors ${
+                      className={`p-2.5 rounded-xl flex gap-3 text-xs transition-colors group ${
                         !n.isRead
                           ? 'bg-teal-50/60 border border-teal-100'
                           : 'hover:bg-slate-50 border border-transparent'
@@ -223,9 +248,24 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
                         <p className="text-slate-500 text-[11px] mt-0.5 line-clamp-2">{n.message}</p>
                         <p className="text-[10px] text-slate-400 mt-1">{formatDateID(n.createdAt)}</p>
                       </div>
-                      {!n.isRead && (
-                        <span className="w-2 h-2 rounded-full bg-teal-500 shrink-0 mt-1" />
-                      )}
+                      <div className="flex flex-col items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                        {!n.isRead && (
+                          <button
+                            onClick={() => handleMarkRead(n.id)}
+                            title="Tandai sudah dibaca"
+                            className="p-0.5 rounded text-teal-600 hover:bg-teal-100 transition-colors cursor-pointer"
+                          >
+                            <CheckCircle2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                        <button
+                          onClick={() => handleDeleteNotif(n.id)}
+                          title="Hapus notifikasi"
+                          className="p-0.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
+                        >
+                          <X className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
                     </div>
                   ))
                 )}

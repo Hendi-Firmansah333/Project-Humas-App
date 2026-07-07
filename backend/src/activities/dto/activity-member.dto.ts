@@ -1,13 +1,13 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsString } from 'class-validator';
+import { IsInt, IsOptional, IsString } from 'class-validator';
 
 export class ActivityMemberDto {
   @ApiProperty({ example: 2 })
   @IsInt()
   userId: number;
 
-  @ApiProperty({ example: 'Reporter' })
+  @ApiProperty({ example: 'Anggota Humas', required: false })
   @IsString()
-  @IsNotEmpty()
-  role: string;
+  @IsOptional()
+  role?: string;
 }

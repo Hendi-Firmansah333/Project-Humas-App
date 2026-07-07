@@ -1,6 +1,6 @@
 import 'dotenv/config';
 import { PrismaPg } from '@prisma/adapter-pg';
-import { PrismaClient, ActivityStatus, CheckInStatus, ContentStatus, LoanStatus, Platform, ContentType } from '@prisma/client';
+import { PrismaClient, ActivityStatus, CheckInStatus, ContentStatus, LoanStatus, Platform } from '@prisma/client';
 import * as bcrypt from 'bcrypt';
 import pg from 'pg';
 
@@ -124,7 +124,7 @@ async function main() {
       title: 'Reels Dies Natalis 2026',
       category: 'Sosial Media',
       platform: Platform.INSTAGRAM,
-      contentType: ContentType.REELS,
+      contentType: 'Reels',
       picId: staff.id,
       deadline: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
       status: ContentStatus.PROSES,

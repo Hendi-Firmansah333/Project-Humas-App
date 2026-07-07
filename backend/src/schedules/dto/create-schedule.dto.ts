@@ -1,5 +1,5 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsInt, IsNotEmpty, IsString } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 
 export class CreateScheduleDto {
   @ApiProperty({ example: 1 })
@@ -21,4 +21,14 @@ export class CreateScheduleDto {
   @IsString()
   @IsNotEmpty()
   endTime: string;
+
+  @ApiProperty({ example: 'Ruang Rapat Humas', required: false })
+  @IsString()
+  @IsOptional()
+  location?: string;
+
+  @ApiProperty({ example: 'Keterangan tambahan piket', required: false })
+  @IsString()
+  @IsOptional()
+  notes?: string;
 }

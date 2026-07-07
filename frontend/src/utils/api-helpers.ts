@@ -53,27 +53,14 @@ export function mapPlatformToApi(platform: string): { platform: string; contentT
   return { platform: 'INSTAGRAM', contentType: 'REELS' };
 }
 
-export type ContentReviewStatus = 'MENUNGGU_REVIEW' | 'DISETUJUI' | 'REVISI' | 'DITOLAK';
+export type ContentReviewStatus = 'DRAFT' | 'MENUNGGU' | 'PROSES' | 'REVISI' | 'PUBLISHED' | 'SELESAI' | 'DIBATALKAN';
 
 export function mapContentStatusFromApi(status: string): ContentReviewStatus {
-  const map: Record<string, ContentReviewStatus> = {
-    PROSES: 'MENUNGGU_REVIEW',
-    TERENCANA: 'MENUNGGU_REVIEW',
-    SELESAI: 'DISETUJUI',
-    REVISI: 'REVISI',
-    DITOLAK: 'DITOLAK',
-  };
-  return map[status] ?? 'MENUNGGU_REVIEW';
+  return status as ContentReviewStatus;
 }
 
 export function mapContentStatusToApi(status: ContentReviewStatus): string {
-  const map: Record<ContentReviewStatus, string> = {
-    MENUNGGU_REVIEW: 'PROSES',
-    DISETUJUI: 'SELESAI',
-    REVISI: 'REVISI',
-    DITOLAK: 'DITOLAK',
-  };
-  return map[status];
+  return status;
 }
 
 function resolveSubmittedMediaUrl(
@@ -96,24 +83,27 @@ export function contentPlanToItem(
     submittedAt?: string;
   },
 ) {
-  const platformLabel = mapPlatformLabel(plan.platform, plan.contentType);
   const hasSubmission = Boolean(plan.videoUrl || plan.submittedAt);
   const reviewStatus = hasSubmission && plan.status === 'PROSES'
     ? 'MENUNGGU_REVIEW'
     : mapContentStatusFromApi(plan.status);
 
+  const d = new Date(plan.deadline);
+  const hours = !isNaN(d.getTime()) ? String(d.getHours()).padStart(2, '0') : '16';
+  const mins = !isNaN(d.getTime()) ? String(d.getMinutes()).padStart(2, '0') : '00';
+  const timeLabel = `${hours}:${mins} WIB`;
+
+  const isVideo = ['video', 'reels', 'tiktok', 'podcast', 'live'].some(word => 
+    (plan.contentType || '').toLowerCase().includes(word)
+  );
+
   return {
     id: plan.id,
     title: plan.title,
-    category: plan.category ?? 'Kampanye Resmi',
-    platform: platformLabel as
-      | 'Instagram Reels'
-      | 'Instagram Carousel'
-      | 'TikTok Video'
-      | 'Website Rilis'
-      | 'YouTube Video',
+    platform: plan.platform,
+    contentType: plan.contentType || 'Foto',
     deadline: formatApiDate(plan.deadline),
-    time: '16:00 WIB',
+    time: timeLabel,
     picName: plan.pic?.fullName ?? '-',
     picRole: plan.pic?.roleLabel ?? '-',
     picAvatar: plan.pic?.avatar,
@@ -121,10 +111,9 @@ export function contentPlanToItem(
     caption: plan.description ?? '',
     mediaUrl: resolveSubmittedMediaUrl(plan),
     videoUrl: plan.videoUrl ?? undefined,
-    mediaType: platformLabel.toLowerCase().includes('video') || platformLabel.includes('Reels')
-      ? ('video' as const)
-      : ('image' as const),
+    mediaType: isVideo ? ('video' as const) : ('image' as const),
     revisionNote: plan.revisionNote ?? undefined,
+    media: plan.media ?? [],
   };
 }
 

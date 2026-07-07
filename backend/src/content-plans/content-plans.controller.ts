@@ -32,6 +32,48 @@ export class ContentPlansController {
     return this.contentPlansService.create(createContentPlanDto);
   }
 
+  @Get('history')
+  @ApiOperation({ summary: 'Daftar riwayat publikasi konten' })
+  @ApiQuery({ name: 'page', required: false })
+  @ApiQuery({ name: 'pageSize', required: false })
+  @ApiQuery({ name: 'platform', enum: Platform, required: false })
+  @ApiQuery({ name: 'status', enum: ContentStatus, required: false })
+  @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'startDate', required: false })
+  @ApiQuery({ name: 'endDate', required: false })
+  @ApiQuery({ name: 'month', required: false })
+  @ApiQuery({ name: 'year', required: false })
+  findHistory(
+    @Query('page') page?: number,
+    @Query('pageSize') pageSize?: number,
+    @Query('platform') platform?: Platform,
+    @Query('status') status?: string,
+    @Query('search') search?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('month') month?: number,
+    @Query('year') year?: number,
+  ) {
+    const validStatuses = Object.values(ContentStatus);
+    const parsedStatus =
+      status && status !== 'Semua' && validStatuses.includes(status as ContentStatus)
+        ? (status as ContentStatus)
+        : undefined;
+
+    return this.contentPlansService.findAllPaginated({
+      page,
+      pageSize,
+      platform,
+      status: parsedStatus,
+      search,
+      startDate,
+      endDate,
+      month: month ? Number(month) : undefined,
+      year: year ? Number(year) : undefined,
+      history: true,
+    });
+  }
+
   @Get()
   @ApiOperation({ summary: 'Daftar jadwal publikasi konten' })
   @ApiQuery({ name: 'page', required: false })
@@ -39,6 +81,10 @@ export class ContentPlansController {
   @ApiQuery({ name: 'platform', enum: Platform, required: false })
   @ApiQuery({ name: 'status', enum: ContentStatus, required: false })
   @ApiQuery({ name: 'search', required: false })
+  @ApiQuery({ name: 'startDate', required: false })
+  @ApiQuery({ name: 'endDate', required: false })
+  @ApiQuery({ name: 'month', required: false })
+  @ApiQuery({ name: 'year', required: false })
   @ApiQuery({ name: 'mobile', required: false })
   findAll(
     @Request() req: any,
@@ -47,6 +93,10 @@ export class ContentPlansController {
     @Query('platform') platform?: Platform,
     @Query('status') status?: string,
     @Query('search') search?: string,
+    @Query('startDate') startDate?: string,
+    @Query('endDate') endDate?: string,
+    @Query('month') month?: number,
+    @Query('year') year?: number,
     @Query('mobile') mobile?: string,
   ) {
     const validStatuses = Object.values(ContentStatus);
@@ -61,6 +111,10 @@ export class ContentPlansController {
       platform,
       status: parsedStatus,
       search,
+      startDate,
+      endDate,
+      month: month ? Number(month) : undefined,
+      year: year ? Number(year) : undefined,
       mobile: mobile === 'true' || mobile === '1',
       userId: mobile === 'true' || mobile === '1' ? req?.user?.id : undefined,
     });
@@ -86,6 +140,12 @@ export class ContentPlansController {
   @ApiOperation({ summary: 'Kirim bukti konten (mobile)' })
   submitProof(@Param('id', ParseIntPipe) id: number, @Body() dto: SubmitProofDto) {
     return this.contentPlansService.submitProof(id, dto);
+  }
+
+  @Patch(':id/restore')
+  @ApiOperation({ summary: 'Mengaktifkan kembali content plan dari riwayat' })
+  restore(@Param('id', ParseIntPipe) id: number) {
+    return this.contentPlansService.restore(id);
   }
 
   @Delete(':id')

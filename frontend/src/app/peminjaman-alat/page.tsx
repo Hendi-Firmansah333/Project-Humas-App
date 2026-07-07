@@ -21,7 +21,9 @@ import {
   Package,
   Clock,
   AlertCircle,
-  CalendarDays
+  CalendarDays,
+  Trash2,
+  AlertTriangle,
 } from 'lucide-react';
 import { EquipmentLoan } from '@/types';
 import { formatDateID } from '@/utils/formatters';
@@ -41,6 +43,7 @@ export default function EquipmentLoanPage() {
   const [selectedLoan, setSelectedLoan] = useState<EquipmentLoan | null>(null);
   const [isReturnOpen, setIsReturnOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false);
 
   // Form State
   const [formData, setFormData] = useState({
@@ -54,10 +57,10 @@ export default function EquipmentLoanPage() {
 
   const loadLoans = async () => {
     try {
-      const data = await loanService.getAll();
+      const data = await loanService.getAll({ history: false });
       setLoans(Array.isArray(data) ? data : []);
     } catch {
-      toast.error('Gagal memuat data pencatatan inventaris.');
+      toast.error('Gagal memuat data peminjaman aktif.');
       setLoans([]);
     }
   };
@@ -120,8 +123,8 @@ export default function EquipmentLoanPage() {
         borrowerName: formData.borrowerName,
         borrowerPhone: formData.borrowerPhone,
         equipmentName: formData.equipmentName,
-        borrowDate: `${formData.borrowDate}T08:00:00`,
-        returnDate: `${formData.returnDate}T16:00:00`,
+        borrowDate: `${formData.borrowDate}T08:00:00Z`,
+        returnDate: `${formData.returnDate}T16:00:00Z`,
         purpose: formData.purpose,
       });
       setIsCreateOpen(false);
@@ -148,9 +151,25 @@ export default function EquipmentLoanPage() {
     }
   };
 
+  const handleOpenDelete = (item: EquipmentLoan) => {
+    setSelectedLoan(item);
+    setIsDeleteOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!selectedLoan) return;
+    try {
+      await loanService.remove(selectedLoan.id);
+      setIsDeleteOpen(false);
+      toast.success(`Catatan peminjaman "${selectedLoan.equipmentName}" berhasil dihapus.`);
+      await loadLoans();
+    } catch {
+      toast.error('Gagal menghapus catatan peminjaman.');
+    }
+  };
+
   const activeLoanCount = loans.filter((l) => l.status === 'SEDANG_DIPINJAM').length;
   const overdueLoanCount = loans.filter((l) => l.status === 'TERLAMBAT').length;
-  const returnedLoanCount = loans.filter((l) => l.status === 'SELESAI').length;
 
   const columns: Column<EquipmentLoan>[] = [
     {
@@ -184,7 +203,7 @@ export default function EquipmentLoanPage() {
       key: 'purpose',
       header: 'Keperluan',
       render: (item) => (
-        <span className="text-slate-500 text-xs truncate max-w-[150px] inline-block" title={item.purpose}>
+        <span className="text-slate-500 text-xs truncate max-w-[155px] inline-block" title={item.purpose}>
           {item.purpose || '-'}
         </span>
       ),
@@ -216,28 +235,33 @@ export default function EquipmentLoanPage() {
       key: 'actions',
       header: 'Aksi',
       render: (item) => (
-        <div className="flex items-center gap-1.5">
-          {item.status !== 'SELESAI' && (
-            <button
-              onClick={() => {
-                setSelectedLoan(item);
-                setIsReturnOpen(true);
-              }}
-              className="p-1.5 rounded-lg bg-teal-50 text-teal-700 hover:bg-teal-100 transition-colors font-semibold text-xs flex items-center gap-1 cursor-pointer"
-              title="Selesaikan Peminjaman"
-            >
-              <CheckSquare className="w-4 h-4" />
-            </button>
-          )}
+        <div className="flex items-center gap-1">
+          <button
+            onClick={() => {
+              setSelectedLoan(item);
+              setIsReturnOpen(true);
+            }}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-green-600 hover:bg-green-50 transition-colors cursor-pointer"
+            title="Kembalikan Barang"
+          >
+            <CheckSquare className="w-4 h-4" />
+          </button>
           <button
             onClick={() => {
               setSelectedLoan(item);
               setIsDetailOpen(true);
             }}
             className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors cursor-pointer"
-            title="Lihat Detail Peminjaman"
+            title="Lihat Detail"
           >
             <Eye className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleOpenDelete(item)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
+            title="Hapus Catatan"
+          >
+            <Trash2 className="w-4 h-4" />
           </button>
         </div>
       ),
@@ -256,11 +280,11 @@ export default function EquipmentLoanPage() {
   return (
     <AdminLayout title="Pencatatan Inventaris Humas">
       {/* Statistics Row */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6 mb-6">
         <StatCard
-          title="Total Peminjaman"
+          title="Total Peminjaman Aktif"
           value={`${loans.length} Data`}
-          subtitle="Keseluruhan catatan"
+          subtitle="Peminjaman belum kembali"
           icon={Package}
           iconBgClass="bg-indigo-50"
           iconColorClass="text-indigo-600"
@@ -272,14 +296,6 @@ export default function EquipmentLoanPage() {
           icon={Clock}
           iconBgClass="bg-sky-50"
           iconColorClass="text-sky-600"
-        />
-        <StatCard
-          title="Selesai Dikembalikan"
-          value={`${returnedLoanCount} Selesai`}
-          subtitle="Peminjaman telah selesai"
-          icon={CalendarDays}
-          iconBgClass="bg-green-50"
-          iconColorClass="text-green-600"
         />
         <StatCard
           title="Terlambat"
@@ -295,7 +311,7 @@ export default function EquipmentLoanPage() {
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-lg font-bold text-slate-900 tracking-tight">Daftar Pencatatan Inventaris</h1>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight">Daftar Peminjaman Inventaris Aktif</h1>
             <p className="text-xs text-slate-400 mt-0.5">
               Catat pergerakan alat multimedia dan jadwal peminjaman oleh admin humas.
             </p>
@@ -320,7 +336,6 @@ export default function EquipmentLoanPage() {
             <FilterDropdown
               options={[
                 { value: 'SEDANG_DIPINJAM', label: 'Sedang Dipinjam' },
-                { value: 'SELESAI', label: 'Selesai' },
                 { value: 'TERLAMBAT', label: 'Terlambat' },
               ]}
               value={statusFilter}
@@ -335,8 +350,8 @@ export default function EquipmentLoanPage() {
       </div>
 
       {/* Loan Table Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <DataTable columns={columns} data={paginatedLoans} emptyMessage="Tidak ada data pencatatan inventaris yang cocok." />
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden mt-6">
+        <DataTable columns={columns} data={paginatedLoans} emptyMessage="Tidak ada data pencatatan inventaris aktif." />
         <PaginationBar
           currentPage={currentPage}
           totalPages={totalPages || 1}
@@ -500,6 +515,36 @@ export default function EquipmentLoanPage() {
             </div>
           </div>
         )}
+      </CustomModal>
+
+      {/* Delete Confirmation Modal */}
+      <CustomModal
+        isOpen={isDeleteOpen}
+        onClose={() => setIsDeleteOpen(false)}
+        title="Konfirmasi Hapus Catatan Peminjaman"
+        maxWidth="sm"
+      >
+        <div className="text-center py-2 space-y-4">
+          <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
+            <AlertTriangle className="w-6 h-6" />
+          </div>
+          <div>
+            <p className="text-sm font-bold text-slate-800">
+              Hapus catatan &quot;{selectedLoan?.equipmentName}&quot;?
+            </p>
+            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
+              Tindakan ini akan menghapus data peminjaman secara permanen dan tidak dapat dibatalkan.
+            </p>
+          </div>
+          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
+            <CustomButton variant="outline" onClick={() => setIsDeleteOpen(false)}>
+              Batal
+            </CustomButton>
+            <CustomButton variant="danger" onClick={handleDeleteConfirm}>
+              Ya, Hapus
+            </CustomButton>
+          </div>
+        </div>
       </CustomModal>
     </AdminLayout>
   );
