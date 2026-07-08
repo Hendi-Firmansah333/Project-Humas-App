@@ -3,6 +3,7 @@ import 'package:poli_humas/models/activity.dart';
 import 'package:poli_humas/models/content_plan.dart';
 import 'package:poli_humas/models/notification_item.dart';
 import 'package:poli_humas/models/team_member.dart';
+import 'package:poli_humas/models/duty_schedule.dart';
 
 const currentUserName = 'Komang Ari';
 const currentUserRole = 'Tim Kehumasan';
@@ -334,4 +335,32 @@ String _formatDate(DateTime date) {
     'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
   ];
   return '${date.day} ${months[date.month - 1]} ${date.year}';
+}
+
+List<DutyScheduleItem> buildSeedDutySchedules() {
+  final now = DateTime.now();
+  final today = DateTime(now.year, now.month, now.day);
+
+  return [
+    DutyScheduleItem(
+      id: '1',
+      date: today.toIso8601String(),
+      startTime: '08:00',
+      endTime: '16:00',
+      shiftName: 'Pagi',
+      notes: 'Piket rutin dan melayani tamu Humas Polinela.',
+      location: 'Kantor Humas',
+      status: 'SEDANG_BERLANGSUNG',
+    ),
+    DutyScheduleItem(
+      id: '2',
+      date: today.add(const Duration(days: 2)).toIso8601String(),
+      startTime: '13:00',
+      endTime: '21:00',
+      shiftName: 'Sore',
+      notes: 'Piket sore dan monitoring sosial media Polinela.',
+      location: 'Kantor Humas',
+      status: 'AKAN_DATANG',
+    ),
+  ];
 }

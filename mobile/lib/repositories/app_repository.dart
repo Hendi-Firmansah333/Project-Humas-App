@@ -6,6 +6,7 @@ import 'package:poli_humas/models/activity.dart';
 import 'package:poli_humas/models/content_plan.dart';
 import 'package:poli_humas/models/notification_item.dart';
 import 'package:poli_humas/models/team_member.dart';
+import 'package:poli_humas/models/duty_schedule.dart';
 import 'package:poli_humas/services/api_service.dart';
 import 'package:poli_humas/services/local_storage.dart';
 
@@ -36,6 +37,7 @@ class AppDataSnapshot {
     required this.contentPlans,
     required this.notifications,
     required this.teamMembers,
+    required this.dutySchedules,
   });
 
   final List<ActivityItem> activities;
@@ -43,6 +45,7 @@ class AppDataSnapshot {
   final List<ContentPlanItem> contentPlans;
   final List<AppNotification> notifications;
   final List<TeamMember> teamMembers;
+  final List<DutyScheduleItem> dutySchedules;
 
   Map<String, dynamic> toJson() => {
         'activities': activities.map((e) => e.toJson()).toList(),
@@ -50,24 +53,34 @@ class AppDataSnapshot {
         'contentPlans': contentPlans.map((e) => e.toJson()).toList(),
         'notifications': notifications.map((e) => e.toJson()).toList(),
         'teamMembers': teamMembers.map((e) => e.toJson()).toList(),
+        'dutySchedules': dutySchedules.map((e) => e.toJson()).toList(),
       };
 
   factory AppDataSnapshot.fromJson(Map<String, dynamic> json) => AppDataSnapshot(
-        activities: (json['activities'] as List<dynamic>)
-            .map((e) => ActivityItem.fromJson(e as Map<String, dynamic>))
-            .toList(),
-        activityHistory: (json['activityHistory'] as List<dynamic>)
-            .map((e) => ActivityItem.fromJson(e as Map<String, dynamic>))
-            .toList(),
-        contentPlans: (json['contentPlans'] as List<dynamic>)
-            .map((e) => ContentPlanItem.fromJson(e as Map<String, dynamic>))
-            .toList(),
-        notifications: (json['notifications'] as List<dynamic>)
-            .map((e) => AppNotification.fromJson(e as Map<String, dynamic>))
-            .toList(),
-        teamMembers: (json['teamMembers'] as List<dynamic>)
-            .map((e) => TeamMember.fromJson(e as Map<String, dynamic>))
-            .toList(),
+        activities: (json['activities'] as List<dynamic>?)
+                ?.map((e) => ActivityItem.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
+        activityHistory: (json['activityHistory'] as List<dynamic>?)
+                ?.map((e) => ActivityItem.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
+        contentPlans: (json['contentPlans'] as List<dynamic>?)
+                ?.map((e) => ContentPlanItem.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
+        notifications: (json['notifications'] as List<dynamic>?)
+                ?.map((e) => AppNotification.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
+        teamMembers: (json['teamMembers'] as List<dynamic>?)
+                ?.map((e) => TeamMember.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
+        dutySchedules: (json['dutySchedules'] as List<dynamic>?)
+                ?.map((e) => DutyScheduleItem.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            [],
       );
 
   AppDataSnapshot copyWith({
@@ -76,6 +89,7 @@ class AppDataSnapshot {
     List<ContentPlanItem>? contentPlans,
     List<AppNotification>? notifications,
     List<TeamMember>? teamMembers,
+    List<DutyScheduleItem>? dutySchedules,
   }) =>
       AppDataSnapshot(
         activities: activities ?? this.activities,
@@ -83,6 +97,7 @@ class AppDataSnapshot {
         contentPlans: contentPlans ?? this.contentPlans,
         notifications: notifications ?? this.notifications,
         teamMembers: teamMembers ?? this.teamMembers,
+        dutySchedules: dutySchedules ?? this.dutySchedules,
       );
 }
 
@@ -114,6 +129,7 @@ class AppRepository {
       contentPlans: buildSeedContentPlans(),
       notifications: buildSeedNotifications(),
       teamMembers: buildSeedTeamMembers(),
+      dutySchedules: buildSeedDutySchedules(),
     );
   }
 

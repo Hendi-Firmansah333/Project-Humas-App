@@ -11,9 +11,17 @@ class ApiConfig {
     defaultValue: '192.168.117.123',
   );
 
+  static const String devUrl = String.fromEnvironment(
+    'API_URL',
+    defaultValue: '',
+  );
+
   static const int devPort = 3001;
 
   static String get baseUrl {
+    if (devUrl.isNotEmpty) {
+      return devUrl.endsWith('/api') ? devUrl : '$devUrl/api';
+    }
     if (kIsWeb) return 'http://localhost:$devPort/api';
     if (defaultTargetPlatform == TargetPlatform.android) {
       return 'http://$devHost:$devPort/api';

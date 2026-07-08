@@ -16,14 +16,32 @@ class AppLogo extends StatelessWidget {
   final double size;
   final bool showShadow;
 
-  static const assetPath = 'assets/images/logo.jpg';
+  static const assetPath = 'assets/images/logo.png';
 
   @override
   Widget build(BuildContext context) {
-    return HumasLogoVector(
-      size: size,
-      showShadow: showShadow,
+    Widget img = Image.asset(
+      assetPath,
+      width: size,
+      height: size,
+      fit: BoxFit.contain,
     );
+    if (showShadow) {
+      return Container(
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(size * 0.2),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.15),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: img,
+      );
+    }
+    return img;
   }
 }
 

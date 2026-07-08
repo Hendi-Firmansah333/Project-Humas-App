@@ -1,5 +1,6 @@
 class UserProfile {
   const UserProfile({
+    this.id,
     required this.name,
     required this.role,
     required this.phone,
@@ -8,6 +9,7 @@ class UserProfile {
     this.emailEditable = true,
   });
 
+  final int? id;
   final String name;
   final String role;
   final String phone;
@@ -16,6 +18,7 @@ class UserProfile {
   final bool emailEditable;
 
   UserProfile copyWith({
+    int? id,
     String? name,
     String? role,
     String? phone,
@@ -25,6 +28,7 @@ class UserProfile {
     bool? emailEditable,
   }) {
     return UserProfile(
+      id: id ?? this.id,
       name: name ?? this.name,
       role: role ?? this.role,
       phone: phone ?? this.phone,
@@ -35,6 +39,7 @@ class UserProfile {
   }
 
   Map<String, dynamic> toJson() => {
+        'id': id,
         'name': name,
         'role': role,
         'phone': phone,
@@ -45,6 +50,7 @@ class UserProfile {
 
   factory UserProfile.fromJson(Map<String, dynamic> json) {
     return UserProfile(
+      id: json['id'] as int?,
       name: json['name'] as String? ?? '',
       role: json['role'] as String? ?? 'Anggota Humas',
       phone: json['phone'] as String? ?? '',

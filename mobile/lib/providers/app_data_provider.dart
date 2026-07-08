@@ -3,6 +3,7 @@ import 'package:poli_humas/models/activity.dart';
 import 'package:poli_humas/models/content_plan.dart';
 import 'package:poli_humas/models/notification_item.dart';
 import 'package:poli_humas/models/team_member.dart';
+import 'package:poli_humas/models/duty_schedule.dart';
 import 'package:poli_humas/repositories/app_repository.dart';
 import 'package:poli_humas/services/connectivity_service.dart';
 
@@ -86,6 +87,7 @@ class AppDataProvider extends ChangeNotifier {
   ProfileStats get profileStats => _repo.computeProfileStats();
   int get unreadNotificationCount => _repo.unreadNotificationCount;
   List<TeamMember> get teamMembers => _repo.data.teamMembers;
+  List<DutyScheduleItem> get dutySchedules => _repo.data.dutySchedules;
 
   Future<void> init() async {
     if (_initialized) return;

@@ -50,5 +50,5 @@ flutter:
   assets:
     - assets/images/splash_logo.png
     - assets/images/splash_bubbles.png
-    - assets/images/logo.jpg
+    - assets/images/logo.png
     - assets/images/humas_logo.png

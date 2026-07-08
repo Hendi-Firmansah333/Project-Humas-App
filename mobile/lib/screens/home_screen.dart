@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:poli_humas/animations/app_animations.dart';
 import 'package:poli_humas/models/activity.dart';
+import 'package:poli_humas/models/duty_schedule.dart';
 import 'package:poli_humas/providers/app_data_provider.dart';
 import 'package:poli_humas/screens/activities/activity_detail_screen.dart';
 import 'package:poli_humas/screens/activities/checkin_screen.dart';
@@ -165,8 +166,13 @@ class HomeScreen extends StatelessWidget {
                               index: 2,
                               onTap: () => _openTodaySchedule(context, provider.todaySchedule),
                             ),
+                            const SizedBox(height: 20),
+                            _DutyScheduleSection(
+                              schedules: provider.dutySchedules,
+                              index: 3,
+                            ),
                             const SizedBox(height: 24),
-                            const SectionTitle(title: 'Aksi Cepat').staggeredEntrance(3),
+                            const SectionTitle(title: 'Aksi Cepat').staggeredEntrance(4),
                             const SizedBox(height: 14),
                             Row(
                               mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -198,7 +204,7 @@ class HomeScreen extends StatelessWidget {
                               ],
                             ),
                             const SizedBox(height: 24),
-                            const SectionTitle(title: 'Humas Lapangan').staggeredEntrance(4),
+                            const SectionTitle(title: 'Humas Lapangan').staggeredEntrance(5),
                             const SizedBox(height: 14),
                             Row(
                               children: [
@@ -226,7 +232,7 @@ class HomeScreen extends StatelessWidget {
                               title: 'Kegiatan Terdekat',
                               action: 'Lihat Semua',
                               onActionTap: () => onNavigate(1),
-                            ),
+                            ).staggeredEntrance(6),
                             const SizedBox(height: 14),
                             if (provider.upcomingActivities.isEmpty)
                               const Text(
@@ -239,7 +245,7 @@ class HomeScreen extends StatelessWidget {
                                   padding: const EdgeInsets.only(bottom: 12),
                                   child: _UpcomingCard(
                                     activity: entry.value,
-                                    index: entry.key + 5,
+                                    index: entry.key + 7,
                                     onTap: () => pushSmooth(
                                       context,
                                       ActivityDetailScreen(activity: entry.value),
@@ -610,5 +616,282 @@ class _UpcomingCard extends StatelessWidget {
       ),
     ),
     ).staggeredEntrance(index);
+  }
+}
+
+class _DutyScheduleSection extends StatelessWidget {
+  const _DutyScheduleSection({required this.schedules, this.index = 0});
+
+  final List<DutyScheduleItem> schedules;
+  final int index;
+
+  @override
+  Widget build(BuildContext context) {
+    if (schedules.isEmpty) {
+      return _TappableHomeCard(
+        onTap: () {},
+        index: index,
+        border: const Border(left: BorderSide(color: AppColors.textSecondary, width: 4)),
+        child: const Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Text(
+                  'JADWAL PIKET ANDA',
+                  style: TextStyle(fontWeight: FontWeight.w800, fontSize: 13, letterSpacing: 0.5),
+                ),
+              ],
+            ),
+            SizedBox(height: 12),
+            Text(
+              'Tidak ada jadwal piket minggu ini.',
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 14),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionTitle(title: 'Jadwal Piket Anda'),
+        const SizedBox(height: 12),
+        ...schedules.asMap().entries.map((entry) {
+          final idx = entry.key;
+          final schedule = entry.value;
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _DutyScheduleCard(schedule: schedule, index: index + idx),
+          );
+        }),
+      ],
+    ).staggeredEntrance(index);
+  }
+}
+
+class _DutyScheduleCard extends StatelessWidget {
+  const _DutyScheduleCard({required this.schedule, required this.index});
+
+  final DutyScheduleItem schedule;
+  final int index;
+
+  String _resolveStatusLabel(String status) {
+    switch (status) {
+      case 'SEDANG_BERLANGSUNG':
+        return 'Sedang Berlangsung';
+      case 'SELESAI':
+        return 'Selesai';
+      case 'AKAN_DATANG':
+      default:
+        return 'Akan Datang';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final statusLabel = _resolveStatusLabel(schedule.status);
+    final statusColor = schedule.status == 'SEDANG_BERLANGSUNG'
+        ? AppColors.primary
+        : schedule.status == 'SELESAI'
+            ? AppColors.success
+            : const Color(0xFF38BDF8);
+
+    return _TappableHomeCard(
+      onTap: () {
+        showModalBottomSheet<void>(
+          context: context,
+          backgroundColor: Colors.transparent,
+          isScrollControlled: true,
+          builder: (context) => _DutyScheduleDetailSheet(schedule: schedule),
+        );
+      },
+      index: index,
+      border: Border(left: BorderSide(color: statusColor, width: 4)),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                decoration: BoxDecoration(
+                  color: AppColors.tealLight,
+                  borderRadius: BorderRadius.circular(6),
+                ),
+                child: Text(
+                  'Shift ${schedule.shiftName}',
+                  style: const TextStyle(
+                    color: AppColors.primary,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+              const Spacer(),
+              StatusBadge(label: statusLabel),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            schedule.formattedDate,
+            style: const TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: AppColors.textPrimary,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              const Icon(Icons.access_time, size: 14, color: AppColors.textSecondary),
+              const SizedBox(width: 6),
+              Text(
+                schedule.timeLabel,
+                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+              ),
+            ],
+          ),
+          const SizedBox(height: 4),
+          Row(
+            children: [
+              const Icon(Icons.location_on_outlined, size: 14, color: AppColors.textSecondary),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  schedule.location,
+                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DutyScheduleDetailSheet extends StatelessWidget {
+  const _DutyScheduleDetailSheet({required this.schedule});
+
+  final DutyScheduleItem schedule;
+
+  String _resolveStatusLabel(String status) {
+    switch (status) {
+      case 'SEDANG_BERLANGSUNG':
+        return 'Sedang Berlangsung';
+      case 'SELESAI':
+        return 'Selesai';
+      case 'AKAN_DATANG':
+      default:
+        return 'Akan Datang';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    return Container(
+      decoration: BoxDecoration(
+        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      padding: const EdgeInsets.fromLTRB(24, 16, 24, 32),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Center(
+            child: Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: Colors.grey.shade300,
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+          ),
+          const SizedBox(height: 24),
+          Row(
+            children: [
+              const Icon(Icons.calendar_month, color: AppColors.primary, size: 28),
+              const SizedBox(width: 12),
+              const Expanded(
+                child: Text(
+                  'Detail Jadwal Piket',
+                  style: TextStyle(
+                    fontSize: 20,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.primaryDark,
+                  ),
+                ),
+              ),
+              StatusBadge(label: _resolveStatusLabel(schedule.status)),
+            ],
+          ),
+          const Divider(height: 32),
+          _detailRow(Icons.event, 'Hari / Tanggal', schedule.formattedDate),
+          const SizedBox(height: 16),
+          _detailRow(Icons.badge_outlined, 'Shift Kerja', 'Shift ${schedule.shiftName}'),
+          const SizedBox(height: 16),
+          _detailRow(Icons.access_time, 'Waktu Piket', schedule.timeLabel),
+          const SizedBox(height: 16),
+          _detailRow(Icons.location_on_outlined, 'Lokasi', schedule.location),
+          if (schedule.notes.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _detailRow(Icons.notes, 'Keterangan', schedule.notes),
+          ],
+          const SizedBox(height: 24),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              onPressed: () => Navigator.pop(context),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+              ),
+              child: const Text('Tutup', style: TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _detailRow(IconData icon, String title, String value) {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: AppColors.textSecondary),
+        const SizedBox(width: 12),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                title,
+                style: const TextStyle(
+                  color: AppColors.textSecondary,
+                  fontSize: 12,
+                  fontWeight: FontWeight.w500,
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                value,
+                style: const TextStyle(
+                  color: AppColors.textPrimary,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
   }
 }

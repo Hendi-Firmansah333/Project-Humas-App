@@ -6,7 +6,8 @@ import 'package:poli_humas/services/api_service.dart';
 import 'package:poli_humas/services/auth_service.dart';
 import 'package:poli_humas/services/live_location_sync_service.dart';
 import 'package:poli_humas/services/user_profile_service.dart';
-import 'package:poli_humas/widgets/logo_painter.dart';
+
+const _logoAsset = 'assets/images/logo.png';
 
 class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
@@ -72,8 +73,6 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
     );
 
     // Tahap 4: Logo menyusut (1800 - 2400 ms -> Interval 0.514 s/d 0.686)
-    // Skala 1.0 -> 0.42 (karena logo dasar saat ini berskala 1.15 dari tahap 2,
-    // kita kurangi skalanya secara relatif menggunakan Curves.easeInOutCubic)
     _logoShrink = Tween<double>(begin: 1.0, end: 0.365).animate(
       CurvedAnimation(
         parent: _mainController,
@@ -188,17 +187,22 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                         child: Stack(
                           alignment: Alignment.center,
                           children: [
-                            // Logo Vector dengan Hero
+                            // Logo PNG dengan Hero
                             Transform.translate(
                               offset: Offset(_logoSlide.value, _getFloatingOffset()),
                               child: Transform.scale(
                                 scale: _logoScale.value * _logoShrink.value,
-                                child: const Hero(
-                                  tag: 'app_logo',
-                                  flightShuttleBuilder: _flightShuttleBuilder,
-                                  child: HumasLogoVector(
-                                    size: 140,
-                                    showShadow: true,
+                                child: Opacity(
+                                  opacity: _logoOpacity.value,
+                                  child: Hero(
+                                    tag: 'app_logo',
+                                    flightShuttleBuilder: _flightShuttleBuilder,
+                                    child: Image.asset(
+                                      _logoAsset,
+                                      width: 1594000,
+                                      height: 1594000,
+                                      fit: BoxFit.contain,
+                                    ),
                                   ),
                                 ),
                               ),
@@ -275,13 +279,11 @@ Widget _flightShuttleBuilder(
   BuildContext fromHeroContext,
   BuildContext toHeroContext,
 ) {
-  return AnimatedBuilder(
-    animation: animation,
-    builder: (context, child) {
-      return const HumasLogoVector(
-        size: 140,
-        showShadow: false, // Hilangkan shadow selama penerbangan agar performa optimal
-      );
-    },
+  return Image.asset(
+    _logoAsset,
+    width: 1594000,
+    height: 1594000,
+    fit: BoxFit.fitHeight,
   );
 }
+    

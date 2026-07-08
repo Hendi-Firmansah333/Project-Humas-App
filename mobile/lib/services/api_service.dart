@@ -4,8 +4,10 @@ import 'package:poli_humas/models/activity.dart';
 import 'package:poli_humas/models/content_plan.dart';
 import 'package:poli_humas/models/notification_item.dart';
 import 'package:poli_humas/models/team_member.dart';
+import 'package:poli_humas/models/duty_schedule.dart';
 import 'package:poli_humas/repositories/app_repository.dart';
 import 'package:poli_humas/services/api_client.dart';
+import 'package:poli_humas/services/user_profile_service.dart';
 
 class ApiService {
   ApiService._();
@@ -29,6 +31,19 @@ class ApiService {
     final notifications = await ApiClient.instance.get('/notifications', query: mobileQuery);
     final team = await ApiClient.instance.get('/team-locations', query: {'mobile': '1'});
 
+    final userId = UserProfileService.instance.profile.id;
+    List<dynamic> schedulesList = [];
+    if (userId != null) {
+      try {
+        final schedules = await ApiClient.instance.get('/schedules', query: {'userId': userId.toString()});
+        if (schedules['items'] is List) {
+          schedulesList = schedules['items'] as List<dynamic>;
+        }
+      } catch (e) {
+        debugPrint('Failed to fetch schedules: $e');
+      }
+    }
+
     return AppDataSnapshot(
       activities: (activities['items'] as List<dynamic>? ?? [])
           .map((e) => _activityFromApi(e as Map<String, dynamic>))
@@ -44,6 +59,9 @@ class ApiService {
           .toList(),
       teamMembers: (team['items'] as List<dynamic>? ?? [])
           .map((e) => TeamMember.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      dutySchedules: schedulesList
+          .map((e) => DutyScheduleItem.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
   }

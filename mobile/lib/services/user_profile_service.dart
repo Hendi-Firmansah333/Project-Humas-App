@@ -36,6 +36,7 @@ class UserProfileService extends ChangeNotifier {
     final role = user['role'] as String? ?? 'USER';
     final roleLabel = user['roleLabel'] as String?;
     _profile = UserProfile(
+      id: user['id'] as int?,
       name: user['fullName'] as String? ?? user['username'] as String? ?? '',
       role: roleLabel ?? (role == 'ADMIN' ? 'Admin Humas' : 'Anggota Humas'),
       phone: user['phone'] as String? ?? '',
