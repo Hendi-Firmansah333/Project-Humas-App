@@ -388,25 +388,25 @@ class _ContentPlanDetailScreenState extends State<ContentPlanDetailScreen> {
                         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
                       ),
                       child: const Text(
-                        'Pilih File Video',
+                        'Pilih File ',
                         style: TextStyle(color: Colors.white, fontWeight: FontWeight.w600, fontSize: 12),
                       ),
                     ),
                   ),
                   const SizedBox(width: 10),
-                  Expanded(
-                    child: OutlinedButton(
-                      onPressed: _isSubmitting ? null : _pickPoster,
-                      style: OutlinedButton.styleFrom(
-                        padding: const EdgeInsets.symmetric(vertical: 14),
-                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      ),
-                      child: const Text(
-                        'Upload Poster/Thumb',
-                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
-                      ),
-                    ),
-                  ),
+                  // Expanded(
+                  //   child: OutlinedButton(
+                  //     onPressed: _isSubmitting ? null : _pickPoster,
+                  //     style: OutlinedButton.styleFrom(
+                  //       padding: const EdgeInsets.symmetric(vertical: 14),
+                  //       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                  //     ),
+                  //     child: const Text(
+                  //       'Upload Poster/Thumb',
+                  //       style: TextStyle(fontWeight: FontWeight.w600, fontSize: 12),
+                  //     ),
+                  //   ),
+                  // ),
                 ],
               ),
             ],

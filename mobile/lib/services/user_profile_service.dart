@@ -22,9 +22,13 @@ class UserProfileService extends ChangeNotifier {
 
   Future<void> load() async {
     final raw = await LocalStorage.getString(_storageKey);
-    if (raw != null) {
-      _profile = UserProfile.fromJson(jsonDecode(raw) as Map<String, dynamic>);
-      notifyListeners();
+    if (raw != null && raw.trim().isNotEmpty) {
+      try {
+        _profile = UserProfile.fromJson(jsonDecode(raw) as Map<String, dynamic>);
+        notifyListeners();
+      } catch (e) {
+        debugPrint('Error decoding user profile JSON: $e');
+      }
     }
   }
 

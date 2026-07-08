@@ -4,31 +4,25 @@ import 'package:poli_humas/screens/global_search_screen.dart';
 import 'package:poli_humas/services/app_navigation_service.dart';
 import 'package:poli_humas/theme/app_colors.dart';
 import 'package:poli_humas/utils/app_navigator.dart';
+import 'package:poli_humas/widgets/logo_painter.dart';
 
 class AppLogo extends StatelessWidget {
-  const AppLogo({super.key, this.size = 36});
+  const AppLogo({
+    super.key,
+    this.size = 36,
+    this.showShadow = false,
+  });
 
   final double size;
+  final bool showShadow;
 
   static const assetPath = 'assets/images/logo.jpg';
 
   @override
   Widget build(BuildContext context) {
-    return Image.asset(
-      assetPath,
-      width: size,
-      height: size,
-      fit: BoxFit.contain,
-      filterQuality: FilterQuality.high,
-      errorBuilder: (context, error, stackTrace) => Container(
-        width: size,
-        height: size,
-        decoration: const BoxDecoration(
-          color: AppColors.primary,
-          shape: BoxShape.circle,
-        ),
-        child: Icon(Icons.play_arrow_rounded, color: Colors.white, size: size * 0.55),
-      ),
+    return HumasLogoVector(
+      size: size,
+      showShadow: showShadow,
     );
   }
 }
