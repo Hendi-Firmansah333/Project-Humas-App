@@ -199,8 +199,8 @@ class _SplashScreenState extends State<SplashScreen> with TickerProviderStateMix
                                     flightShuttleBuilder: _flightShuttleBuilder,
                                     child: Image.asset(
                                       _logoAsset,
-                                      width: 1594000,
-                                      height: 1594000,
+                                      width: 140,
+                                      height: 140,
                                       fit: BoxFit.contain,
                                     ),
                                   ),
@@ -281,9 +281,9 @@ Widget _flightShuttleBuilder(
 ) {
   return Image.asset(
     _logoAsset,
-    width: 1594000,
-    height: 1594000,
-    fit: BoxFit.fitHeight,
+    width: 140,
+    height: 140,
+    fit: BoxFit.contain,
   );
 }
     

@@ -180,6 +180,8 @@ Project-Humas-App/
 | Prisma ORM    | v5+     | Database query & migration |
 | PostgreSQL    | v16     | Database utama |
 | JWT / Passport| -       | Autentikasi & otorisasi |
+| Socket.io     | ^4.8.1  | WebSocket Gateway real-time streaming |
+| Throttler     | ^6.4.0  | Protection Guard Rate Limiting |
 | Swagger       | -       | Dokumentasi API otomatis |
 | Docker        | -       | Containerisasi database |
 
@@ -189,18 +191,22 @@ Project-Humas-App/
 | Next.js       | v14     | Framework React (App Router) |
 | TypeScript    | v5+     | Type-safe development |
 | Tailwind CSS  | v3+     | Styling komponen |
+| Error Boundary| -       | Isolation & Graceful UI Fallback |
 | Axios         | -       | HTTP client |
 
 ### Mobile
 | Teknologi              | Versi   | Kegunaan |
-|------------------------|---------|----------|
+|---------------|---------|----------|
 | Flutter / Dart         | SDK ^3.11.1 | Framework mobile cross-platform |
 | Provider               | ^6.1.5  | State management |
 | Dio                    | ^5.8.0  | HTTP client |
 | Geolocator             | ^14.0.2 | Validasi GPS check-in |
+| Device Security Guard  | Custom  | Anti-Mock Location (Fake GPS Detector) |
+| Cloudinary Service     | Direct  | Cloud Photo Upload terverifikasi |
+| Offline Sync Engine    | Custom  | Offline Check-In Storage Queue |
 | Flutter Map            | ^8.1.1  | Peta interaktif live location |
 | Image Picker           | ^1.1.2  | Selfie check-in |
-| Shared Preferences     | ^2.5.3  | Persist session |
+| Shared Preferences     | ^2.5.3  | Persist session & offline queue |
 | Flutter Animate        | ^4.5.2  | Animasi UI |
 | Cached Network Image   | ^3.4.1  | Optimasi gambar |
 | Lottie                 | ^3.3.3  | Animasi Lottie |
@@ -244,7 +250,11 @@ npm run dev                   # berjalan di http://localhost:3000
 ```bash
 cd mobile
 flutter pub get
-# Sesuaikan base URL API di lib/config/
+
+# Untuk koneksi nirkabel (Wireless / Ngrok Tunnel):
+# Jalankan ngrok: ngrok http 3001
+# Salin URL HTTPS ngrok ke lib/config/api_config.dart (devUrl)
+
 flutter run
 ```
 
@@ -304,13 +314,13 @@ backend/src/
 ├── activities/             # Kegiatan + check-in + validasi
 ├── content-plans/          # Perencanaan konten
 ├── equipment-loans/        # Peminjaman alat
-├── live-location/          # Tracking posisi real-time
+├── live-location/          # Tracking posisi real-time (HTTP & Socket.io WebSockets)
 ├── schedules/              # Jadwal piket
 ├── reports/                # Laporan & export
 ├── notifications/          # Notifikasi push
 ├── dashboard/              # Statistik & agregasi data
 ├── prisma/                 # Koneksi database
-└── common/                 # Guards, filters, interceptors
+└── common/                 # Guards (Throttler), middleware (AuditLogger), filters
 ```
 
 ---
@@ -333,7 +343,18 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 
 ## 🗒️ Changelog
 
-### v1.2.0 — Juli 2026 (Update Terkini)
+### v1.3.0 — Juli 2026 (Hardening & Enterprise Architecture Update)
+- **[SECURITY]** Implementasi `DeviceSecurityService`: Pendeteksi Fake GPS / Mock Location pada Flutter Mobile.
+- **[MEDIA]** Cloud Direct Upload (`CloudinaryService`): Pengunggah foto selfie & dokumentasi otomatis ke cloud HTTPS.
+- **[RESILIENCE]** `OfflineSyncService`: Antrean check-in lokal (`SharedPreferences`) saat berada di area minim sinyal.
+- **[REAL-TIME]** `LiveLocationGateway` (Socket.io WebSockets): Streaming posisi tim real-time tanpa HTTP Polling.
+- **[PROTECTION]** Rate Limiting Guard (`@nestjs/throttler`): Perlindungan server dari serangan DoS & Brute Force.
+- **[OBSERVABILITY]** `AuditLoggerMiddleware`: Pencatatan otomatis latensi API, HTTP Status, IP Address, & User Agent.
+- **[UI RESILIENCE]** `ErrorBoundary` pada Next.js 14 Admin Panel untuk penanganan error terisolasi.
+- **[QA SUITE]** Pengujian otomatis E2E (`e2e_flow.spec.ts`) & Skrip Stress Testing (`load_test.js`) dengan k6.
+- **[DOCS]** Laporan Hasil Audit QA ([QA_ANALYSIS_REPORT.md](file:///d:/MOBILE/HUMAS/Project-Humas-App/QA_ANALYSIS_REPORT.md)) & Dukungan Koneksi Nirkabel (Ngrok Tunnel).
+
+### v1.2.0 — Juli 2026
 - **[NEW]** Revisi total halaman Detail Kegiatan sesuai alur bisnis sistem
 - **[NEW]** Monitoring check-in anggota: selfie, koordinat GPS, status keterlambatan
 - **[NEW]** Fitur Validasi Kegiatan oleh Admin dengan modal konfirmasi checklist
@@ -372,4 +393,4 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 ## 📄 Lisensi
 
 Proyek ini dikembangkan untuk keperluan internal **Tim Humas Politeknik Negeri Lampung**.  
-Hak cipta © 2026 — Politeknik Negeri Lampung.
+Hak cipta © 2026 — Politeknik Negeri Lampung.
