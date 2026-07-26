@@ -60,7 +60,7 @@ class _ActivitiesListScreenState extends State<ActivitiesListScreen> {
       appBar: AppHeader(
         trailing: IconButton(
           onPressed: () => pushSmooth(context, const ActivityHistoryScreen()),
-          icon: const Icon(Icons.history, color: AppColors.textPrimary),
+          icon: Icon(Icons.history, color: AppColors.textPrimary),
         ),
       ),
       body: Column(
@@ -82,7 +82,7 @@ class _ActivitiesListScreenState extends State<ActivitiesListScreen> {
                 hintText: 'Cari jadwal liputan, rapat, dll...',
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: AppColors.card,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none,
@@ -153,7 +153,7 @@ class _ActivityCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.card,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -176,7 +176,7 @@ class _ActivityCard extends StatelessWidget {
                   ),
                 ),
                 if (item.status != 'Sedang Berlangsung') StatusBadge(label: item.status),
-                const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+                Icon(Icons.chevron_right, color: AppColors.textSecondary),
               ],
             ),
             if (item.status == 'Sedang Berlangsung') ...[
@@ -186,28 +186,28 @@ class _ActivityCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               item.description,
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
             ),
             const SizedBox(height: 12),
             Row(
               children: [
-                const Icon(Icons.calendar_today, size: 14, color: AppColors.textSecondary),
+                Icon(Icons.calendar_today, size: 14, color: AppColors.textSecondary),
                 const SizedBox(width: 6),
                 Text(
                   '${item.date} • ${item.time}',
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                 ),
               ],
             ),
             const SizedBox(height: 6),
             Row(
               children: [
-                const Icon(Icons.location_on_outlined, size: 14, color: AppColors.textSecondary),
+                Icon(Icons.location_on_outlined, size: 14, color: AppColors.textSecondary),
                 const SizedBox(width: 6),
                 Expanded(
                   child: Text(
                     item.location,
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                   ),
                 ),
               ],

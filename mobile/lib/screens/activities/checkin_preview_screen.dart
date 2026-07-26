@@ -1,3 +1,4 @@
+import 'package:poli_humas/services/cloudinary_service.dart';
 import 'package:flutter/material.dart';
 import 'package:latlong2/latlong.dart' show LatLng;
 import 'package:provider/provider.dart';
@@ -41,10 +42,17 @@ class _CheckinPreviewScreenState extends State<CheckinPreviewScreen> {
   Future<void> _submit() async {
     setState(() => _isSubmitting = true);
     try {
+      // 1. Upload foto selfie ke Cloudinary
+      final cloudUrl = await CloudinaryService.uploadImage(widget.selfiePath);
+      if (cloudUrl == null) {
+        throw Exception('Gagal mengunggah foto selfie ke server cloud.');
+      }
+
+      // 2. Submit data check-in dengan URL Cloudinary
       final isLate = _computeIsLate(widget.activity);
       final updated = await context.read<AppDataProvider>().submitCheckIn(
             activityId: widget.activity.id,
-            selfiePath: widget.selfiePath,
+            selfiePath: cloudUrl,
             isLate: isLate,
           );
       if (!mounted) return;
@@ -78,10 +86,10 @@ class _CheckinPreviewScreenState extends State<CheckinPreviewScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.card,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
@@ -148,7 +156,7 @@ class _CheckinPreviewScreenState extends State<CheckinPreviewScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -170,7 +178,7 @@ class _CheckinPreviewScreenState extends State<CheckinPreviewScreen> {
                   const SizedBox(height: 14),
                   Row(
                     children: [
-                      const Icon(Icons.gps_fixed, color: AppColors.textSecondary, size: 20),
+                      Icon(Icons.gps_fixed, color: AppColors.textSecondary, size: 20),
                       const SizedBox(width: 12),
                       Expanded(
                         child: Column(
@@ -179,11 +187,11 @@ class _CheckinPreviewScreenState extends State<CheckinPreviewScreen> {
                             const Text('Status GPS', style: TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
                             Text(
                               'Akurat (Radius ${widget.locationResult.distanceMeters.round()}m)',
-                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                             ),
                             Text(
                               '${userPoint.latitude.toStringAsFixed(4)}, ${userPoint.longitude.toStringAsFixed(4)}',
-                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                              style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
                             ),
                           ],
                         ),
@@ -257,7 +265,7 @@ class _DataRow extends StatelessWidget {
             children: [
               Text(label, style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13)),
               const SizedBox(height: 2),
-              Text(value, style: const TextStyle(color: AppColors.textSecondary, fontSize: 13)),
+              Text(value, style: TextStyle(color: AppColors.textSecondary, fontSize: 13)),
             ],
           ),
         ),

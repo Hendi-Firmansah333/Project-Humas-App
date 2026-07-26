@@ -105,13 +105,13 @@ class _CheckinScreenState extends State<CheckinScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.card,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Check-in Kehadiran',
           style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800),
         ),
@@ -119,7 +119,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
         actions: [
           IconButton(
             onPressed: _isValidatingLocation ? null : _validateLocation,
-            icon: const Icon(Icons.refresh, color: AppColors.textPrimary),
+            icon: Icon(Icons.refresh, color: AppColors.textPrimary),
             tooltip: 'Perbarui lokasi',
           ),
         ],
@@ -129,7 +129,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            const Row(
+            Row(
               children: [
                 Icon(Icons.location_on, color: AppColors.textPrimary),
                 SizedBox(width: 8),
@@ -141,7 +141,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: _isValidatingLocation
@@ -170,7 +170,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
                               if (userPoint != null)
                                 Text(
                                   '${userPoint.latitude.toStringAsFixed(4)}, ${userPoint.longitude.toStringAsFixed(4)}',
-                                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                                 ),
                             ],
                           ),

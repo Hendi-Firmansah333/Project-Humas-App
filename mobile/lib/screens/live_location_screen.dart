@@ -163,7 +163,7 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
           backgroundColor: AppColors.primary,
           appBar: AppHeader(
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+              icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
               onPressed: () => Navigator.pop(context),
             ),
           ),
@@ -282,16 +282,16 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
                                         children: [
                                           Text(
                                             activeMember.name,
-                                            style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
+                                            style: TextStyle(fontWeight: FontWeight.w800, fontSize: 15),
                                           ),
                                           Text(
                                             activeMember.division,
-                                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                                            style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                                           ),
                                           const SizedBox(height: 6),
                                           Row(
                                             children: [
-                                              const Text(
+                                              Text(
                                                 'Status',
                                                 style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                                               ),
@@ -317,7 +317,7 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
                                           const SizedBox(height: 2),
                                           Text(
                                             _formatLastUpdated(activeMember),
-                                            style: const TextStyle(fontSize: 11, color: AppColors.textSecondary),
+                                            style: TextStyle(fontSize: 11, color: AppColors.textSecondary),
                                           ),
                                         ],
                                       ),
@@ -353,7 +353,7 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
                           const Spacer(),
                           GestureDetector(
                             onTap: _showFilterDialog,
-                            child: const Row(
+                            child: Row(
                               children: [
                                 Icon(Icons.tune, size: 18, color: AppColors.textSecondary),
                                 SizedBox(width: 4),
@@ -390,7 +390,7 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
                       const SizedBox(height: 12),
                       Expanded(
                         child: filtered.isEmpty
-                            ? const Center(
+                            ? Center(
                                 child: Text(
                                   'Tidak ada anggota tim pada filter ini.',
                                   style: TextStyle(color: AppColors.textSecondary),
@@ -473,11 +473,11 @@ class _TeamMemberTile extends StatelessWidget {
                 Text(member.name, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
                 Text(
                   '${member.distance} • ${member.location}',
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                 ),
                 Text(
                   lastUpdatedLabel,
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
                 ),
               ],
             ),
@@ -498,7 +498,7 @@ class _TeamMemberTile extends StatelessWidget {
               ),
             )
           else
-            const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+            Icon(Icons.chevron_right, color: AppColors.textSecondary),
         ],
           ),
         ),

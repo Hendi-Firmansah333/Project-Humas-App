@@ -9,6 +9,7 @@ import 'package:poli_humas/screens/profile/settings_screen.dart';
 import 'package:poli_humas/services/auth_service.dart';
 import 'package:poli_humas/services/user_profile_service.dart';
 import 'package:poli_humas/theme/app_colors.dart';
+import 'package:poli_humas/utils/translation_helper.dart';
 import 'package:poli_humas/widgets/profile_avatar.dart';
 import 'package:provider/provider.dart';
 
@@ -25,9 +26,9 @@ class ProfileScreen extends StatelessWidget {
         return Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.card,
             elevation: 0,
-            title: const Text(
+            title: Text(
               'Profil',
               style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800),
             ),
@@ -39,7 +40,7 @@ class ProfileScreen extends StatelessWidget {
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.fromLTRB(20, 24, 20, 28),
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AppColors.tealLight,
                     borderRadius: BorderRadius.only(
                       bottomLeft: Radius.circular(24),
@@ -56,7 +57,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       Text(
                         profile.role,
-                        style: const TextStyle(color: AppColors.textSecondary),
+                        style: TextStyle(color: AppColors.textSecondary),
                       ),
                       const SizedBox(height: 16),
                       _ContactField(icon: Icons.phone, value: profile.phone),
@@ -76,17 +77,17 @@ class ProfileScreen extends StatelessWidget {
                             children: [
                               _StatCard(
                                 value: '${stats.totalActivities}',
-                                label: 'Jumlah Kegiatan',
+                                label: T.t('total_activities'),
                               ),
                               const SizedBox(width: 10),
                               _StatCard(
                                 value: '${stats.completedContent}',
-                                label: 'Konten Selesai',
+                                label: T.t('completed_content'),
                               ),
                               const SizedBox(width: 10),
                               _StatCard(
                                 value: '${stats.attendanceRate}%',
-                                label: 'Kehadiran',
+                                label: T.t('attendance'),
                               ),
                             ],
                           );
@@ -95,7 +96,7 @@ class ProfileScreen extends StatelessWidget {
                       const SizedBox(height: 20),
                       _MenuTile(
                         icon: Icons.edit_outlined,
-                        label: 'Ubah Profil',
+                        label: T.t('edit_profile'),
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const EditProfileScreen()),
@@ -103,7 +104,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       _MenuTile(
                         icon: Icons.lock_outline,
-                        label: 'Ubah Password',
+                        label: T.t('change_password'),
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const ChangePasswordScreen()),
@@ -111,7 +112,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       _MenuTile(
                         icon: Icons.settings_outlined,
-                        label: 'Pengaturan',
+                        label: T.t('settings'),
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const SettingsScreen()),
@@ -119,7 +120,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       _MenuTile(
                         icon: Icons.help_outline,
-                        label: 'Bantuan',
+                        label: T.t('help'),
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const HelpScreen()),
@@ -127,7 +128,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       _MenuTile(
                         icon: Icons.info_outline,
-                        label: 'Tentang Aplikasi',
+                        label: T.t('about_app'),
                         onTap: () => Navigator.push(
                           context,
                           MaterialPageRoute(builder: (_) => const AboutAppScreen()),
@@ -135,7 +136,7 @@ class ProfileScreen extends StatelessWidget {
                       ),
                       _MenuTile(
                         icon: Icons.logout,
-                        label: 'Keluar',
+                        label: T.t('logout'),
                         isDanger: true,
                         onTap: () async {
                           await AuthService.instance.logoutRemote();
@@ -170,7 +171,7 @@ class _ContactField extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
@@ -196,7 +197,7 @@ class _StatCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(vertical: 16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.card,
           borderRadius: BorderRadius.circular(14),
         ),
         child: Column(
@@ -213,7 +214,7 @@ class _StatCard extends StatelessWidget {
             Text(
               label,
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 10, color: AppColors.textSecondary),
+              style: TextStyle(fontSize: 10, color: AppColors.textSecondary),
             ),
           ],
         ),
@@ -241,7 +242,7 @@ class _MenuTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
       ),
       child: ListTile(

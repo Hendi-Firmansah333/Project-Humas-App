@@ -82,13 +82,13 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.card,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Ubah Password',
           style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800),
         ),
@@ -199,7 +199,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
           onPressed: onToggle,
         ),
         filled: true,
-        fillColor: Colors.white,
+        fillColor: AppColors.card,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );

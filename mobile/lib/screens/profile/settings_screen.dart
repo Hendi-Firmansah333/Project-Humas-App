@@ -3,6 +3,7 @@ import 'package:poli_humas/providers/app_data_provider.dart';
 import 'package:poli_humas/screens/profile/help_screen.dart';
 import 'package:poli_humas/services/app_settings_service.dart';
 import 'package:poli_humas/theme/app_colors.dart';
+import 'package:poli_humas/utils/translation_helper.dart';
 import 'package:provider/provider.dart';
 
 class SettingsScreen extends StatefulWidget {
@@ -60,14 +61,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.card,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
-          'Pengaturan',
+        title: Text(
+          T.t('settings'),
           style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800),
         ),
         centerTitle: true,
@@ -75,12 +76,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
       body: ListView(
         padding: const EdgeInsets.all(20),
         children: [
-          _sectionTitle('Umum'),
+          _sectionTitle(T.t('general')),
           _SettingsTile(
             icon: Icons.notifications_outlined,
             iconColor: AppColors.primary,
-            title: 'Notifikasi',
-            subtitle: 'Aktifkan pemberitahuan push',
+            title: T.t('notifications'),
+            subtitle: T.t('notifications_sub'),
             trailing: Switch(
               value: _settings.notificationsEnabled,
               activeTrackColor: AppColors.primary,
@@ -90,8 +91,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SettingsTile(
             icon: Icons.location_on_outlined,
             iconColor: AppColors.primary,
-            title: 'Lokasi',
-            subtitle: 'Izinkan akses lokasi untuk check-in',
+            title: T.t('location'),
+            subtitle: T.t('location_sub'),
             trailing: Switch(
               value: _settings.locationEnabled,
               activeTrackColor: AppColors.primary,
@@ -101,8 +102,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SettingsTile(
             icon: Icons.dark_mode_outlined,
             iconColor: AppColors.primary,
-            title: 'Mode Gelap',
-            subtitle: 'Tema gelap aplikasi',
+            title: T.t('dark_mode'),
+            subtitle: T.t('dark_mode_sub'),
             trailing: Switch(
               value: _settings.darkModeEnabled,
               activeTrackColor: AppColors.primary,
@@ -112,7 +113,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SettingsTile(
             icon: Icons.language,
             iconColor: AppColors.primary,
-            title: 'Bahasa',
+            title: T.t('language'),
             subtitle: _settings.language,
             onTap: () => _showLanguagePicker(),
           ),
@@ -121,17 +122,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SettingsTile(
             icon: Icons.refresh,
             iconColor: AppColors.warning,
-            title: 'Reset Data',
-            subtitle: 'Hapus cache lokal dan muat ulang',
+            title: T.t('reset_data'),
+            subtitle: T.t('reset_data_sub'),
             onTap: _confirmReset,
           ),
           const SizedBox(height: 20),
-          _sectionTitle('Bantuan'),
+          _sectionTitle(T.t('help')),
           _SettingsTile(
             icon: Icons.help_outline,
             iconColor: AppColors.primary,
-            title: 'Pusat Bantuan',
-            subtitle: 'FAQ dan kontak tim Humas',
+            title: T.t('help_center'),
+            subtitle: T.t('help_center_sub'),
             onTap: () => Navigator.push(
               context,
               MaterialPageRoute(builder: (_) => const HelpScreen()),
@@ -147,7 +148,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
       padding: const EdgeInsets.only(bottom: 10, left: 4),
       child: Text(
         title,
-        style: const TextStyle(
+        style: TextStyle(
           fontWeight: FontWeight.w800,
           fontSize: 14,
           color: AppColors.textSecondary,
@@ -212,7 +213,7 @@ class _SettingsTile extends StatelessWidget {
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
       ),
       child: ListTile(
@@ -227,8 +228,8 @@ class _SettingsTile extends StatelessWidget {
           child: Icon(icon, color: iconColor, size: 22),
         ),
         title: Text(title, style: const TextStyle(fontWeight: FontWeight.w700)),
-        subtitle: Text(subtitle, style: const TextStyle(fontSize: 12, color: AppColors.textSecondary)),
-        trailing: trailing ?? const Icon(Icons.chevron_right, color: AppColors.textSecondary),
+        subtitle: Text(subtitle, style: TextStyle(fontSize: 12, color: AppColors.textSecondary)),
+        trailing: trailing ?? Icon(Icons.chevron_right, color: AppColors.textSecondary),
       ),
     );
   }

@@ -36,15 +36,15 @@ class LiveLocationMapScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.card,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: Text(
           focusMember != null ? 'Lokasi ${focusMember!.name}' : 'Peta Tim',
-          style: const TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800),
+          style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800),
         ),
         centerTitle: true,
       ),

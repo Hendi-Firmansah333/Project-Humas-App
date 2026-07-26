@@ -4,6 +4,7 @@ import 'package:poli_humas/providers/app_data_provider.dart';
 import 'package:poli_humas/screens/main_shell.dart';
 import 'package:poli_humas/services/auth_service.dart';
 import 'package:poli_humas/theme/app_colors.dart';
+import 'package:poli_humas/utils/translation_helper.dart';
 import 'package:poli_humas/widgets/logo_painter.dart';
 import 'package:provider/provider.dart';
 
@@ -137,25 +138,24 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
       body: Stack(
         fit: StackFit.expand,
         children: [
-          // 1. Soft Cyan Glows at the Four Corners (Premium Radial Gradients)
           Positioned(
-            top: -120,
-            left: -120,
+            top: -200,
+            left: -200,
             child: _buildGlowCircle(isDark),
           ),
           Positioned(
-            top: -120,
-            right: -120,
+            top: -200,
+            right: -200,
             child: _buildGlowCircle(isDark),
           ),
           Positioned(
-            bottom: -120,
-            left: -120,
+            bottom: -200,
+            left: -200,
             child: _buildGlowCircle(isDark),
           ),
           Positioned(
-            bottom: -120,
-            right: -120,
+            bottom: -200,
+            right: -200,
             child: _buildGlowCircle(isDark),
           ),
 
@@ -187,7 +187,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                       child: Column(
                         children: [
                           Text(
-                            'Masuk Ke Sistem',
+                            T.t('login_title'),
                             style: TextStyle(
                               fontSize: 26,
                               fontWeight: FontWeight.w900,
@@ -197,7 +197,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                           ),
                           const SizedBox(height: 6),
                           Text(
-                            'Silakan masuk dengan akun Humas Anda',
+                            T.t('login_subtitle'),
                             style: TextStyle(
                               fontSize: 14,
                               color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
@@ -235,9 +235,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                               enabled: !_isLoading,
                               style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                               decoration: InputDecoration(
-                                labelText: 'Username',
+                                labelText: T.t('username'),
                                 labelStyle: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
-                                prefixIcon: Icon(Icons.person_outline_rounded, color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                                prefixIcon: const Icon(Icons.person, color: Color(0xFF32B0C5)),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
                                   borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
@@ -248,7 +248,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
-                                  borderSide: const BorderSide(color: Color(0xFF0D9488), width: 1.5),
+                                  borderSide: const BorderSide(color: Color(0xFF32B0C5), width: 1.5),
                                 ),
                                 filled: true,
                                 fillColor: isDark ? const Color(0xFF151515) : const Color(0xFFF9FAFB),
@@ -266,13 +266,13 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                               obscureText: _obscurePassword,
                               style: TextStyle(color: isDark ? Colors.white : Colors.black87),
                               decoration: InputDecoration(
-                                labelText: 'Password',
+                                labelText: T.t('password'),
                                 labelStyle: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
-                                prefixIcon: Icon(Icons.lock_outline_rounded, color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                                prefixIcon: const Icon(Icons.lock, color: Color(0xFF32B0C5)),
                                 suffixIcon: IconButton(
                                   icon: Icon(
                                     _obscurePassword ? Icons.visibility_off_rounded : Icons.visibility_rounded,
-                                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                                    color: const Color(0xFF32B0C5),
                                   ),
                                   onPressed: () => setState(() => _obscurePassword = !_obscurePassword),
                                 ),
@@ -286,7 +286,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
-                                  borderSide: const BorderSide(color: Color(0xFF0D9488), width: 1.5),
+                                  borderSide: const BorderSide(color: Color(0xFF32B0C5), width: 1.5),
                                 ),
                                 filled: true,
                                 fillColor: isDark ? const Color(0xFF151515) : const Color(0xFFF9FAFB),
@@ -306,29 +306,16 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                   child: Checkbox(
                                     value: _ingatSaya,
                                     onChanged: _isLoading ? null : (val) => setState(() => _ingatSaya = val ?? false),
-                                    activeColor: const Color(0xFF0D9488),
+                                    activeColor: const Color(0xFF32B0C5),
                                     shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
                                   ),
                                 ),
                                 const SizedBox(width: 8),
                                 Text(
-                                  'Ingat Saya',
+                                  T.t('remember_me'),
                                   style: TextStyle(
                                     fontSize: 13,
                                     color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF4B5563),
-                                  ),
-                                ),
-                                const Spacer(),
-                                TextButton(
-                                  onPressed: () {},
-                                  style: TextButton.styleFrom(
-                                    padding: EdgeInsets.zero,
-                                    minimumSize: Size.zero,
-                                    tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                                  ),
-                                  child: const Text(
-                                    'Lupa Password?',
-                                    style: TextStyle(color: Color(0xFF0D9488), fontSize: 13, fontWeight: FontWeight.bold),
                                   ),
                                 ),
                               ],
@@ -345,9 +332,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                               child: ElevatedButton(
                                 onPressed: _isLoading ? null : _login,
                                 style: ElevatedButton.styleFrom(
-                                  backgroundColor: const Color(0xFF0D9488),
+                                  backgroundColor: const Color(0xFF32B0C5),
                                   elevation: 0,
-                                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+                                  shape: const StadiumBorder(),
                                 ),
                                 child: _isLoading
                                     ? const SizedBox(
@@ -355,9 +342,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                         height: 22,
                                         child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white),
                                       )
-                                    : const Text(
-                                        'Masuk',
-                                        style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
+                                    : Text(
+                                        T.t('sign_in'),
+                                        style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: Colors.white),
                                       ),
                                ),
                             ),
@@ -366,35 +353,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                       ),
                     ),
 
-                    // Info Box Staggered (Hanya jika API aktif)
-                    if (ApiConfig.enabled) ...[
-                      const SizedBox(height: 24),
-                      _buildStaggeredItem(
-                        animation: _infoAnim,
-                        child: Container(
-                          padding: const EdgeInsets.all(16),
-                          decoration: BoxDecoration(
-                            color: isDark ? const Color(0xFF1E1E1E).withOpacity(0.5) : const Color(0xFFF9FAFB),
-                            borderRadius: BorderRadius.circular(16),
-                            border: Border.all(
-                              color: const Color(0xFF0D9488).withOpacity(isDark ? 0.15 : 0.08),
-                            ),
-                          ),
-                          child: Text(
-                            'Login Anggota Humas (terhubung ke web admin):\n'
-                            '• budi.s / admin123 (PIC kegiatan)\n'
-                            '• budi.fotografer / admin123\n'
-                            '• rina.wati / admin123',
-                            textAlign: TextAlign.center,
-                            style: TextStyle(
-                              fontSize: 12,
-                              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF4B5563),
-                              height: 1.5,
-                            ),
-                          ),
-                        ),
-                      ),
-                    ],
+
                     const SizedBox(height: 20),
                   ],
                 ),
@@ -406,17 +365,16 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     );
   }
 
-  // Builder untuk membuat soft cyan glow
   Widget _buildGlowCircle(bool isDark) {
     return Container(
-      width: 280,
-      height: 280,
+      width: 400,
+      height: 400,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
         gradient: RadialGradient(
           colors: [
-            const Color(0xFF00B4D8).withOpacity(isDark ? 0.06 : 0.08),
-            const Color(0xFF00B4D8).withOpacity(0.0),
+            const Color(0xFF32B0C5).withOpacity(isDark ? 0.08 : 0.15),
+            const Color(0xFF32B0C5).withOpacity(0.0),
           ],
         ),
       ),

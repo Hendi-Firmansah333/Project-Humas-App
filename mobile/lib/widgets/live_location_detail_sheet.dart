@@ -58,7 +58,7 @@ class _LiveLocationDetailSheet extends StatelessWidget {
                 const Spacer(),
                 IconButton(
                   onPressed: () => Navigator.pop(context),
-                  icon: const Icon(Icons.close, color: AppColors.textSecondary),
+                  icon: Icon(Icons.close, color: AppColors.textSecondary),
                 ),
               ],
             ),
@@ -70,7 +70,7 @@ class _LiveLocationDetailSheet extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const Text(
+                      Text(
                         'Nama Anggota',
                         style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
                       ),
@@ -81,7 +81,7 @@ class _LiveLocationDetailSheet extends StatelessWidget {
                       const SizedBox(height: 4),
                       Text(
                         member.division,
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                       ),
                     ],
                   ),
@@ -175,7 +175,7 @@ class _DetailRow extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+        Text(label, style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
         const SizedBox(height: 4),
         Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 14)),
       ],

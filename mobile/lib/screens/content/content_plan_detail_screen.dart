@@ -1,3 +1,4 @@
+import 'package:poli_humas/services/cloudinary_service.dart';
 import 'dart:convert';
 import 'dart:io';
 
@@ -78,12 +79,7 @@ class _ContentPlanDetailScreenState extends State<ContentPlanDetailScreen> {
       return value;
     }
     if (kIsWeb) return value;
-    final file = File(value);
-    if (!file.existsSync()) return null;
-    final bytes = await file.readAsBytes();
-    final ext = value.split('.').last.toLowerCase();
-    final mime = ext == 'png' ? 'image/png' : 'image/jpeg';
-    return 'data:$mime;base64,${base64Encode(bytes)}';
+    return await CloudinaryService.uploadImage(value);
   }
 
   Future<void> _submit() async {
@@ -217,13 +213,13 @@ class _ContentPlanDetailScreenState extends State<ContentPlanDetailScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.card,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Detail Content Plan',
           style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800),
         ),
@@ -274,7 +270,7 @@ class _ContentPlanDetailScreenState extends State<ContentPlanDetailScreen> {
                   const SizedBox(height: 12),
                   Text(
                     item.description,
-                    style: const TextStyle(color: AppColors.textSecondary, height: 1.5),
+                    style: TextStyle(color: AppColors.textSecondary, height: 1.5),
                   ),
                   if (item.revisionNote != null && item.revisionNote!.isNotEmpty) ...[
                     const SizedBox(height: 12),
@@ -315,7 +311,7 @@ class _ContentPlanDetailScreenState extends State<ContentPlanDetailScreen> {
                   const SizedBox(height: 6),
                   Text(
                     'Progress: ${item.progress}%',
-                    style: const TextStyle(
+                    style: TextStyle(
                       color: AppColors.textSecondary,
                       fontSize: 12,
                       fontWeight: FontWeight.w600,
@@ -350,7 +346,7 @@ class _ContentPlanDetailScreenState extends State<ContentPlanDetailScreen> {
                           children: [
                             const Text('PIC', style: TextStyle(fontWeight: FontWeight.w600)),
                             const Spacer(),
-                            const Icon(Icons.person_outline, size: 18, color: AppColors.textSecondary),
+                            Icon(Icons.person_outline, size: 18, color: AppColors.textSecondary),
                             const SizedBox(width: 4),
                             Text(item.pic),
                           ],
@@ -481,7 +477,7 @@ class _ContentPlanDetailScreenState extends State<ContentPlanDetailScreen> {
               decoration: InputDecoration(
                 hintText: 'Masukkan link video di sini...',
                 filled: true,
-                fillColor: _canSubmit ? Colors.white : const Color(0xFFF3F4F6),
+                fillColor: _canSubmit ? AppColors.card : (AppColors.isDark ? const Color(0xFF2D3748) : const Color(0xFFF3F4F6)),
                 errorText: _linkError,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(12),

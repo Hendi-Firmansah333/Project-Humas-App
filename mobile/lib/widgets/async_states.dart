@@ -42,7 +42,7 @@ class LoadingView extends StatelessWidget {
         children: [
           const CircularProgressIndicator(color: AppColors.primary),
           const SizedBox(height: 12),
-          Text(message, style: const TextStyle(color: AppColors.textSecondary)),
+          Text(message, style: TextStyle(color: AppColors.textSecondary)),
         ],
       ),
     );
@@ -68,7 +68,7 @@ class EmptyStateView extends StatelessWidget {
             Text(
               message,
               textAlign: TextAlign.center,
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: AppColors.textSecondary),
             ),
           ],
         ),

@@ -4,6 +4,7 @@ import 'package:poli_humas/screens/global_search_screen.dart';
 import 'package:poli_humas/services/app_navigation_service.dart';
 import 'package:poli_humas/theme/app_colors.dart';
 import 'package:poli_humas/utils/app_navigator.dart';
+import 'package:poli_humas/utils/translation_helper.dart';
 import 'package:poli_humas/widgets/logo_painter.dart';
 
 class AppLogo extends StatelessWidget {
@@ -67,7 +68,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
   @override
   Widget build(BuildContext context) {
     return AppBar(
-      backgroundColor: Colors.white,
+      backgroundColor: AppColors.card,
       elevation: 0,
       scrolledUnderElevation: 0,
       leading: leading ??
@@ -84,7 +85,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
       title: Text(
         title,
         style: const TextStyle(
-          color: AppColors.primaryDark,
+          color: AppColors.primary, // Ganti primaryDark agar kontras di gelap
           fontWeight: FontWeight.w800,
           fontSize: 15,
           letterSpacing: 0.3,
@@ -92,11 +93,11 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
       ),
       centerTitle: true,
       actions: [
-        ?trailing,
+        if (trailing != null) trailing!,
         if (showSearch)
           IconButton(
             onPressed: onSearch ?? () => pushSmooth(context, const GlobalSearchScreen()),
-            icon: const Icon(Icons.search, color: AppColors.textPrimary),
+            icon: Icon(Icons.search, color: AppColors.textPrimary),
             tooltip: 'Cari',
           ),
       ],
@@ -133,10 +134,12 @@ class FilterChipsRow extends StatelessWidget {
               child: Container(
                 padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 10),
                 decoration: BoxDecoration(
-                  color: isSelected ? AppColors.primary : Colors.white,
+                  color: isSelected ? AppColors.primary : AppColors.card,
                   borderRadius: BorderRadius.circular(24),
                   border: Border.all(
-                    color: isSelected ? AppColors.primary : const Color(0xFFE5E7EB),
+                    color: isSelected
+                        ? AppColors.primary
+                        : (AppColors.isDark ? Colors.white12 : const Color(0xFFE5E7EB)),
                   ),
                 ),
                 child: Text(
@@ -254,7 +257,7 @@ class SectionTitle extends StatelessWidget {
       children: [
         Text(
           title,
-          style: const TextStyle(
+          style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,
             color: AppColors.textPrimary,
@@ -302,7 +305,7 @@ class AppBottomNav extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         boxShadow: [
           BoxShadow(
             color: Colors.black.withValues(alpha: 0.06),
@@ -324,7 +327,7 @@ class AppBottomNav extends StatelessWidget {
                 return Expanded(
                   child: _BottomNavItem(
                     icon: icon,
-                    label: label,
+                    label: T.t(label.toLowerCase()),
                     selected: selected,
                     showBadge: index == 3 && unreadCount > 0 && !selected,
                     onTap: () {

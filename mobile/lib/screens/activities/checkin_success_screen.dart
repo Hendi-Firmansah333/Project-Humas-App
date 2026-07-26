@@ -54,14 +54,14 @@ class CheckinSuccessScreen extends StatelessWidget {
                     ? 'Kehadiran Anda telah dicatat (terlambat).'
                     : 'Kehadiran Anda telah tercatat dengan sukses.',
                 textAlign: TextAlign.center,
-                style: const TextStyle(color: AppColors.textSecondary, height: 1.5),
+                style: TextStyle(color: AppColors.textSecondary, height: 1.5),
               ),
               const SizedBox(height: 28),
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.card,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Column(
@@ -136,7 +136,7 @@ class _SummaryRow extends StatelessWidget {
     return Row(
       children: [
         Expanded(
-          child: Text(label, style: const TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
+          child: Text(label, style: TextStyle(color: AppColors.textSecondary, fontWeight: FontWeight.w600)),
         ),
         Expanded(
           flex: 2,

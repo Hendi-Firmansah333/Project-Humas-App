@@ -66,7 +66,7 @@ class _HelpScreenState extends State<HelpScreen> {
               style: TextStyle(fontSize: 22, fontWeight: FontWeight.w800, color: AppColors.primaryDark),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Temukan jawaban atas pertanyaan umum atau hubungi tim Humas secara langsung.',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.textSecondary, height: 1.5),
@@ -114,7 +114,7 @@ class _HelpScreenState extends State<HelpScreen> {
               return Container(
                 margin: const EdgeInsets.only(bottom: 8),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.card,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Column(
@@ -122,7 +122,7 @@ class _HelpScreenState extends State<HelpScreen> {
                     ListTile(
                       title: Text(
                         question,
-                        style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
+                        style: TextStyle(fontWeight: FontWeight.w600, fontSize: 14),
                       ),
                       trailing: Icon(
                         expanded ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
@@ -143,7 +143,7 @@ class _HelpScreenState extends State<HelpScreen> {
                           alignment: Alignment.centerLeft,
                           child: Text(
                             answer,
-                            style: const TextStyle(color: AppColors.textSecondary, height: 1.5, fontSize: 13),
+                            style: TextStyle(color: AppColors.textSecondary, height: 1.5, fontSize: 13),
                           ),
                         ),
                       ),
@@ -183,7 +183,7 @@ class _ContactCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
         boxShadow: [
           BoxShadow(
@@ -214,7 +214,7 @@ class _ContactCard extends StatelessWidget {
                   children: [
                     Text(title, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 15)),
                     const SizedBox(height: 2),
-                    Text(subtitle, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                    Text(subtitle, style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                   ],
                 ),
               ),

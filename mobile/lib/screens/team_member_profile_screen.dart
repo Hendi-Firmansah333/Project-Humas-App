@@ -32,13 +32,13 @@ class TeamMemberProfileScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.card,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Profil Anggota',
           style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800),
         ),
@@ -80,14 +80,14 @@ class TeamMemberProfileScreen extends StatelessWidget {
             ),
             Text(
               member.division,
-              style: const TextStyle(color: AppColors.textSecondary),
+              style: TextStyle(color: AppColors.textSecondary),
             ),
             const SizedBox(height: 20),
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -102,7 +102,7 @@ class TeamMemberProfileScreen extends StatelessWidget {
                       color: AppColors.primaryDark,
                     ),
                   ),
-                  const Text(
+                  Text(
                     'TUGAS SELESAI',
                     style: TextStyle(
                       color: AppColors.textSecondary,
@@ -139,7 +139,7 @@ class TeamMemberProfileScreen extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             if (member.activityHistory.isEmpty)
-              const Text('Belum ada riwayat kegiatan.', style: TextStyle(color: AppColors.textSecondary))
+              Text('Belum ada riwayat kegiatan.', style: TextStyle(color: AppColors.textSecondary))
             else
               ...member.activityHistory.map(
                 (record) => Container(
@@ -147,7 +147,7 @@ class TeamMemberProfileScreen extends StatelessWidget {
                   margin: const EdgeInsets.only(bottom: 8),
                   padding: const EdgeInsets.all(14),
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: AppColors.card,
                     borderRadius: BorderRadius.circular(14),
                   ),
                   child: Row(
@@ -166,7 +166,7 @@ class TeamMemberProfileScreen extends StatelessWidget {
                             const SizedBox(height: 4),
                             Text(
                               record.dateLocation,
-                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                             ),
                           ],
                         ),
@@ -219,7 +219,7 @@ class _InfoCard extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -235,7 +235,7 @@ class _InfoCard extends StatelessWidget {
                 Text(value, style: const TextStyle(fontSize: 13)),
                 if (subtitle != null) ...[
                   const SizedBox(height: 2),
-                  Text(subtitle!, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+                  Text(subtitle!, style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
                 ],
               ],
             ),

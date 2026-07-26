@@ -109,7 +109,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
                       )
                     : null,
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: AppColors.card,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none,
@@ -119,7 +119,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
           ),
           Expanded(
             child: !hasQuery
-                ? const Center(
+                ? Center(
                     child: Padding(
                       padding: EdgeInsets.all(32),
                       child: Text(
@@ -130,7 +130,7 @@ class _GlobalSearchScreenState extends State<GlobalSearchScreen> {
                     ),
                   )
                 : totalResults == 0
-                    ? const Center(
+                    ? Center(
                         child: Padding(
                           padding: EdgeInsets.all(32),
                           child: Text(
@@ -222,7 +222,7 @@ class _SectionHeader extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Text(
         '$title ($count)',
-        style: const TextStyle(
+        style: TextStyle(
           fontSize: 13,
           fontWeight: FontWeight.w800,
           color: AppColors.textSecondary,
@@ -251,7 +251,7 @@ class _SearchResultTile extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           onTap: onTap,
@@ -263,7 +263,7 @@ class _SearchResultTile extends StatelessWidget {
                 Container(
                   width: 40,
                   height: 40,
-                  decoration: const BoxDecoration(
+                  decoration: BoxDecoration(
                     color: AppColors.tealLight,
                     shape: BoxShape.circle,
                   ),
@@ -283,14 +283,14 @@ class _SearchResultTile extends StatelessWidget {
                       const SizedBox(height: 2),
                       Text(
                         subtitle,
-                        style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                        style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
                 ),
-                const Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 20),
+                Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 20),
               ],
             ),
           ),

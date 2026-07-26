@@ -125,13 +125,13 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.card,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Ubah Profil',
           style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800),
         ),
@@ -150,7 +150,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 onTap: _showPhotoOptions,
               ),
               const SizedBox(height: 8),
-              const Text(
+              Text(
                 'Ketuk foto untuk mengubah',
                 style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
               ),
@@ -206,7 +206,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                 },
               ),
               if (!emailEditable)
-                const Padding(
+                Padding(
                   padding: EdgeInsets.only(top: 6),
                   child: Align(
                     alignment: Alignment.centerLeft,
@@ -266,7 +266,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
         labelText: label,
         prefixIcon: Icon(icon),
         filled: true,
-        fillColor: readOnly ? const Color(0xFFF3F4F6) : Colors.white,
+        fillColor: readOnly ? (AppColors.isDark ? const Color(0xFF2D3748) : const Color(0xFFF3F4F6)) : AppColors.card,
         border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
       ),
     );

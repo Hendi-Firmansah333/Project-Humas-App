@@ -45,7 +45,7 @@ class _ContentPlanScreenState extends State<ContentPlanScreen> {
                   style: TextStyle(fontSize: 28, fontWeight: FontWeight.w800),
                 ),
               ),
-              const Padding(
+              Padding(
                 padding: EdgeInsets.fromLTRB(20, 6, 20, 0),
                 child: Text(
                   'Lihat pengajuan konten dan status validasi dari Admin.',
@@ -110,7 +110,7 @@ class _ContentCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.card,
           borderRadius: BorderRadius.circular(16),
           boxShadow: [
             BoxShadow(
@@ -157,7 +157,7 @@ class _ContentCard extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               item.description,
-              style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+              style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
             ),
             const SizedBox(height: 12),
             ClipRRect(
@@ -174,7 +174,7 @@ class _ContentCard extends StatelessWidget {
               children: [
                 Text(
                   '${item.progress}% selesai',
-                  style: const TextStyle(
+                  style: TextStyle(
                     color: AppColors.textSecondary,
                     fontSize: 11,
                     fontWeight: FontWeight.w600,

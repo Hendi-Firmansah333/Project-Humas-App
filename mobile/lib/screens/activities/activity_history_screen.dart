@@ -54,13 +54,13 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.card,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Riwayat Kegiatan',
           style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800),
         ),
@@ -76,7 +76,7 @@ class _ActivityHistoryScreenState extends State<ActivityHistoryScreen> {
                 hintText: 'Cari kegiatan...',
                 prefixIcon: const Icon(Icons.search),
                 filled: true,
-                fillColor: Colors.white,
+                fillColor: AppColors.card,
                 border: OutlineInputBorder(
                   borderRadius: BorderRadius.circular(14),
                   borderSide: BorderSide.none,
@@ -142,7 +142,7 @@ class _HistoryCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
@@ -179,9 +179,9 @@ class _HistoryCard extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(Icons.calendar_today, size: 14, color: AppColors.textSecondary),
+              Icon(Icons.calendar_today, size: 14, color: AppColors.textSecondary),
               const SizedBox(width: 6),
-              Text(item.date, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+              Text(item.date, style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
             ],
           ),
           const SizedBox(height: 10),

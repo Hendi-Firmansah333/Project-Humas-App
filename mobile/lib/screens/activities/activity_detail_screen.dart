@@ -80,10 +80,10 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.card,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
         title: const Text(
@@ -101,7 +101,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -118,7 +118,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                     activity.description.isNotEmpty
                         ? activity.description
                         : 'Tim humas ditugaskan untuk melakukan dokumentasi foto dan video serta live streaming acara.',
-                    style: const TextStyle(color: AppColors.textSecondary, height: 1.5),
+                    style: TextStyle(color: AppColors.textSecondary, height: 1.5),
                   ),
                   const SizedBox(height: 16),
                   _InfoRow(icon: Icons.calendar_today, text: activity.date),
@@ -201,7 +201,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                     ],
                   ),
                   const SizedBox(height: 8),
-                  const Text(
+                  Text(
                     'Mengunggah LINK Google Drive dokumentasi kegiatan.',
                     style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                   ),
@@ -266,7 +266,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -278,7 +278,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                   ),
                   const SizedBox(height: 16),
                   if (activity.timeline.isEmpty)
-                    const Text(
+                    Text(
                       'Belum ada timeline untuk kegiatan ini.',
                       style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                     )
@@ -316,7 +316,7 @@ class _InfoRow extends StatelessWidget {
         children: [
           Icon(icon, size: 18, color: AppColors.textSecondary),
           const SizedBox(width: 10),
-          Expanded(child: Text(text, style: const TextStyle(color: AppColors.textSecondary))),
+          Expanded(child: Text(text, style: TextStyle(color: AppColors.textSecondary))),
         ],
       ),
     );
@@ -376,7 +376,7 @@ class _TimelineItem extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 2),
-                  Text(time, style: const TextStyle(color: AppColors.textSecondary, fontSize: 12)),
+                  Text(time, style: TextStyle(color: AppColors.textSecondary, fontSize: 12)),
                 ],
               ),
             ),

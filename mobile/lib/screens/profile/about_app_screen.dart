@@ -42,13 +42,13 @@ class _AboutAppScreenState extends State<AboutAppScreen> {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.card,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Tentang Aplikasi',
           style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800),
         ),
@@ -62,7 +62,7 @@ class _AboutAppScreenState extends State<AboutAppScreen> {
               width: double.infinity,
               padding: const EdgeInsets.all(24),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(16),
               ),
               child: Column(
@@ -76,7 +76,7 @@ class _AboutAppScreenState extends State<AboutAppScreen> {
                   const SizedBox(height: 6),
                   Text(
                     'Versi $_version (Build $_buildNumber)',
-                    style: const TextStyle(color: AppColors.textSecondary),
+                    style: TextStyle(color: AppColors.textSecondary),
                   ),
                 ],
               ),
@@ -84,21 +84,21 @@ class _AboutAppScreenState extends State<AboutAppScreen> {
             const SizedBox(height: 16),
             _section(
               title: 'Deskripsi Aplikasi',
-              child: const Text(
+              child: Text(
                 'Aplikasi mobile untuk mendukung operasional Tim Hubungan Masyarakat (HUMAS) Politeknik Negeri Lampung dalam mengelola kegiatan, dokumentasi, content plan, kehadiran, serta monitoring tim secara terintegrasi.',
                 style: TextStyle(color: AppColors.textSecondary, height: 1.5),
               ),
             ),
             _section(
               title: 'Tujuan Pengembangan',
-              child: const Text(
+              child: Text(
                 'Mempermudah koordinasi tim humas dalam pelaksanaan liputan kegiatan, penjadwalan konten publikasi, absensi berbasis lokasi, dan pelacakan aktivitas anggota tim secara real-time.',
                 style: TextStyle(color: AppColors.textSecondary, height: 1.5),
               ),
             ),
             _section(
               title: 'Pengembang',
-              child: const Column(
+              child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('Tim Pengembang IT Polinela', style: TextStyle(fontWeight: FontWeight.w600)),
@@ -138,7 +138,7 @@ class _AboutAppScreenState extends State<AboutAppScreen> {
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               '© 2026 Politeknik Negeri Lampung. All rights reserved.',
               textAlign: TextAlign.center,
               style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
@@ -178,7 +178,7 @@ class _AboutAppScreenState extends State<AboutAppScreen> {
       contentPadding: EdgeInsets.zero,
       leading: Icon(icon, color: AppColors.primary),
       title: Text(label, style: const TextStyle(fontWeight: FontWeight.w500)),
-      trailing: const Icon(Icons.open_in_new, size: 18, color: AppColors.textSecondary),
+      trailing: Icon(Icons.open_in_new, size: 18, color: AppColors.textSecondary),
       onTap: onTap,
     );
   }

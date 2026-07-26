@@ -102,7 +102,7 @@ class HomeScreen extends StatelessWidget {
                                   child: Column(
                                     crossAxisAlignment: CrossAxisAlignment.start,
                                     children: [
-                                      const Text(
+                                      Text(
                                         'Halo,',
                                         style: TextStyle(color: AppColors.textSecondary, fontSize: 15),
                                       ),
@@ -126,7 +126,7 @@ class HomeScreen extends StatelessWidget {
                               index: 1,
                               child: Row(
                                 children: [
-                                  const Text(
+                                  Text(
                                     'Status hari ini',
                                     style: TextStyle(
                                       fontWeight: FontWeight.w600,
@@ -156,7 +156,7 @@ class HomeScreen extends StatelessWidget {
                                     ),
                                   ),
                                   const SizedBox(width: 4),
-                                  const Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 20),
+                                  Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 20),
                                 ],
                               ),
                             ),
@@ -235,7 +235,7 @@ class HomeScreen extends StatelessWidget {
                             ).staggeredEntrance(6),
                             const SizedBox(height: 14),
                             if (provider.upcomingActivities.isEmpty)
-                              const Text(
+                              Text(
                                 'Belum ada kegiatan terdekat.',
                                 style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                               )
@@ -284,7 +284,7 @@ class _TappableHomeCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: Colors.white,
+      color: AppColors.card,
       elevation: 1,
       shadowColor: Colors.black.withValues(alpha: 0.08),
       borderRadius: BorderRadius.circular(16),
@@ -325,8 +325,8 @@ class _TodayScheduleCard extends StatelessWidget {
       return _TappableHomeCard(
         onTap: onTap,
         index: index,
-        border: const Border(left: BorderSide(color: AppColors.textSecondary, width: 4)),
-        child: const Column(
+        border: Border(left: BorderSide(color: AppColors.textSecondary, width: 4)),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -365,13 +365,13 @@ class _TodayScheduleCard extends StatelessWidget {
               const Spacer(),
               StatusBadge(label: schedule!.status),
               const SizedBox(width: 4),
-              const Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 20),
+              Icon(Icons.chevron_right, color: AppColors.textSecondary, size: 20),
             ],
           ),
           const SizedBox(height: 12),
           Text(
             schedule!.title,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 18,
               fontWeight: FontWeight.w800,
               color: AppColors.textPrimary,
@@ -381,7 +381,7 @@ class _TodayScheduleCard extends StatelessWidget {
             const SizedBox(height: 8),
             Row(
               children: [
-                const Icon(Icons.assignment_outlined, size: 16, color: AppColors.textSecondary),
+                Icon(Icons.assignment_outlined, size: 16, color: AppColors.textSecondary),
                 const SizedBox(width: 6),
                 Text(
                   'Job Desk: ${schedule!.jobDesk}',
@@ -397,20 +397,20 @@ class _TodayScheduleCard extends StatelessWidget {
           const SizedBox(height: 10),
           Row(
             children: [
-              const Icon(Icons.access_time, size: 16, color: AppColors.textSecondary),
+              Icon(Icons.access_time, size: 16, color: AppColors.textSecondary),
               const SizedBox(width: 6),
-              Text(schedule!.time, style: const TextStyle(color: AppColors.textSecondary)),
+              Text(schedule!.time, style: TextStyle(color: AppColors.textSecondary)),
             ],
           ),
           const SizedBox(height: 6),
           Row(
             children: [
-              const Icon(Icons.location_on_outlined, size: 16, color: AppColors.textSecondary),
+              Icon(Icons.location_on_outlined, size: 16, color: AppColors.textSecondary),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   schedule!.location,
-                  style: const TextStyle(color: AppColors.textSecondary),
+                  style: TextStyle(color: AppColors.textSecondary),
                 ),
               ),
             ],
@@ -448,7 +448,7 @@ class _QuickAction extends StatelessWidget {
             Container(
               width: 56,
               height: 56,
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 color: AppColors.tealLight,
                 shape: BoxShape.circle,
               ),
@@ -457,7 +457,7 @@ class _QuickAction extends StatelessWidget {
             const SizedBox(height: 8),
             Text(
               label,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 11,
                 fontWeight: FontWeight.w600,
                 color: AppColors.textPrimary,
@@ -513,7 +513,7 @@ class _HumasAction extends StatelessWidget {
                   Container(
                     width: 40,
                     height: 40,
-                    decoration: const BoxDecoration(
+                    decoration: BoxDecoration(
                       color: AppColors.tealLight,
                       shape: BoxShape.circle,
                     ),
@@ -563,7 +563,7 @@ class _UpcomingCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.card,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
@@ -604,7 +604,7 @@ class _UpcomingCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     '${activity.time} • ${activity.location}',
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                   ),
                   const SizedBox(height: 6),
                   StatusBadge(label: activity.status),
@@ -631,8 +631,8 @@ class _DutyScheduleSection extends StatelessWidget {
       return _TappableHomeCard(
         onTap: () {},
         index: index,
-        border: const Border(left: BorderSide(color: AppColors.textSecondary, width: 4)),
-        child: const Column(
+        border: Border(left: BorderSide(color: AppColors.textSecondary, width: 4)),
+        child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
@@ -736,7 +736,7 @@ class _DutyScheduleCard extends StatelessWidget {
           const SizedBox(height: 10),
           Text(
             schedule.formattedDate,
-            style: const TextStyle(
+            style: TextStyle(
               fontSize: 16,
               fontWeight: FontWeight.w800,
               color: AppColors.textPrimary,
@@ -745,23 +745,23 @@ class _DutyScheduleCard extends StatelessWidget {
           const SizedBox(height: 8),
           Row(
             children: [
-              const Icon(Icons.access_time, size: 14, color: AppColors.textSecondary),
+              Icon(Icons.access_time, size: 14, color: AppColors.textSecondary),
               const SizedBox(width: 6),
               Text(
                 schedule.timeLabel,
-                style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
               ),
             ],
           ),
           const SizedBox(height: 4),
           Row(
             children: [
-              const Icon(Icons.location_on_outlined, size: 14, color: AppColors.textSecondary),
+              Icon(Icons.location_on_outlined, size: 14, color: AppColors.textSecondary),
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
                   schedule.location,
-                  style: const TextStyle(color: AppColors.textSecondary, fontSize: 13),
+                  style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                 ),
               ),
             ],
@@ -873,7 +873,7 @@ class _DutyScheduleDetailSheet extends StatelessWidget {
             children: [
               Text(
                 title,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textSecondary,
                   fontSize: 12,
                   fontWeight: FontWeight.w500,
@@ -882,7 +882,7 @@ class _DutyScheduleDetailSheet extends StatelessWidget {
               const SizedBox(height: 4),
               Text(
                 value,
-                style: const TextStyle(
+                style: TextStyle(
                   color: AppColors.textPrimary,
                   fontSize: 14,
                   fontWeight: FontWeight.w600,

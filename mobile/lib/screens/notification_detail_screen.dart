@@ -19,13 +19,13 @@ class NotificationDetailScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.card,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Detail Notifikasi',
           style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800),
         ),
@@ -49,7 +49,7 @@ class NotificationDetailScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(16),
                 boxShadow: [
                   BoxShadow(
@@ -80,12 +80,12 @@ class NotificationDetailScreen extends StatelessWidget {
                           children: [
                             Text(
                               notification.title,
-                              style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
+                              style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
                             ),
                             const SizedBox(height: 4),
                             Text(
                               notification.time,
-                              style: const TextStyle(color: AppColors.textSecondary, fontSize: 12),
+                              style: TextStyle(color: AppColors.textSecondary, fontSize: 12),
                             ),
                           ],
                         ),
@@ -111,7 +111,7 @@ class NotificationDetailScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   Text(
                     notification.body,
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 15, height: 1.5),
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 15, height: 1.5),
                   ),
                   const SizedBox(height: 12),
                   Container(
@@ -122,7 +122,7 @@ class NotificationDetailScreen extends StatelessWidget {
                     ),
                     child: Text(
                       notification.group,
-                      style: const TextStyle(
+                      style: TextStyle(
                         color: AppColors.textSecondary,
                         fontSize: 12,
                         fontWeight: FontWeight.w600,

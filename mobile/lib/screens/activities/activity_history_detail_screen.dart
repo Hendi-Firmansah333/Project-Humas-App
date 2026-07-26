@@ -33,13 +33,13 @@ class ActivityHistoryDetailScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: AppColors.background,
       appBar: AppBar(
-        backgroundColor: Colors.white,
+        backgroundColor: AppColors.card,
         elevation: 0,
         leading: IconButton(
-          icon: const Icon(Icons.arrow_back, color: AppColors.textPrimary),
+          icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Detail Riwayat',
           style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800),
         ),
@@ -110,7 +110,7 @@ class ActivityHistoryDetailScreen extends StatelessWidget {
               width: double.infinity,
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: Colors.white,
+                color: AppColors.card,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
@@ -157,7 +157,7 @@ class ActivityHistoryDetailScreen extends StatelessWidget {
                       height: 240,
                       width: double.infinity,
                       color: AppColors.tealLight,
-                      child: const Column(
+                      child: Column(
                         mainAxisAlignment: MainAxisAlignment.center,
                         children: [
                           Icon(Icons.image_not_supported_outlined, color: AppColors.textSecondary, size: 40),
@@ -203,12 +203,12 @@ class ActivityHistoryDetailScreen extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
-                  color: Colors.white,
+                  color: AppColors.card,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 child: Text(
                   item.adminNote!,
-                  style: const TextStyle(color: AppColors.textSecondary, height: 1.5),
+                style: TextStyle(color: AppColors.textSecondary, height: 1.5),
                 ),
               ),
             ],
@@ -231,7 +231,7 @@ class _InfoChip extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -239,7 +239,7 @@ class _InfoChip extends StatelessWidget {
         children: [
           Icon(icon, color: AppColors.primary, size: 20),
           const SizedBox(height: 8),
-          Text(label, style: const TextStyle(color: AppColors.textSecondary, fontSize: 11)),
+          Text(label, style: TextStyle(color: AppColors.textSecondary, fontSize: 11)),
           const SizedBox(height: 2),
           Text(value, style: const TextStyle(fontWeight: FontWeight.w700, fontSize: 12)),
         ],

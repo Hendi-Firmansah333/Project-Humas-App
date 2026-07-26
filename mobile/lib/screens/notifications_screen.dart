@@ -112,13 +112,13 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
         return Scaffold(
           backgroundColor: AppColors.background,
           appBar: AppBar(
-            backgroundColor: Colors.white,
+            backgroundColor: AppColors.card,
             elevation: 0,
             leading: const Padding(
               padding: EdgeInsets.only(left: 12),
               child: Icon(Icons.notifications, color: Color(0xFF3B82F6)),
             ),
-            title: const Text(
+            title: Text(
               'Notifikasi',
               style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800),
             ),
@@ -148,7 +148,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       hintText: 'Cari notifikasi...',
                       prefixIcon: const Icon(Icons.search),
                       filled: true,
-                      fillColor: Colors.white,
+                      fillColor: AppColors.card,
                       border: OutlineInputBorder(
                         borderRadius: BorderRadius.circular(14),
                         borderSide: BorderSide.none,
@@ -268,7 +268,7 @@ class _NotificationCard extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
-          color: Colors.white,
+          color: AppColors.card,
           borderRadius: BorderRadius.circular(14),
           boxShadow: [
             BoxShadow(
@@ -302,12 +302,12 @@ class _NotificationCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     item.body,
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 13, height: 1.4),
                   ),
                   const SizedBox(height: 6),
                   Text(
                     item.time,
-                    style: const TextStyle(color: AppColors.textSecondary, fontSize: 11),
+                    style: TextStyle(color: AppColors.textSecondary, fontSize: 11),
                   ),
                 ],
               ),
