@@ -1,4 +1,5 @@
 import 'package:geolocator/geolocator.dart';
+import 'package:poli_humas/services/device_security_service.dart';
 
 class LocationValidationResult {
   const LocationValidationResult({
@@ -7,6 +8,7 @@ class LocationValidationResult {
     required this.longitude,
     required this.distanceMeters,
     this.errorMessage,
+    this.isMocked = false,
   });
 
   final bool isValid;
@@ -14,6 +16,7 @@ class LocationValidationResult {
   final double longitude;
   final double distanceMeters;
   final String? errorMessage;
+  final bool isMocked;
 }
 
 class LocationService {
@@ -52,6 +55,20 @@ class LocationService {
   }) async {
     try {
       final position = await getCurrentPosition();
+
+      // Periksa integritas perangkat & Anti Fake GPS
+      final secResult = DeviceSecurityService.validateCheckInLocation(position);
+      if (!secResult.isValid) {
+        return LocationValidationResult(
+          isValid: false,
+          latitude: position.latitude,
+          longitude: position.longitude,
+          distanceMeters: -1,
+          isMocked: position.isMocked,
+          errorMessage: secResult.errorMessage,
+        );
+      }
+
       final distance = Geolocator.distanceBetween(
         position.latitude,
         position.longitude,
@@ -63,6 +80,7 @@ class LocationService {
         latitude: position.latitude,
         longitude: position.longitude,
         distanceMeters: distance,
+        isMocked: position.isMocked,
         errorMessage: distance <= radiusMeters
             ? null
             : 'Anda berada ${distance.round()}m dari lokasi kegiatan (maks ${radiusMeters.round()}m).',
