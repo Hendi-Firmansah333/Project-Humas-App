@@ -1,4 +1,4 @@
-# 🎓 HUMASS — Sistem Administrasi Tim Humas Polinela Yuda GAnteng
+# 🎓 HUMASS — Sistem Administrasi Tim Humas Polinela 
 
 <p align="center">
   <img src="https://img.shields.io/badge/NestJS-E0234E?style=for-the-badge&logo=nestjs&logoColor=white" />
