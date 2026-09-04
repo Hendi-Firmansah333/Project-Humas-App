@@ -1,4 +1,4 @@
-# 🎓 HUMASS — Sistem Administrasi Tim Humas Polinela
+# 🎓 HUMASS — Sistem Administrasi Tim Humas Polinela Yuda GAnteng
 
 <p align="center">
   <img src="https://img.shields.io/badge/NestJS-E0234E?style=for-the-badge&logo=nestjs&logoColor=white" />
@@ -20,7 +20,7 @@ Project-Humas-App/
 ├── backend/          # REST API — NestJS + Prisma + PostgreSQL
 ├── frontend/         # Admin Panel — Next.js 14 (App Router)
 ├── mobile/           # Aplikasi Anggota Tim — Flutter
-└── docker-compose.yml
+└── docker-compose.yml 
 ```
 
 ---
@@ -393,4 +393,4 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 ## 📄 Lisensi
 
 Proyek ini dikembangkan untuk keperluan internal **Tim Humas Politeknik Negeri Lampung**.  
-Hak cipta © 2026 — Politeknik Negeri Lampung.
+Hak cipta © 2026 — Politeknik Negeri Lampung.
