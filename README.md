@@ -84,10 +84,10 @@ Project-Humas-App/
 | Fitur                     | Status        | Keterangan |
 |---------------------------|---------------|------------|
 | Login & Auth              | ✅ Selesai    | JWT token, persist session |
-| Home Screen               | ✅ Selesai    | Daftar kegiatan & jadwal |
-| Check-In Kegiatan         | ✅ Selesai    | Selfie + validasi GPS otomatis |
+| Home Screen               | ✅ Selesai    | UI Premium (Glassmorphism, Poppins, Gradient) |
+| Check-In Kegiatan         | ✅ Selesai    | Geofencing (Radius maksimal 300m dari titik gedung penugasan) |
 | Upload Dokumentasi        | ✅ Selesai    | Link Google Drive |
-| Live Location             | ✅ Selesai    | Kirim & lihat posisi tim |
+| Live Location             | ✅ Selesai    | Tracking akurat untuk >10 pengguna bersamaan |
 | Notifikasi                | ✅ Selesai    | Terima notifikasi kegiatan |
 | Profil Anggota            | ✅ Selesai    | Edit profil, foto |
 | Riwayat Kegiatan          | ✅ Selesai    | History kegiatan anggota |
@@ -135,6 +135,7 @@ Project-Humas-App/
 - Penugasan **PIC** (Penanggung Jawab) & anggota tim
 - Status tracking: `UPCOMING` → `ONGOING` → `SELESAI` / `DIBATALKAN`
 - Monitoring check-in anggota: waktu, koordinat GPS, foto selfie
+- **Geofencing Check-in**: Validasi otomatis berdasarkan pemetaan gedung/lokasi di Polinela. Anggota hanya dapat check-in di dalam radius maksimal 300 meter dari titik gedung penugasan.
 - Upload link dokumentasi Google Drive
 - **Validasi Admin** dengan checklist verifikasi
 - Status keterlambatan check-in (tepat waktu / terlambat)
@@ -146,7 +147,8 @@ Project-Humas-App/
 
 ### 📍 Live Location Tim
 - Tracking posisi anggota tim secara real-time
-- Tampilan peta interaktif (Flutter Map)
+- Mendukung pemantauan untuk lebih dari 10 pengguna secara bersamaan di area Polinela
+- Tampilan peta interaktif (Flutter Map & Web Dashboard)
 - Riwayat pergerakan
 
 ### 🔧 Peminjaman Alat
@@ -342,6 +344,11 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 ---
 
 ## 🗒️ Changelog
+
+### v1.4.0 — September 2026 (UI/UX Upgrade & Geolocation Enhancement)
+- **[UI/UX]** Redesign keseluruhan antarmuka (Mobile App) dengan tema Premium Modern (Glassmorphism, Poppins font, custom gradient).
+- **[LOCATION]** Implementasi sistem Geofencing dinamis berdasarkan pemetaan gedung/titik lokasi di Polinela. Check-in kegiatan hanya divalidasi apabila anggota berada dalam radius maksimum 300 meter dari titik spesifik gedung penugasannya.
+- **[TRACKING]** Peningkatan stabilitas fitur Live Tracking agar optimal melacak >10 pengguna secara bersamaan (Concurrent Tracking) di area kampus.
 
 ### v1.3.0 — Juli 2026 (Hardening & Enterprise Architecture Update)
 - **[SECURITY]** Implementasi `DeviceSecurityService`: Pendeteksi Fake GPS / Mock Location pada Flutter Mobile.

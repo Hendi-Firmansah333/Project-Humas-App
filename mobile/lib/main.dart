@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/cupertino.dart' show CupertinoPageTransitionsBuilder;
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:poli_humas/providers/app_data_provider.dart';
 import 'package:poli_humas/screens/splash_screen.dart';
@@ -33,14 +35,13 @@ Future<void> main() async {
 
 ThemeData _buildTheme(Brightness brightness) {
   final isDark = brightness == Brightness.dark;
-  return ThemeData(
+  final base = ThemeData(
     colorScheme: ColorScheme.fromSeed(
       seedColor: AppColors.primary,
       brightness: brightness,
     ),
     scaffoldBackgroundColor: isDark ? const Color(0xFF111827) : AppColors.background,
     useMaterial3: true,
-    fontFamily: 'Roboto',
     splashFactory: InkRipple.splashFactory,
     pageTransitionsTheme: const PageTransitionsTheme(
       builders: {
@@ -48,6 +49,11 @@ ThemeData _buildTheme(Brightness brightness) {
         TargetPlatform.iOS: CupertinoPageTransitionsBuilder(),
       },
     ),
+  );
+  // Apply Poppins globally
+  return base.copyWith(
+    textTheme: GoogleFonts.poppinsTextTheme(base.textTheme),
+    primaryTextTheme: GoogleFonts.poppinsTextTheme(base.primaryTextTheme),
   );
 }
 
