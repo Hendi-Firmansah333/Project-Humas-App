@@ -389,14 +389,6 @@ NEXT_PUBLIC_API_URL=http://localhost:3001
 
 ---
 
-## 👨‍💻 Tim Pengembang
-
-| Nama              | Peran |
-|-------------------|-------|
-| Hendi Firmansah   | Fullstack Developer (Web + Mobile + Backend) |
-
----
-
 ## 📄 Lisensi
 
 Proyek ini dikembangkan untuk keperluan internal **Tim Humas Politeknik Negeri Lampung**.  
