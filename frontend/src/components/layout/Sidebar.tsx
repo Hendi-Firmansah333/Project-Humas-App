@@ -1,8 +1,10 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import { getStoredUser, isSuperAdmin } from '@/utils/session';
+import { User as UserType } from '@/types';
 import {
   LayoutDashboard,
   CalendarCheck2,
@@ -21,12 +23,14 @@ import {
   ChevronDown,
   ClipboardList,
   Package,
+  Mail,
+  ShieldCheck,
 } from 'lucide-react';
 
 /* ===================== NAV STRUCTURE ===================== */
 
 type NavItem =
-  | { type: 'item'; name: string; href: string; icon: React.ElementType }
+  | { type: 'item'; name: string; href: string; icon: React.ElementType; badge?: number }
   | {
       type: 'group';
       name: string;
@@ -35,51 +39,137 @@ type NavItem =
       children: { name: string; href: string; icon: React.ElementType }[];
     };
 
-const SECTIONS: {
-  label: string;
-  items: NavItem[];
-}[] = [
-  {
-    label: '',
-    items: [
-      { type: 'item', name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard },
-    ],
-  },
-  {
-    label: 'OPERASIONAL',
-    items: [
-      { type: 'item', name: 'Kegiatan', href: '/kegiatan', icon: CalendarCheck2 },
-      { type: 'item', name: 'Content Plan', href: '/content-plan', icon: FileText },
-      { type: 'item', name: 'Live Location Tim', href: '/live-location', icon: MapPin },
-      { type: 'item', name: 'Peminjaman Alat', href: '/peminjaman-alat', icon: Wrench },
-      { type: 'item', name: 'Jadwal Piket', href: '/jadwal-piket', icon: Calendar },
-    ],
-  },
-  {
-    label: 'MANAJEMEN',
-    items: [
-      { type: 'item', name: 'Pengguna', href: '/pengguna', icon: Users },
+function getSidebarSections(role?: string): { label: string; items: NavItem[] }[] {
+  const dashboardItem: NavItem = { type: 'item', name: 'Dashboard', href: '/dashboard', icon: LayoutDashboard };
+  const profilItem: NavItem = { type: 'item', name: 'Profil', href: '/profil', icon: User };
+
+  if (role === 'SUPER_ADMIN') {
+    return [
       {
-        type: 'group',
-        name: 'Riwayat',
-        icon: History,
-        id: 'riwayat',
-        children: [
-          { name: 'Riwayat Kegiatan', href: '/riwayat-kegiatan', icon: ClipboardList },
-          { name: 'Riwayat Content Plan', href: '/riwayat-content-plan', icon: FileText },
-          { name: 'Riwayat Peminjaman', href: '/riwayat-peminjaman', icon: Package },
+        label: '',
+        items: [dashboardItem],
+      },
+      {
+        label: 'OPERASIONAL',
+        items: [
+          { type: 'item', name: 'Persetujuan', href: '/persetujuan', icon: ShieldCheck, badge: -2 } as NavItem,
+          { type: 'item', name: 'Kegiatan', href: '/kegiatan', icon: CalendarCheck2 } as NavItem,
+          { type: 'item', name: 'Content Plan', href: '/content-plan', icon: FileText } as NavItem,
+          { type: 'item', name: 'Inventaris & Peminjaman', href: '/peminjaman-alat', icon: Wrench } as NavItem,
+          { type: 'item', name: 'Jadwal Piket', href: '/jadwal-piket', icon: Calendar } as NavItem,
         ],
       },
-      { type: 'item', name: 'Laporan', href: '/laporan', icon: BarChart3 },
-    ],
-  },
-  {
-    label: 'AKUN',
-    items: [
-      { type: 'item', name: 'Profil', href: '/profil', icon: User },
-    ],
-  },
-];
+      {
+        label: 'MONITORING',
+        items: [
+          { type: 'item', name: 'Live Location Tim', href: '/live-location', icon: MapPin } as NavItem,
+          {
+            type: 'group',
+            name: 'Riwayat',
+            icon: History,
+            id: 'riwayat',
+            children: [
+              { name: 'Riwayat Kegiatan', href: '/riwayat-kegiatan', icon: ClipboardList },
+              { name: 'Riwayat Content Plan', href: '/riwayat-content-plan', icon: FileText },
+              { name: 'Riwayat Peminjaman', href: '/riwayat-peminjaman', icon: Package },
+            ],
+          } as NavItem,
+          { type: 'item', name: 'Laporan', href: '/laporan', icon: BarChart3 } as NavItem,
+        ],
+      },
+      {
+        label: 'MANAJEMEN',
+        items: [
+          { type: 'item', name: 'Pengguna', href: '/pengguna', icon: Users } as NavItem,
+        ],
+      },
+      {
+        label: 'AKUN',
+        items: [profilItem],
+      },
+    ];
+  }
+
+  if (role === 'ADMIN') {
+    return [
+      {
+        label: '',
+        items: [dashboardItem],
+      },
+      {
+        label: 'OPERASIONAL',
+        items: [
+          { type: 'item', name: 'Surat Masuk', href: '/surat-masuk', icon: Mail } as NavItem,
+          { type: 'item', name: 'Kegiatan', href: '/kegiatan', icon: CalendarCheck2 } as NavItem,
+          { type: 'item', name: 'Content Plan', href: '/content-plan', icon: FileText } as NavItem,
+          { type: 'item', name: 'Live Location Tim', href: '/live-location', icon: MapPin } as NavItem,
+          { type: 'item', name: 'Inventaris & Peminjaman', href: '/peminjaman-alat', icon: Wrench } as NavItem,
+          { type: 'item', name: 'Jadwal Piket', href: '/jadwal-piket', icon: Calendar } as NavItem,
+        ],
+      },
+      {
+        label: 'VERIFIKASI',
+        items: [
+          { type: 'item', name: 'Verifikasi Kelengkapan', href: '/verifikasi-kegiatan', icon: ClipboardList, badge: -1 } as NavItem,
+        ],
+      },
+      {
+        label: 'MONITORING',
+        items: [
+          {
+            type: 'group',
+            name: 'Riwayat',
+            icon: History,
+            id: 'riwayat',
+            children: [
+              { name: 'Riwayat Kegiatan', href: '/riwayat-kegiatan', icon: ClipboardList },
+              { name: 'Riwayat Content Plan', href: '/riwayat-content-plan', icon: FileText },
+              { name: 'Riwayat Peminjaman', href: '/riwayat-peminjaman', icon: Package },
+            ],
+          } as NavItem,
+          { type: 'item', name: 'Laporan', href: '/laporan', icon: BarChart3 } as NavItem,
+        ],
+      },
+      {
+        label: 'AKUN',
+        items: [profilItem],
+      },
+    ];
+  }
+
+  // TIM HUMAS (Role USER)
+  return [
+    {
+      label: '',
+      items: [dashboardItem],
+    },
+    {
+      label: 'TUGAS SAYA',
+      items: [
+        { type: 'item', name: 'Kegiatan Saya', href: '/kegiatan', icon: CalendarCheck2 } as NavItem,
+        { type: 'item', name: 'Content Plan Saya', href: '/content-plan', icon: FileText } as NavItem,
+        { type: 'item', name: 'Jadwal Piket', href: '/jadwal-piket', icon: Calendar } as NavItem,
+      ],
+    },
+    {
+      label: 'OPERASIONAL',
+      items: [
+        { type: 'item', name: 'Live Location', href: '/live-location', icon: MapPin } as NavItem,
+        { type: 'item', name: 'Peminjaman Alat', href: '/peminjaman-alat', icon: Wrench } as NavItem,
+      ],
+    },
+    {
+      label: 'RIWAYAT',
+      items: [
+        { type: 'item', name: 'Riwayat Saya', href: '/riwayat-kegiatan', icon: History } as NavItem,
+      ],
+    },
+    {
+      label: 'AKUN',
+      items: [profilItem],
+    },
+  ];
+}
 
 /* ===================== PROPS ===================== */
 
@@ -100,6 +190,68 @@ export default function Sidebar({
 }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
+  const [currentUser, setCurrentUser] = useState<UserType | null>(null);
+  const [verificationBadgeCount, setVerificationBadgeCount] = useState(0);
+  const [approvalBadgeCount, setApprovalBadgeCount] = useState(0);
+
+  useEffect(() => {
+    setCurrentUser(getStoredUser());
+  }, []);
+
+  // Fetch pending counts for badges
+  useEffect(() => {
+    if (!currentUser) return;
+
+    const fetchBadgeCounts = async () => {
+      try {
+        const { activityService, contentService, incomingLetterService } = await import('@/services');
+
+        if (currentUser.role === 'ADMIN') {
+          const [actRes, cpRes] = await Promise.all([
+            activityService.getAll({ status: 'MENUNGGU_VERIFIKASI', page: 1, pageSize: 1 }).catch(() => ({ total: 0, items: [] })),
+            contentService.getAll({ page: 1, pageSize: 100 }).catch(() => ({ total: 0, items: [] })),
+          ]);
+
+          const actCount = (actRes as any)?.total ?? (actRes as any)?.items?.length ?? 0;
+          const cpItems = (cpRes as any)?.items ?? [];
+          const cpCount = cpItems.filter((item: any) =>
+            item.status === 'MENUNGGU_VERIFIKASI_ADMIN' || item.status === 'MENUNGGU'
+          ).length;
+
+          setVerificationBadgeCount(actCount + cpCount);
+        }
+
+        if (currentUser.role === 'SUPER_ADMIN') {
+          const [letterRes, actRes, cpRes] = await Promise.all([
+            incomingLetterService.getAll().catch(() => []),
+            activityService.getAll({ status: 'MENUNGGU_PERSETUJUAN_AKHIR', page: 1, pageSize: 1 }).catch(() => ({ total: 0, items: [] })),
+            contentService.getAll({ page: 1, pageSize: 100 }).catch(() => ({ total: 0, items: [] })),
+          ]);
+
+          const letters = Array.isArray(letterRes) ? letterRes : [];
+          const letterCount = letters.filter((l: any) =>
+            l.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' ||
+            l.status === 'MENUNGGU_PERSETUJUAN' ||
+            l.status === 'BARU'
+          ).length;
+
+          const actCount = (actRes as any)?.total ?? (actRes as any)?.items?.length ?? 0;
+          const cpItems = (cpRes as any)?.items ?? [];
+          const cpCount = cpItems.filter((item: any) =>
+            item.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' || item.status === 'MENUNGGU'
+          ).length;
+
+          setApprovalBadgeCount(letterCount + actCount + cpCount);
+        }
+      } catch (err) {
+        console.error('Error fetching sidebar badges:', err);
+      }
+    };
+
+    fetchBadgeCounts();
+    const interval = setInterval(fetchBadgeCounts, 15000); // Check every 15s
+    return () => clearInterval(interval);
+  }, [currentUser]);
 
   // Track open/closed state of collapsible groups
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
@@ -147,7 +299,9 @@ export default function Sidebar({
           {!isCollapsed && (
             <div className="truncate">
               <h1 className="font-bold text-sm text-slate-900 leading-tight">HUMAS POLINELA</h1>
-              <p className="text-[11px] text-slate-400 font-medium leading-tight">Admin Humas</p>
+              <p className="text-[11px] text-slate-400 font-medium leading-tight">
+                {currentUser?.role === 'SUPER_ADMIN' ? 'Kepala Humas' : currentUser?.role === 'ADMIN' ? 'Admin Humas' : 'Tim Humas'}
+              </p>
             </div>
           )}
         </Link>
@@ -166,7 +320,7 @@ export default function Sidebar({
 
       {/* ── Navigation Menu ───────────────────────── */}
       <nav className="flex-1 py-3 overflow-y-auto overflow-x-hidden">
-        {SECTIONS.map((section, si) => (
+        {getSidebarSections(currentUser?.role).map((section, si) => (
           <div key={si} className={si > 0 ? 'mt-1' : ''}>
             {/* Section Header */}
             {section.label && !isCollapsed && (
@@ -179,14 +333,18 @@ export default function Sidebar({
             )}
 
             <div className="px-2.5 space-y-0.5">
-              {section.items.map((item) => {
+              {section.items
+                .map((item) => {
                 if (item.type === 'item') {
-                  const active = isActive(item.href);
+                  const active = isActive(item.href || '');
                   const Icon = item.icon;
+                  // Resolve dynamic badge count
+                  const itemBadge = (item as { badge?: number }).badge;
+                  const badgeCount = itemBadge === -1 ? verificationBadgeCount : itemBadge === -2 ? approvalBadgeCount : (itemBadge || 0);
                   return (
                     <Link
                       key={item.name}
-                      href={item.href}
+                      href={item.href || '#'}
                       onClick={onCloseMobile}
                       title={isCollapsed ? item.name : undefined}
                       className={`flex items-center rounded-xl text-sm transition-all relative group ${
@@ -197,28 +355,44 @@ export default function Sidebar({
                           : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
                       }`}
                     >
-                      <Icon
-                        className={`w-[18px] h-[18px] shrink-0 ${
-                          active ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'
-                        }`}
-                      />
-                      {!isCollapsed && <span className="truncate leading-none">{item.name}</span>}
+                      <div className="relative shrink-0">
+                        <Icon
+                          className={`w-[18px] h-[18px] ${
+                            active ? 'text-teal-600' : 'text-slate-400 group-hover:text-slate-600'
+                          }`}
+                        />
+                        {badgeCount > 0 && isCollapsed && (
+                          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold px-1 ring-2 ring-white animate-pulse">
+                            {badgeCount > 99 ? '99+' : badgeCount}
+                          </span>
+                        )}
+                      </div>
+                      {!isCollapsed && (
+                        <>
+                          <span className="truncate leading-none flex-1">{item.name}</span>
+                          {badgeCount > 0 && (
+                            <span className="min-w-[20px] h-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1.5 shrink-0 animate-pulse">
+                              {badgeCount > 99 ? '99+' : badgeCount}
+                            </span>
+                          )}
+                        </>
+                      )}
                     </Link>
                   );
                 }
 
                 if (item.type === 'group') {
                   const Icon = item.icon;
-                  const groupActive = isGroupActive(item.children);
-                  const isOpen = openGroups[item.id];
+                  const groupActive = isGroupActive(item.children || []);
+                  const isOpen = item.id ? openGroups[item.id] : false;
 
                   return (
-                    <div key={item.id}>
+                    <div key={item.id || item.name}>
                       {/* Group Header Button */}
                       <button
                         onClick={() => {
                           if (isCollapsed) return;
-                          toggleGroup(item.id);
+                          if (item.id) toggleGroup(item.id);
                         }}
                         title={isCollapsed ? item.name : undefined}
                         className={`w-full flex items-center rounded-xl text-sm transition-all relative group ${
@@ -252,7 +426,7 @@ export default function Sidebar({
                       {/* Children */}
                       {!isCollapsed && isOpen && (
                         <div className="mt-0.5 ml-4 pl-3 border-l-2 border-slate-100 space-y-0.5">
-                          {item.children.map((child) => {
+                          {(item.children || []).map((child) => {
                             const childActive = isActive(child.href);
                             const ChildIcon = child.icon;
                             return (
@@ -278,8 +452,8 @@ export default function Sidebar({
                         </div>
                       )}
 
-                      {/* Collapsed: show children as tooltips (simplified — just dots) */}
-                      {isCollapsed && isGroupActive(item.children) && (
+                      {/* Collapsed: show children indicator */}
+                      {isCollapsed && isGroupActive(item.children || []) && (
                         <div className="flex justify-center mt-0.5">
                           <span className="w-1 h-1 rounded-full bg-teal-500" />
                         </div>

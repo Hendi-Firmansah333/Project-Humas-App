@@ -11,9 +11,24 @@ const prisma = new PrismaClient({ adapter });
 async function main() {
   const password = await bcrypt.hash('admin123', 10);
 
+  const superAdmin = await prisma.user.upsert({
+    where: { username: 'kepala.humas' },
+    update: { role: 'SUPER_ADMIN', roleLabel: 'Kepala Humas' },
+    create: {
+      fullName: 'Kepala Humas',
+      username: 'kepala.humas',
+      email: 'kepala.humas@polinela.ac.id',
+      phone: '0812-3333-4444',
+      password,
+      role: 'SUPER_ADMIN',
+      roleLabel: 'Kepala Humas',
+      status: 'AKTIF',
+    },
+  });
+
   const admin = await prisma.user.upsert({
     where: { username: 'komang.ari' },
-    update: {},
+    update: { role: 'ADMIN', roleLabel: 'Admin Humas' },
     create: {
       fullName: 'Komang Ari',
       username: 'komang.ari',
@@ -133,21 +148,55 @@ async function main() {
   });
   }
 
-  const existingLoan = await prisma.equipmentLoan.findFirst({
-    where: { borrowerName: staff.fullName, equipmentName: 'Kamera Sony A7III', status: LoanStatus.SEDANG_DIPINJAM },
-  });
-  if (!existingLoan) {
-  await prisma.equipmentLoan.create({
-    data: {
-      borrowerName: staff.fullName,
-      borrowerPhone: staff.phone || '08123456789',
-      equipmentName: 'Kamera Sony A7III',
-      borrowDate: new Date(),
-      returnDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
-      status: LoanStatus.SEDANG_DIPINJAM,
-      purpose: 'Liputan Dies Natalis',
+  const eq1 = await prisma.equipment.upsert({
+    where: { code: 'EQ-001' },
+    update: { total: 5, name: 'Kamera Sony A7III' },
+    create: {
+      name: 'Kamera Sony A7III',
+      code: 'EQ-001',
+      category: 'Kamera & Audio',
+      total: 5,
+      broken: 0,
+      condition: 'BAIK',
+      storage: 'Lemari A',
+      status: 'AKTIF',
     },
   });
+
+  const eq2 = await prisma.equipment.upsert({
+    where: { code: 'EQ-002' },
+    update: { total: 3 },
+    create: {
+      name: 'Tripod Benro',
+      code: 'EQ-002',
+      category: 'Aksesoris',
+      total: 3,
+      broken: 0,
+      condition: 'BAIK',
+      storage: 'Lemari B',
+      status: 'AKTIF',
+    },
+  });
+
+  const existingLoan = await prisma.equipmentLoan.findFirst({
+    where: { borrowerName: staff.fullName, status: LoanStatus.SEDANG_DIPINJAM },
+  });
+  if (!existingLoan) {
+    await prisma.equipmentLoan.create({
+      data: {
+        borrowerName: staff.fullName,
+        borrowerPhone: staff.phone || '08123456789',
+        borrowDate: new Date(),
+        returnDate: new Date(Date.now() + 2 * 24 * 60 * 60 * 1000),
+        status: LoanStatus.SEDANG_DIPINJAM,
+        purpose: 'Liputan Dies Natalis',
+        items: {
+          create: [
+            { equipmentId: eq1.id, quantity: 1 }
+          ]
+        }
+      },
+    });
   }
 
   const notificationCount = await prisma.notification.count();
@@ -273,6 +322,27 @@ async function main() {
         },
       });
     }
+  }
+
+  // Seed Incoming Letters
+  const existingLetter = await prisma.incomingLetter.findFirst({ where: { letterNumber: '001/DINAS-DKP/VIII/2026' } });
+  if (!existingLetter) {
+    const letter1 = await prisma.incomingLetter.create({
+      data: {
+        letterNumber: '001/DINAS-DKP/VIII/2026',
+        letterDate: new Date('2026-08-20'),
+        receivedDate: new Date('2026-08-21'),
+        sender: 'Dinas Kelautan dan Perikanan',
+        institution: 'Pemerintah Provinsi Lampung',
+        subject: 'Permohonan Peliputan Seminar Nasional Perikanan Tangkap',
+        destination: 'Kepala Bagian Humas Polinela',
+        fileUrl: 'https://drive.google.com/file/d/sample-surat-masuk-001/view',
+        notes: 'Mohon bantuan kru dokumen dan pubdok.',
+        status: 'BARU',
+        createdById: admin.id,
+      },
+    });
+    console.log('Sample Incoming Letter created:', letter1.letterNumber);
   }
 
   console.log('Seed selesai:', { admin: admin.username, activity: activity.title });

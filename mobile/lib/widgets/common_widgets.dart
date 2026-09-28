@@ -5,7 +5,6 @@ import 'package:poli_humas/services/app_navigation_service.dart';
 import 'package:poli_humas/theme/app_colors.dart';
 import 'package:poli_humas/utils/app_navigator.dart';
 import 'package:poli_humas/utils/translation_helper.dart';
-import 'package:poli_humas/widgets/logo_painter.dart';
 
 class AppLogo extends StatelessWidget {
   const AppLogo({

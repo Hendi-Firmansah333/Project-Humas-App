@@ -2,6 +2,16 @@ import { ContentPlan, LocationData, User } from '@/types';
 
 export const MEMBER_COLORS = ['#0D9488', '#0284C7', '#16A34A', '#D97706', '#7C3AED', '#DB2777'];
 
+export function isValidImageSrc(src?: string): boolean {
+  if (!src) return false;
+  return (
+    src.startsWith('http://') ||
+    src.startsWith('https://') ||
+    src.startsWith('data:image/') ||
+    src.startsWith('/')
+  );
+}
+
 export function getMemberColor(userId: number): string {
   return MEMBER_COLORS[userId % MEMBER_COLORS.length];
 }
@@ -80,14 +90,10 @@ export function contentPlanToItem(
     thumbnailUrl?: string;
     videoUrl?: string;
     revisionNote?: string;
+    adminNotes?: string;
     submittedAt?: string;
   },
 ) {
-  const hasSubmission = Boolean(plan.videoUrl || plan.submittedAt);
-  const reviewStatus = hasSubmission && plan.status === 'PROSES'
-    ? 'MENUNGGU_REVIEW'
-    : mapContentStatusFromApi(plan.status);
-
   const d = new Date(plan.deadline);
   const hours = !isNaN(d.getTime()) ? String(d.getHours()).padStart(2, '0') : '16';
   const mins = !isNaN(d.getTime()) ? String(d.getMinutes()).padStart(2, '0') : '00';
@@ -107,12 +113,16 @@ export function contentPlanToItem(
     picName: plan.pic?.fullName ?? '-',
     picRole: plan.pic?.roleLabel ?? '-',
     picAvatar: plan.pic?.avatar,
-    status: reviewStatus,
+    status: plan.status,
     caption: plan.description ?? '',
     mediaUrl: resolveSubmittedMediaUrl(plan),
+    thumbnailUrl: plan.thumbnailUrl ?? undefined,
     videoUrl: plan.videoUrl ?? undefined,
+    draftUrl: plan.draftUrl ?? undefined,
     mediaType: isVideo ? ('video' as const) : ('image' as const),
     revisionNote: plan.revisionNote ?? undefined,
+    adminNotes: plan.adminNotes ?? undefined,
+    submittedAt: plan.submittedAt ?? undefined,
     media: plan.media ?? [],
   };
 }

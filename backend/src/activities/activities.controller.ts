@@ -30,10 +30,10 @@ export class ActivitiesController {
   constructor(private readonly activitiesService: ActivitiesService) {}
 
   @Post()
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Buat jadwal kegiatan liputan baru' })
-  create(@Body() createActivityDto: CreateActivityDto) {
-    return this.activitiesService.create(createActivityDto);
+  @Roles(Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Buat jadwal kegiatan manual / tanpa surat (Kepala Humas)' })
+  create(@Request() req: any, @Body() createActivityDto: CreateActivityDto) {
+    return this.activitiesService.create(createActivityDto, req.user.id);
   }
 
   @Get('history')
@@ -72,7 +72,8 @@ export class ActivitiesController {
       year: year ? Number(year) : undefined,
       history: true,
       mobile: isMobile,
-      userId: isMobile ? req.user.id : undefined,
+      userId: req.user.id,
+      role: req.user.role,
     });
   }
 
@@ -111,7 +112,8 @@ export class ActivitiesController {
       month: month ? Number(month) : undefined,
       year: year ? Number(year) : undefined,
       mobile: isMobile,
-      userId: isMobile ? req.user.id : undefined,
+      userId: req.user.id,
+      role: req.user.role,
     });
   }
 
@@ -128,40 +130,111 @@ export class ActivitiesController {
     return this.activitiesService.findOne(id, mobile === 'true' || mobile === '1');
   }
 
+  // ── Approval Workflow Endpoints ────────────────────────────────────────
+
+  @Patch(':id/approve-execution')
+  @Roles(Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Setujui pelaksanaan kegiatan (Kepala Humas)' })
+  approveExecution(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.activitiesService.approveExecution(id, req.user.id);
+  }
+
+  @Patch(':id/reject-execution')
+  @Roles(Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Tolak pelaksanaan kegiatan (Kepala Humas)' })
+  rejectExecution(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: any,
+    @Body('notes') notes: string,
+  ) {
+    return this.activitiesService.rejectExecution(id, req.user.id, notes);
+  }
+
+  @Patch(':id/assign-team')
+  @Roles(Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Tentukan PIC, anggota, dan peralatan kegiatan (Kepala Humas)' })
+  assignTeam(
+    @Param('id', ParseIntPipe) id: number,
+    @Body('picId') picId: number,
+    @Body('memberIds') memberIds: number[],
+    @Body('equipmentItems') equipmentItems?: { equipmentId: number; quantity: number }[],
+  ) {
+    return this.activitiesService.assignTeam(id, picId, memberIds, equipmentItems);
+  }
+
+  @Patch(':id/submit-verification')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Ajukan verifikasi kelengkapan kegiatan (Admin)' })
+  submitVerification(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: any,
+    @Body('notes') notes?: string,
+  ) {
+    return this.activitiesService.submitVerification(id, req.user.id, notes);
+  }
+
+  @Patch(':id/approve-finish')
+  @Roles(Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Setujui kegiatan benar-benar selesai (Kepala Humas)' })
+  approveFinish(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: any,
+    @Body('notes') notes?: string,
+  ) {
+    return this.activitiesService.approveFinish(id, req.user.id, notes);
+  }
+
+  @Patch(':id/return-revision')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Kembalikan kegiatan untuk perbaikan (Admin / Kepala Humas)' })
+  returnRevision(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: any,
+    @Body('notes') notes: string,
+  ) {
+    return this.activitiesService.returnRevision(id, req.user.id, notes);
+  }
+
   @Patch(':id/restore')
-  @Roles(Role.ADMIN)
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @ApiOperation({ summary: 'Aktifkan kembali kegiatan yang sudah selesai' })
   restore(@Param('id', ParseIntPipe) id: number) {
     return this.activitiesService.restore(id);
   }
 
   @Patch(':id/validate')
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Validasi penyelesaian kegiatan oleh Admin' })
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @ApiOperation({ summary: '[Deprecated] Gunakan submit-verification. Validasi legacy.' })
   validate(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: any,
     @Body('notes') notes?: string,
   ) {
-    return this.activitiesService.validateActivity(id, req.user.id, notes);
+    return this.activitiesService.submitVerification(id, req.user.id, notes);
   }
 
   @Patch(':id')
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Perbarui jadwal atau status kegiatan' })
-  update(@Param('id', ParseIntPipe) id: number, @Body() updateActivityDto: UpdateActivityDto) {
-    return this.activitiesService.update(id, updateActivityDto);
+  @Roles(Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Perbarui jadwal atau penugasan kegiatan (Kepala Humas)' })
+  update(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: any,
+    @Body() updateActivityDto: UpdateActivityDto,
+  ) {
+    return this.activitiesService.update(id, updateActivityDto, req.user.id);
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Hapus kegiatan dari jadwal' })
+  @Roles(Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Hapus/arsip kegiatan (Kepala Humas)' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.activitiesService.remove(id);
   }
 
+  // ── Mobile Endpoints ────────────────────────────────────────
+
   @Post(':id/check-in')
-  @ApiOperation({ summary: 'Check-in kehadiran kegiatan (mobile)' })
+  @ApiOperation({ summary: 'Check-in kehadiran kegiatan (mobile – Tim Humas)' })
   checkIn(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: any,
@@ -171,7 +244,7 @@ export class ActivitiesController {
   }
 
   @Post(':id/documentation')
-  @ApiOperation({ summary: 'Upload dokumentasi kegiatan (mobile)' })
+  @ApiOperation({ summary: 'Upload link Google Drive / dokumentasi kegiatan (mobile)' })
   documentation(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: any,

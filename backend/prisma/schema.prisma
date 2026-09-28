@@ -11,6 +11,7 @@ datasource db {
 // ==========================================
 
 enum Role {
+  SUPER_ADMIN
   ADMIN
   USER
 }
@@ -22,10 +23,19 @@ enum UserStatus {
 }
 
 enum ActivityStatus {
-  SELESAI
+  DRAFT
+  MENUNGGU_PERSETUJUAN
+  DITOLAK
+  DISETUJUI
+  DITUGASKAN
   SEDANG_BERLANGSUNG
-  AKAN_DATANG
+  MENUNGGU_VERIFIKASI
+  MENUNGGU_PERSETUJUAN_AKHIR
+  DIKEMBALIKAN
+  PERLU_PERBAIKAN
+  SELESAI
   DIBATALKAN
+  AKAN_DATANG
   MENUNGGU_VALIDASI
 }
 
@@ -54,18 +64,30 @@ enum ContentType {
 
 enum ContentStatus {
   DRAFT
-  MENUNGGU
-  PROSES
+  DITUGASKAN
+  DALAM_PENGERJAAN
+  MENUNGGU_VERIFIKASI_ADMIN
   REVISI
+  MENUNGGU_PERSETUJUAN_KEPALA_HUMAS
+  DISETUJUI
   PUBLISHED
   SELESAI
   DIBATALKAN
+  MENUNGGU
+  PROSES
 }
 
 enum LoanStatus {
   SEDANG_DIPINJAM
   SELESAI
   TERLAMBAT
+}
+
+enum ReturnCondition {
+  BAIK
+  RUSAK_RINGAN
+  RUSAK_BERAT
+  HILANG
 }
 
 enum NotificationType {
@@ -149,6 +171,9 @@ model User {
   notifications  Notification[]
   auditLogs      AuditLog[]
   validatedActivities Activity[] @relation("ActivityValidator")
+  incomingLetters IncomingLetter[] @relation("LetterCreator")
+  verifiedLetters IncomingLetter[] @relation("LetterVerifier")
+  equipmentLoans  EquipmentLoan[]  @relation("LoanBorrower")
 
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @updatedAt
@@ -172,6 +197,9 @@ model Activity {
   startTime   String
   endTime     String
   location    String
+  latitude    Float?
+  longitude   Float?
+  radius      Float?           @default(100)
   status      ActivityStatus   @default(AKAN_DATANG)
   description String           @db.Text
   picId       Int
@@ -179,17 +207,63 @@ model Activity {
   members     ActivityMember[]
   attendances Attendance[]
   media       Media[]          @relation("ActivityMedia")
+  loans       EquipmentLoan[]
   validatedById Int?
   validatedBy User?            @relation("ActivityValidator", fields: [validatedById], references: [id])
   validatedAt DateTime?
   validationNotes String?
+  approvalHistory Json?
+  isManual    Boolean          @default(false)
+  suratId     Int?
+  surat       IncomingLetter?  @relation("LetterActivities", fields: [suratId], references: [id], onDelete: SetNull)
 
   createdAt   DateTime         @default(now())
   updatedAt   DateTime         @updatedAt
   deletedAt   DateTime?
 
   @@index([picId])
+  @@index([suratId])
   @@index([date, status])
+  @@index([deletedAt])
+}
+
+// ==========================================
+// MODELS: Incoming Letters (Surat Masuk)
+// ==========================================
+
+model IncomingLetter {
+  id           Int        @id @default(autoincrement())
+  letterNumber String
+  letterDate   DateTime
+  receivedDate DateTime
+  sender       String
+  institution  String
+  subject      String
+  destination  String
+  fileUrl      String?
+  notes        String?    @db.Text
+  status       String     @default("BARU") // BARU, MENUNGGU_VERIFIKASI_ADMIN, MENUNGGU_PERSETUJUAN_KEPALA_HUMAS, DISETUJUI, DITOLAK, DITUGASKAN, SELESAI
+  eventLocation String?   // Lokasi fisik acara (fleksibel jika ada di surat, terpisah dari instansi pengirim)
+  latitude     Float?
+  longitude    Float?
+  radius       Float?     @default(100)
+  eventDate    DateTime?  // Tanggal rencana pelaksanaan
+  startTime    String?    // Jam mulai
+  endTime      String?    // Jam selesai
+  verifiedById Int?
+  verifiedBy   User?      @relation("LetterVerifier", fields: [verifiedById], references: [id])
+  verifiedAt   DateTime?
+  activities   Activity[] @relation("LetterActivities")
+  createdById  Int
+  createdBy    User       @relation("LetterCreator", fields: [createdById], references: [id])
+
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+  deletedAt    DateTime?
+
+  @@index([letterNumber])
+  @@index([createdById])
+  @@index([verifiedById])
   @@index([deletedAt])
 }
 
@@ -223,6 +297,7 @@ model Attendance {
   status        CheckInStatus @default(SUCCESS)
   latitude      Float?
   longitude     Float?
+  distance      Float?
   selfieUrl     String?
   notes         String?
 
@@ -278,9 +353,10 @@ model ContentPlan {
   picId        Int
   pic          User          @relation("ContentPic", fields: [picId], references: [id])
   deadline     DateTime
-  status       ContentStatus @default(DRAFT)
+  status       ContentStatus @default(DITUGASKAN)
   description  String?       @db.Text
   revisionNote String?       @db.Text
+  adminNotes   String?       @db.Text
   thumbnailUrl String?
   draftUrl     String?
   videoUrl     String?
@@ -324,23 +400,72 @@ model Media {
 // MODELS: Equipment Loans (Inventory Recording)
 // ==========================================
 
+model Equipment {
+  id              Int                 @id @default(autoincrement())
+  name            String
+  code            String              @unique
+  category        String              @default("Kamera & Audio")
+  brand           String?
+  serialNumber    String?
+  photoUrl        String?
+  acquisitionDate DateTime?
+  total           Int                 @default(1)
+  broken          Int                 @default(0)
+  condition       String              @default("BAIK") // BAIK, RUSAK_RINGAN, RUSAK_BERAT, HILANG
+  storage         String?
+  description     String?             @db.Text
+  status          String              @default("AKTIF") // AKTIF, NONAKTIF
+  loanItems       EquipmentLoanItem[]
+
+  createdAt       DateTime            @default(now())
+  updatedAt       DateTime            @updatedAt
+  deletedAt       DateTime?
+
+  @@index([category])
+  @@index([deletedAt])
+}
+
 model EquipmentLoan {
-  id               Int        @id @default(autoincrement())
+  id               Int                 @id @default(autoincrement())
   borrowerName     String
   borrowerPhone    String
-  equipmentName    String
+  userId           Int?
+  user             User?               @relation("LoanBorrower", fields: [userId], references: [id], onDelete: SetNull)
+  purpose          String?             @db.Text
   borrowDate       DateTime
   returnDate       DateTime
   actualReturnDate DateTime?
-  status           LoanStatus @default(SEDANG_DIPINJAM)
-  purpose          String?    @db.Text
+  status           LoanStatus          @default(SEDANG_DIPINJAM)
+  notes            String?             @db.Text
+  activityId       Int?
+  activity         Activity?           @relation(fields: [activityId], references: [id], onDelete: SetNull)
+  items            EquipmentLoanItem[]
 
-  createdAt        DateTime   @default(now())
-  updatedAt        DateTime   @updatedAt
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
   deletedAt        DateTime?
 
+  @@index([userId])
   @@index([status, borrowDate])
   @@index([deletedAt])
+}
+
+model EquipmentLoanItem {
+  id               Int              @id @default(autoincrement())
+  loanId           Int
+  loan             EquipmentLoan    @relation(fields: [loanId], references: [id], onDelete: Cascade)
+  equipmentId      Int
+  equipment        Equipment        @relation(fields: [equipmentId], references: [id], onDelete: Cascade)
+  quantity         Int              @default(1)
+  returnedQuantity Int              @default(0)
+  returnCondition  ReturnCondition? // Kondisi saat pengembalian
+  returnedAt       DateTime?
+
+  createdAt        DateTime         @default(now())
+  updatedAt        DateTime         @updatedAt
+
+  @@index([loanId])
+  @@index([equipmentId])
 }
 
 // ==========================================

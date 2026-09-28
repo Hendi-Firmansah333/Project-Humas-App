@@ -77,11 +77,19 @@ interface ContentPlanItem {
 interface LoanItem {
   id: number;
   borrowerName: string;
-  equipmentName: string;
+  equipmentName?: string;
+  items?: any[];
   borrowDate: string;
   returnDate?: string;
   status: string;
 }
+
+const getLoanItemNames = (item: LoanItem) => {
+  if (item.items && item.items.length > 0) {
+    return item.items.map((i: any) => `${i.equipment?.name || 'Alat'} x${i.quantity}`).join(', ');
+  }
+  return item.equipmentName || '-';
+};
 
 interface UserItem {
   id: number;
@@ -147,6 +155,10 @@ export default function ReportPage() {
   const [isExportOpen, setIsExportOpen] = useState(false);
 
   const fetchTabDataset = async () => {
+    if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
+      toast.error('Tanggal mulai tidak boleh lebih besar dari tanggal akhir.');
+      return;
+    }
     setLoading(true);
     try {
       const dateRange = { startDate, endDate };
@@ -223,77 +235,202 @@ export default function ReportPage() {
     toast.success(`Filter periode disetel ke: ${shortcut === 'hari' ? 'Hari Ini' : shortcut === 'minggu' ? 'Minggu Ini' : shortcut === 'bulan' ? 'Bulan Ini' : 'Tahun Ini'}`);
   };
 
-  const handleExportPDF = () => {
-    toast.info('Mempersiapkan layout cetak PDF...', { duration: 2500 });
-    setTimeout(() => {
-      window.print();
-    }, 1500);
-  };
+  const handleExportPDF = async () => {
+    try {
+      toast.info('Membuat file PDF...', { duration: 2000 });
+      const { default: jsPDF } = await import('jspdf');
+      const { default: autoTable } = await import('jspdf-autotable');
 
-  const handleExportExcel = () => {
-    handleExportCSV(); // We use CSV formatted file as lightweight excel file
-  };
+      const doc = new jsPDF({ orientation: 'landscape', format: 'a4' });
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+      const periodStr = `Periode: ${startDate} s/d ${endDate}`;
+      const tabLabel = {
+        kegiatan: 'Rekap Kegiatan',
+        'content-plans': 'Rekap Content Plan',
+        loans: 'Rekap Peminjaman Alat',
+        users: 'Rekap Pengguna',
+        evaluasi: 'Evaluasi Kinerja Tim',
+        summary: 'Ringkasan Laporan',
+      }[activeTab] || 'Laporan Humas';
 
-  const handleExportCSV = () => {
-    let headers: string[] = [];
-    let rows: any[][] = [];
-    let filename = `laporan-humas-${activeTab}-${startDate}-to-${endDate}.csv`;
+      // ── Header ──
+      doc.setFillColor(13, 148, 136);
+      doc.rect(0, 0, 297, 22, 'F');
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(14);
+      doc.setFont('helvetica', 'bold');
+      doc.text('POLITEKNIK NEGERI LAMPUNG', 148, 9, { align: 'center' });
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.text('BAGIAN HUBUNGAN MASYARAKAT (HUMAS)', 148, 15, { align: 'center' });
 
-    if (activeTab === 'kegiatan') {
-      headers = ['No', 'Judul Kegiatan', 'Kategori', 'Tanggal', 'Waktu', 'PIC', 'Status'];
-      rows = filteredActivities.map((item, idx) => [
-        idx + 1,
-        `"${item.title.replace(/"/g, '""')}"`,
-        `"${item.category}"`,
-        formatDateID(item.date),
-        `"${item.startTime} - ${item.endTime} WIB"`,
-        `"${item.pic?.fullName ?? '-'}"`,
-        item.status,
-      ]);
-    } else if (activeTab === 'content-plans') {
-      headers = ['No', 'Judul Rencana Konten', 'Jenis Konten', 'Platform', 'PIC', 'Status'];
-      rows = filteredContentPlans.map((item, idx) => [
-        idx + 1,
-        `"${item.title.replace(/"/g, '""')}"`,
-        `"${item.contentType}"`,
-        item.platform,
-        `"${item.pic?.fullName ?? '-'}"`,
-        item.status,
-      ]);
-    } else if (activeTab === 'loans') {
-      headers = ['No', 'Peminjam', 'Inventaris', 'Tanggal Pinjam', 'Tanggal Pengembalian', 'Status'];
-      rows = filteredLoans.map((item, idx) => [
-        idx + 1,
-        `"${item.borrowerName}"`,
-        `"${item.equipmentName}"`,
-        formatDateID(item.borrowDate),
-        item.returnDate ? formatDateID(item.returnDate) : '-',
-        item.status,
-      ]);
-    } else if (activeTab === 'users') {
-      headers = ['No', 'Nama Lengkap', 'Username', 'Email', 'Peran', 'Status Akun'];
-      rows = filteredUsers.map((item, idx) => [
-        idx + 1,
-        `"${item.fullName}"`,
-        `"${item.username}"`,
-        `"${item.email}"`,
-        `"${item.roleLabel}"`,
-        item.isActive ? 'Aktif' : 'Nonaktif',
-      ]);
-    } else {
-      toast.warning('Silakan pilih salah satu tab rekap data untuk mengekspor detail tabel!');
-      return;
+      // ── Title ──
+      doc.setTextColor(30, 41, 59);
+      doc.setFontSize(13);
+      doc.setFont('helvetica', 'bold');
+      doc.text(tabLabel.toUpperCase(), 148, 32, { align: 'center' });
+      doc.setFontSize(9);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(100, 116, 139);
+      doc.text(periodStr, 148, 38, { align: 'center' });
+      doc.text(`Dibuat: ${dateStr}`, 148, 43, { align: 'center' });
+
+      // ── Table ──
+      let head: string[][] = [];
+      let body: any[][] = [];
+
+      if (activeTab === 'kegiatan') {
+        head = [['No', 'Judul Kegiatan', 'Kategori', 'Tanggal', 'Waktu', 'PIC', 'Status']];
+        body = filteredActivities.map((item, idx) => [
+          idx + 1, item.title, item.category, formatDateID(item.date),
+          `${item.startTime} - ${item.endTime}`, item.pic?.fullName ?? '-', item.status,
+        ]);
+      } else if (activeTab === 'content-plans') {
+        head = [['No', 'Judul Konten', 'Jenis', 'Platform', 'PIC', 'Status']];
+        body = filteredContentPlans.map((item, idx) => [
+          idx + 1, item.title, item.contentType, item.platform, item.pic?.fullName ?? '-', item.status,
+        ]);
+      } else if (activeTab === 'loans') {
+        head = [['No', 'Peminjam', 'Inventaris', 'Tgl Pinjam', 'Tgl Kembali', 'Status']];
+        body = filteredLoans.map((item, idx) => [
+          idx + 1, item.borrowerName, getLoanItemNames(item), formatDateID(item.borrowDate),
+          item.returnDate ? formatDateID(item.returnDate) : '-', item.status,
+        ]);
+      } else if (activeTab === 'users') {
+        head = [['No', 'Nama Lengkap', 'Username', 'Email', 'Peran', 'Status']];
+        body = filteredUsers.map((item, idx) => [
+          idx + 1, item.fullName, item.username, item.email, item.roleLabel, item.isActive ? 'Aktif' : 'Nonaktif',
+        ]);
+      } else if (activeTab === 'evaluasi') {
+        head = [['No', 'Nama', 'Kegiatan', 'Hadir', '% Kehadiran', 'Dokumentasi', 'Content Plan', 'Nilai Kinerja']];
+        body = evaluationData.map((item, idx) => [
+          idx + 1, item.fullName, item.totalKegiatan, item.totalCheckin,
+          `${item.persenKehadiran}%`, item.totalDokumentasi, item.totalContentPlan, `${item.nilaiKinerja}/100`,
+        ]);
+      } else {
+        head = [['Metrik', 'Nilai']];
+        body = [
+          ['Total Kegiatan', stats.totalActivities],
+          ['Total Content Plan', stats.totalContentPlans],
+          ['Peminjaman Aktif', stats.activeLoans],
+          ['Total Pengguna', stats.totalUsers],
+        ];
+      }
+
+      autoTable(doc, {
+        head,
+        body,
+        startY: 50,
+        headStyles: { fillColor: [13, 148, 136], textColor: 255, fontStyle: 'bold', fontSize: 9 },
+        bodyStyles: { fontSize: 8, textColor: [30, 41, 59] },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        margin: { left: 14, right: 14 },
+      });
+
+      // ── Footer signature ──
+      const pageCount = (doc as any).internal.getNumberOfPages();
+      const lastPage = pageCount;
+      doc.setPage(lastPage);
+      const footerY = (doc as any).internal.pageSize.height - 30;
+      doc.setFontSize(9);
+      doc.setTextColor(100, 116, 139);
+      doc.text('Bandar Lampung, ' + dateStr, 220, footerY, { align: 'center' });
+      doc.text('Kepala Bagian Humas POLINELA', 220, footerY + 5, { align: 'center' });
+      doc.text('(........................................)', 220, footerY + 20, { align: 'center' });
+      doc.text(`Laporan ini digenerate otomatis oleh Sistem Informasi Humas Polinela pada ${dateStr}`, 148, footerY + 28, { align: 'center' });
+
+      doc.save(`laporan-humas-${activeTab}-${startDate}-${endDate}.pdf`);
+      toast.success('PDF berhasil diunduh!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal membuat PDF. Coba lagi.');
     }
+  };
+  const handleExportExcel = async () => {
+    try {
+      toast.info('Membuat file Excel...', { duration: 2000 });
+      const ExcelJS = await import('exceljs');
+      const workbook = new ExcelJS.Workbook();
+      workbook.creator = 'Sistem Humas Polinela';
+      workbook.created = new Date();
 
-    const csvContent = [headers, ...rows].map((r) => r.join(',')).join('\n');
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    a.click();
-    URL.revokeObjectURL(url);
-    toast.success('Laporan berhasil diekspor!');
+      const headerFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D9488' } };
+      const headerFont: any = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+
+
+      const addSheet = (name: string, columns: string[], rows: any[][]) => {
+        const sheet = workbook.addWorksheet(name);
+        sheet.mergeCells('A1:G1');
+        sheet.getCell('A1').value = 'LAPORAN HUMAS POLINELA';
+        sheet.getCell('A1').font = { bold: true, size: 13 };
+        sheet.mergeCells('A2:G2');
+        sheet.getCell('A2').value = `Periode: ${startDate} s/d ${endDate}`;
+        sheet.addRow([]);
+        const headerRow = sheet.addRow(columns);
+        headerRow.eachCell((cell) => {
+          cell.fill = headerFill;
+          cell.font = headerFont;
+          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+        });
+        rows.forEach((r) => {
+          const row = sheet.addRow(r);
+          row.eachCell((cell) => { cell.alignment = { vertical: 'middle', wrapText: true }; });
+        });
+        sheet.columns.forEach((col) => { if (col) col.width = 22; });
+      };
+
+      addSheet('Rekap Kegiatan',
+        ['No', 'Judul Kegiatan', 'Kategori', 'Tanggal', 'Waktu', 'PIC', 'Status'],
+        filteredActivities.map((item, idx) => [
+          idx + 1, item.title, item.category, formatDateID(item.date),
+          `${item.startTime} - ${item.endTime}`, item.pic?.fullName ?? '-', item.status,
+        ])
+      );
+
+      addSheet('Rekap Content Plan',
+        ['No', 'Judul Konten', 'Jenis Konten', 'Platform', 'PIC', 'Status'],
+        filteredContentPlans.map((item, idx) => [
+          idx + 1, item.title, item.contentType, item.platform, item.pic?.fullName ?? '-', item.status,
+        ])
+      );
+
+      addSheet('Rekap Peminjaman',
+        ['No', 'Peminjam', 'Inventaris', 'Tgl Pinjam', 'Tgl Kembali', 'Status'],
+        filteredLoans.map((item, idx) => [
+          idx + 1, item.borrowerName, getLoanItemNames(item), formatDateID(item.borrowDate),
+          item.returnDate ? formatDateID(item.returnDate) : '-', item.status,
+        ])
+      );
+
+      addSheet('Rekap Pengguna',
+        ['No', 'Nama Lengkap', 'Username', 'Email', 'Peran', 'Status'],
+        filteredUsers.map((item, idx) => [
+          idx + 1, item.fullName, item.username, item.email, item.roleLabel, item.isActive ? 'Aktif' : 'Nonaktif',
+        ])
+      );
+
+      addSheet('Evaluasi Kinerja',
+        ['No', 'Nama', 'Total Kegiatan', 'Total Hadir', '% Kehadiran', 'Dokumentasi', 'Content Plan', 'Nilai Kinerja'],
+        evaluationData.map((item, idx) => [
+          idx + 1, item.fullName, item.totalKegiatan, item.totalCheckin,
+          `${item.persenKehadiran}%`, item.totalDokumentasi, item.totalContentPlan, `${item.nilaiKinerja}/100`,
+        ])
+      );
+
+      const buffer = await workbook.xlsx.writeBuffer();
+      const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `laporan-humas-${startDate}-${endDate}.xlsx`;
+      a.click();
+      URL.revokeObjectURL(url);
+      toast.success('Excel (.xlsx) berhasil diunduh!');
+    } catch (err) {
+      console.error(err);
+      toast.error('Gagal membuat file Excel.');
+    }
   };
 
   // Local queries filtering
@@ -312,7 +449,7 @@ export default function ReportPage() {
 
   const filteredLoans = loans.filter((item) =>
     item.borrowerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    item.equipmentName.toLowerCase().includes(searchQuery.toLowerCase())
+    getLoanItemNames(item).toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const filteredUsers = usersData.filter((item) =>
@@ -442,7 +579,7 @@ export default function ReportPage() {
     {
       key: 'equipmentName',
       header: 'Nama Inventaris',
-      render: (item) => <span className="text-xs font-semibold text-slate-700">{item.equipmentName}</span>,
+      render: (item) => <span className="text-xs font-semibold text-slate-700">{getLoanItemNames(item)}</span>,
     },
     {
       key: 'borrowDate',
@@ -536,7 +673,7 @@ export default function ReportPage() {
     printRows = filteredLoans.map((item, idx) => [
       idx + 1,
       item.borrowerName,
-      item.equipmentName,
+      getLoanItemNames(item),
       formatDateID(item.borrowDate),
       item.returnDate ? formatDateID(item.returnDate) : 'Sedang Dipinjam',
       item.status.replace('_', ' '),
@@ -695,16 +832,6 @@ export default function ReportPage() {
                   >
                     <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
                     Export Excel (.xlsx)
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsExportOpen(false);
-                      handleExportCSV();
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-xs text-slate-700 hover:bg-slate-50 font-semibold flex items-center gap-2"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-blue-600 shrink-0" />
-                    Export CSV
                   </button>
                 </div>
               )}

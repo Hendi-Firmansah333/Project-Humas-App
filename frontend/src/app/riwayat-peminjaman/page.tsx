@@ -53,10 +53,17 @@ export default function EquipmentLoanHistoryPage() {
     loadHistory();
   }, []);
 
+  const getEquipmentNames = (item: EquipmentLoan) => {
+    if (item.items && item.items.length > 0) {
+      return item.items.map((i) => `${i.equipment?.name || 'Alat'} x${i.quantity}`).join(', ');
+    }
+    return (item as any).equipmentName || '-';
+  };
+
   const filteredLoans = loans.filter((item) => {
     const matchStatus = item.status === 'SELESAI';
     const matchSearch =
-      (item.equipmentName ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      getEquipmentNames(item).toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.borrowerName ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.borrowerPhone ?? '').toLowerCase().includes(searchQuery.toLowerCase());
     return matchStatus && matchSearch;
@@ -71,7 +78,7 @@ export default function EquipmentLoanHistoryPage() {
   const handleRestore = async (item: EquipmentLoan) => {
     try {
       await loanService.restore(item.id);
-      toast.success(`Peminjaman "${item.equipmentName}" berhasil diaktifkan kembali!`);
+      toast.success(`Peminjaman "${getEquipmentNames(item)}" berhasil diaktifkan kembali!`);
       await loadHistory();
     } catch {
       toast.error('Gagal mengaktifkan kembali peminjaman.');
@@ -88,7 +95,7 @@ export default function EquipmentLoanHistoryPage() {
     try {
       await loanService.remove(selectedLoan.id);
       setIsDeleteOpen(false);
-      toast.success(`Riwayat peminjaman "${selectedLoan.equipmentName}" berhasil dihapus.`);
+      toast.success(`Riwayat peminjaman "${getEquipmentNames(selectedLoan)}" berhasil dihapus.`);
       await loadHistory();
     } catch {
       toast.error('Gagal menghapus riwayat peminjaman.');
@@ -121,7 +128,7 @@ export default function EquipmentLoanHistoryPage() {
     {
       key: 'equipmentName',
       header: 'Barang Dipinjam',
-      render: (item) => <span className="font-medium text-slate-800 text-xs">{item.equipmentName}</span>,
+      render: (item) => <span className="font-medium text-slate-800 text-xs">{getEquipmentNames(item)}</span>,
     },
     {
       key: 'borrowDate',
@@ -242,7 +249,7 @@ export default function EquipmentLoanHistoryPage() {
           <div className="space-y-4 text-xs">
             <div>
               <StatusBadge status={selectedLoan.status} />
-              <h4 className="font-bold text-sm text-slate-900 mt-2">{selectedLoan.equipmentName}</h4>
+              <h4 className="font-bold text-sm text-slate-900 mt-2">{getEquipmentNames(selectedLoan)}</h4>
             </div>
 
             <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-slate-700">
@@ -278,7 +285,7 @@ export default function EquipmentLoanHistoryPage() {
           </div>
           <div>
             <p className="text-sm font-bold text-slate-800">
-              Hapus riwayat &quot;{selectedLoan?.equipmentName}&quot;?
+              Hapus riwayat &quot;{selectedLoan ? getEquipmentNames(selectedLoan) : ''}&quot;?
             </p>
             <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
               Tindakan ini akan menghapus riwayat peminjaman secara permanen dari database.

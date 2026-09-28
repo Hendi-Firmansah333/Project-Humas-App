@@ -176,6 +176,19 @@ export default function ContentPlanHistoryPage() {
     }
   };
 
+  const getWorkflowBadge = (item: ContentItem) => {
+    if (item.status === 'PUBLISHED') {
+      return <StatusBadge status="SUDAH_TAYANG" />;
+    }
+    if (item.status === 'SELESAI') {
+      return <StatusBadge status="DISETUJUI" />;
+    }
+    if (item.status === 'DIBATALKAN') {
+      return <StatusBadge status="DIBATALKAN" />;
+    }
+    return <StatusBadge status={item.status} />;
+  };
+
   const columns: Column<ContentItem>[] = [
     {
       key: 'no',
@@ -233,7 +246,7 @@ export default function ContentPlanHistoryPage() {
     {
       key: 'status',
       header: 'Status',
-      render: (item) => <StatusBadge status={item.status} />,
+      render: (item) => getWorkflowBadge(item),
     },
     {
       key: 'preview',

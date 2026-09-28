@@ -118,7 +118,7 @@ class ApiService {
         .toList();
 
     if (statusFilter != 'Semua') {
-      items = items.where((item) => item.statusLabel == statusFilter).toList();
+      items = items.where((item) => item.matchesFilter(statusFilter)).toList();
     }
 
     return PagedResult(
@@ -175,13 +175,17 @@ class ApiService {
   Future<ContentPlanItem> submitContentProof({
     required String contentPlanId,
     required String videoLink,
+    String? caption,
     String? posterPath,
     String? videoFileName,
+    bool sendToReview = true,
   }) async {
     final data = await ApiClient.instance.post('/content-plans/$contentPlanId/submit-proof', body: {
       'videoLink': videoLink,
+      'caption': caption,
       'posterPath': posterPath,
       'videoFileName': videoFileName,
+      'sendToReview': sendToReview,
     });
     return ContentPlanItem.fromJson(data['item'] as Map<String, dynamic>);
   }

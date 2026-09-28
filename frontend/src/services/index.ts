@@ -64,6 +64,30 @@ export const activityService = {
     const res = await api.patch<Activity>(`/activities/${id}/validate`, { notes });
     return res.data;
   },
+  approveExecution: async (id: number) => {
+    const res = await api.patch<Activity>(`/activities/${id}/approve-execution`);
+    return res.data;
+  },
+  rejectExecution: async (id: number, notes: string) => {
+    const res = await api.patch<Activity>(`/activities/${id}/reject-execution`, { notes });
+    return res.data;
+  },
+  assignTeam: async (id: number, picId: number, memberIds: number[], equipmentItems?: { equipmentId: number; quantity: number }[]) => {
+    const res = await api.patch<Activity>(`/activities/${id}/assign-team`, { picId, memberIds, equipmentItems });
+    return res.data;
+  },
+  submitVerification: async (id: number, notes?: string) => {
+    const res = await api.patch<Activity>(`/activities/${id}/submit-verification`, { notes });
+    return res.data;
+  },
+  approveFinish: async (id: number, notes?: string) => {
+    const res = await api.patch<Activity>(`/activities/${id}/approve-finish`, { notes });
+    return res.data;
+  },
+  returnRevision: async (id: number, notes: string) => {
+    const res = await api.patch<Activity>(`/activities/${id}/return-revision`, { notes });
+    return res.data;
+  },
 };
 
 export const scheduleService = {
@@ -106,6 +130,42 @@ export const contentService = {
     const res = await api.patch<ContentPlan>(`/content-plans/${id}`, data);
     return res.data;
   },
+  startProgress: async (id: number) => {
+    const res = await api.patch<ContentPlan>(`/content-plans/${id}/start-progress`);
+    return res.data;
+  },
+  submitWork: async (id: number, data: { videoUrl?: string; draftUrl?: string; thumbnailUrl?: string; caption?: string; sendToReview?: boolean }) => {
+    const res = await api.post<ContentPlan>(`/content-plans/${id}/submit-work`, data);
+    return res.data;
+  },
+  sendReview: async (id: number, adminNotes?: string) => {
+    const res = await api.patch<ContentPlan>(`/content-plans/${id}/send-review`, { adminNotes });
+    return res.data;
+  },
+  verifyAdmin: async (id: number, adminNotes?: string) => {
+    const res = await api.patch<ContentPlan>(`/content-plans/${id}/verify-admin`, { adminNotes });
+    return res.data;
+  },
+  requestFix: async (id: number, notes: string) => {
+    const res = await api.patch<ContentPlan>(`/content-plans/${id}/request-fix`, { notes });
+    return res.data;
+  },
+  approve: async (id: number) => {
+    const res = await api.patch<ContentPlan>(`/content-plans/${id}/approve`);
+    return res.data;
+  },
+  requestRevision: async (id: number, notes: string) => {
+    const res = await api.patch<ContentPlan>(`/content-plans/${id}/request-revision`, { notes });
+    return res.data;
+  },
+  publish: async (id: number) => {
+    const res = await api.patch<ContentPlan>(`/content-plans/${id}/publish`);
+    return res.data;
+  },
+  cancel: async (id: number) => {
+    const res = await api.patch<ContentPlan>(`/content-plans/${id}/cancel`);
+    return res.data;
+  },
   remove: async (id: number) => {
     const res = await api.delete(`/content-plans/${id}`);
     return res.data;
@@ -136,16 +196,53 @@ export const loanService = {
     const res = await api.get('/equipment-loans/history', { params });
     return res.data;
   },
-  create: async (data: Partial<EquipmentLoan>) => {
+  getOne: async (id: number) => {
+    const res = await api.get(`/equipment-loans/${id}`);
+    return res.data;
+  },
+  create: async (data: Record<string, unknown>) => {
     const res = await api.post('/equipment-loans', data);
     return res.data;
   },
-  update: async (id: number, data: Partial<EquipmentLoan>) => {
+  update: async (id: number, data: Record<string, unknown>) => {
     const res = await api.patch(`/equipment-loans/${id}`, data);
     return res.data;
   },
-  verifyReturn: async (id: number) => {
-    const res = await api.patch(`/equipment-loans/${id}/verify-return`);
+  verifyReturn: async (id: number, returnCondition?: string) => {
+    const res = await api.patch(`/equipment-loans/${id}/verify-return`, returnCondition ? { returnCondition } : {});
+    return res.data;
+  },
+  returnItems: async (id: number, returnItems: { loanItemId: number; returnedQuantity: number; returnCondition?: string }[]) => {
+    const res = await api.patch(`/equipment-loans/${id}/return-items`, { returnItems });
+    return res.data;
+  },
+  // Equipment (Inventaris)
+  getAvailability: async (params: { date: string; startTime?: string; endTime?: string; excludeActivityId?: number }) => {
+    const res = await api.get('/equipment-loans/availability', { params });
+    return res.data;
+  },
+  getEquipment: async (params?: { search?: string; includeInactive?: boolean }) => {
+    const res = await api.get('/equipment-loans/equipment', { params });
+    return res.data;
+  },
+  getEquipmentById: async (id: number) => {
+    const res = await api.get(`/equipment-loans/equipment/${id}`);
+    return res.data;
+  },
+  getStock: async (equipmentId: number) => {
+    const res = await api.get(`/equipment-loans/equipment/${equipmentId}/stock`);
+    return res.data;
+  },
+  createEquipment: async (data: Record<string, unknown>) => {
+    const res = await api.post('/equipment-loans/equipment', data);
+    return res.data;
+  },
+  updateEquipment: async (id: number, data: Record<string, unknown>) => {
+    const res = await api.patch(`/equipment-loans/equipment/${id}`, data);
+    return res.data;
+  },
+  removeEquipment: async (id: number) => {
+    const res = await api.delete(`/equipment-loans/equipment/${id}`);
     return res.data;
   },
   remove: async (id: number) => {
@@ -157,6 +254,7 @@ export const loanService = {
     return res.data;
   },
 };
+
 
 export const userService = {
   getAll: async (params?: Record<string, unknown>) => {
@@ -239,6 +337,45 @@ export const notificationService = {
   },
   remove: async (id: number) => {
     const res = await api.delete(`/notifications/${id}`);
+    return res.data;
+  },
+};
+
+export const incomingLetterService = {
+  getAll: async (params?: Record<string, unknown>) => {
+    const res = await api.get('/incoming-letters', { params });
+    return res.data;
+  },
+  getById: async (id: number) => {
+    const res = await api.get(`/incoming-letters/${id}`);
+    return res.data;
+  },
+  create: async (data: Record<string, unknown>) => {
+    const res = await api.post('/incoming-letters', data);
+    return res.data;
+  },
+  update: async (id: number, data: Record<string, unknown>) => {
+    const res = await api.patch(`/incoming-letters/${id}`, data);
+    return res.data;
+  },
+  verifyAdmin: async (id: number) => {
+    const res = await api.patch(`/incoming-letters/${id}/verify-admin`);
+    return res.data;
+  },
+  createActivity: async (id: number, data: Record<string, unknown>) => {
+    const res = await api.post(`/incoming-letters/${id}/create-activity`, data);
+    return res.data;
+  },
+  approve: async (id: number) => {
+    const res = await api.patch(`/incoming-letters/${id}/approve`);
+    return res.data;
+  },
+  reject: async (id: number, notes: string) => {
+    const res = await api.patch(`/incoming-letters/${id}/reject`, { notes });
+    return res.data;
+  },
+  remove: async (id: number) => {
+    const res = await api.delete(`/incoming-letters/${id}`);
     return res.data;
   },
 };

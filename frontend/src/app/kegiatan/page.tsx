@@ -35,6 +35,7 @@ import { Activity, ActivityInput, ActivityStatus, User } from '@/types';
 import { formatDateID } from '@/utils/formatters';
 import { toast } from 'sonner';
 import { activityService, userService } from '@/services';
+import { getStoredUser } from '@/utils/session';
 
 /* ── Types ── */
 interface MemberAssignment {
@@ -48,6 +49,7 @@ export default function ActivityManagementPage() {
   const [users, setUsers] = useState<User[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
+  const currentUser = getStoredUser();
 
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
@@ -71,6 +73,9 @@ export default function ActivityManagementPage() {
     startTime: '08:00',
     endTime: '12:00',
     location: '',
+    latitude: '',
+    longitude: '',
+    radius: '100',
     status: 'AKAN_DATANG' as ActivityStatus,
     description: '',
     picId: 0,
@@ -136,6 +141,19 @@ export default function ActivityManagementPage() {
     setMemberAssignments((prev) => prev.filter((m) => m.userId !== userId));
   };
 
+  /* ── Helper: Get Display Status ── */
+  const getDisplayStatus = (item: Activity | null) => {
+    if (!item) return 'AKAN_DATANG';
+    if (item.status === 'DITUGASKAN' || item.status === 'AKAN_DATANG') return 'AKAN_DATANG';
+    if (item.status === 'SEDANG_BERLANGSUNG') return 'SEDANG_BERLANGSUNG';
+    if (item.status === 'MENUNGGU_VERIFIKASI') return 'MENUNGGU_VERIFIKASI';
+    if (item.status === 'MENUNGGU_PERSETUJUAN_AKHIR') return 'MENUNGGU_PERSETUJUAN_AKHIR';
+    if (item.status === 'DIKEMBALIKAN' || item.status === 'PERLU_PERBAIKAN') return 'PERLU_PERBAIKAN';
+    if (item.status === 'SELESAI') return 'SELESAI';
+    if (item.status === 'DIBATALKAN') return 'DIBATALKAN';
+    return item.status || 'AKAN_DATANG';
+  };
+
   /* ── Filter / Pagination ── */
   const filteredActivities = activities.filter((act) => {
     const matchSearch =
@@ -143,7 +161,8 @@ export default function ActivityManagementPage() {
       act.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (act.pic?.fullName ?? '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       act.category.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchStat = statusFilter ? act.status === statusFilter : true;
+    const displayStatus = getDisplayStatus(act);
+    const matchStat = statusFilter ? (displayStatus === statusFilter || act.status === statusFilter) : true;
     return matchSearch && matchStat;
   });
   const totalPages = Math.ceil(filteredActivities.length / itemsPerPage);
@@ -161,6 +180,9 @@ export default function ActivityManagementPage() {
       startTime: '08:00',
       endTime: '12:00',
       location: '',
+      latitude: '',
+      longitude: '',
+      radius: '100',
       status: 'AKAN_DATANG',
       description: '',
       picId: picOptions[0]?.id ?? 0,
@@ -178,6 +200,9 @@ export default function ActivityManagementPage() {
       startTime: activity.startTime,
       endTime: activity.endTime,
       location: activity.location,
+      latitude: activity.latitude != null ? String(activity.latitude) : '',
+      longitude: activity.longitude != null ? String(activity.longitude) : '',
+      radius: activity.radius != null ? String(activity.radius) : '100',
       status: activity.status,
       description: activity.description || '',
       picId: activity.picId,
@@ -240,6 +265,9 @@ export default function ActivityManagementPage() {
         startTime: formData.startTime,
         endTime: formData.endTime,
         location: formData.location,
+        latitude: formData.latitude ? parseFloat(formData.latitude) : undefined,
+        longitude: formData.longitude ? parseFloat(formData.longitude) : undefined,
+        radius: formData.radius ? parseFloat(formData.radius) : 100,
         status: formData.status,
         description: formData.description || '-',
         picId,
@@ -268,6 +296,9 @@ export default function ActivityManagementPage() {
         startTime: formData.startTime,
         endTime: formData.endTime,
         location: formData.location,
+        latitude: formData.latitude ? parseFloat(formData.latitude) : undefined,
+        longitude: formData.longitude ? parseFloat(formData.longitude) : undefined,
+        radius: formData.radius ? parseFloat(formData.radius) : 100,
         status: formData.status,
         description: formData.description,
         picId,
@@ -306,7 +337,20 @@ export default function ActivityManagementPage() {
     }
   };
 
-  /* ── Shared Member Section UI ── */
+  const handleBatalkan = async () => {
+    if (!selectedActivity) return;
+    if (!window.confirm(`Apakah Anda yakin ingin membatalkan kegiatan "${selectedActivity.title}"? Tindakan ini tidak dapat diurungkan.`)) return;
+    try {
+      await activityService.update(selectedActivity.id, { status: 'DIBATALKAN' });
+      setIsDetailOpen(false);
+      toast.success(`Kegiatan "${selectedActivity.title}" telah dibatalkan.`);
+      await loadActivities();
+    } catch {
+      toast.error('Gagal membatalkan kegiatan.');
+    }
+  };
+
+
   const renderMemberSection = () => (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
@@ -377,9 +421,24 @@ export default function ActivityManagementPage() {
       key: 'title',
       header: 'Judul Kegiatan',
       render: (item) => (
-        <div className="max-w-xs">
+        <div className="max-w-xs space-y-1">
           <p className="font-bold text-slate-800 leading-snug">{item.title}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">{item.description}</p>
+          <div className="flex flex-wrap items-center gap-1">
+            {item.surat ? (
+              <span className="bg-sky-50 text-sky-700 border border-sky-200 font-bold px-1.5 py-0.5 rounded text-[10px]" title={`Pengirim: ${item.surat.institution}`}>
+                📄 Surat: {item.surat.letterNumber}
+              </span>
+            ) : item.isManual ? (
+              <span className="bg-purple-50 text-purple-700 border border-purple-200 font-bold px-1.5 py-0.5 rounded text-[10px]">
+                ⚡ Kegiatan Manual / Tanpa Surat
+              </span>
+            ) : (
+              <span className="bg-slate-100 text-slate-500 border border-slate-200 font-medium px-1.5 py-0.5 rounded text-[10px]">
+                🏛 Kegiatan Lama / Data Sebelum Workflow Baru
+              </span>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-400 line-clamp-1">{item.description}</p>
         </div>
       ),
     },
@@ -429,7 +488,7 @@ export default function ActivityManagementPage() {
     {
       key: 'status',
       header: 'Status',
-      render: (item) => <StatusBadge status={item.status} />,
+      render: (item) => <StatusBadge status={getDisplayStatus(item)} />,
     },
     {
       key: 'actions',
@@ -443,20 +502,24 @@ export default function ActivityManagementPage() {
           >
             <Eye className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => handleOpenEdit(item)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors cursor-pointer"
-            title="Edit Kegiatan"
-          >
-            <Edit3 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => handleOpenDelete(item)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
-            title="Hapus Kegiatan"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          {currentUser?.role === 'SUPER_ADMIN' && (
+            <>
+              <button
+                onClick={() => handleOpenEdit(item)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors cursor-pointer"
+                title="Edit Penugasan Kegiatan"
+              >
+                <Edit3 className="w-4 h-4" />
+              </button>
+              <button
+                onClick={() => handleOpenDelete(item)}
+                className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+                title="Hapus / Arsip Kegiatan"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </>
+          )}
         </div>
       ),
       className: 'text-center w-28',
@@ -477,14 +540,26 @@ export default function ActivityManagementPage() {
       <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-lg font-bold text-slate-900 tracking-tight">Daftar Kegiatan Kehumasan</h1>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight">
+              {currentUser?.role === 'USER' ? 'Daftar Kegiatan Saya' : 'Daftar Kegiatan Kehumasan'}
+            </h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              Kelola penjadwalan, penugasan personel (PIC), dan status peliputan kegiatan tim humas.
+              {currentUser?.role === 'USER'
+                ? 'Daftar kegiatan di mana Anda ditugaskan sebagai PIC Lapangan atau Anggota Tim.'
+                : 'Kelola penjadwalan, penugasan personel (PIC), dan status peliputan kegiatan tim humas.'}
             </p>
           </div>
-          <CustomButton variant="primary" icon={Plus} onClick={handleOpenCreate}>
-            Tambah Kegiatan
-          </CustomButton>
+          {currentUser?.role === 'SUPER_ADMIN' && (
+            <CustomButton variant="primary" icon={Plus} onClick={handleOpenCreate}>
+              Tambah Kegiatan Manual
+            </CustomButton>
+          )}
+          {currentUser?.role === 'ADMIN' && (
+            <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 max-w-xs">
+              <span>💡</span>
+              <span>Kegiatan dibuat otomatis dari Surat Masuk yang disetujui Kepala Humas.</span>
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
@@ -496,9 +571,12 @@ export default function ActivityManagementPage() {
           />
           <FilterDropdown
             options={[
-              { value: 'SELESAI', label: 'Selesai' },
-              { value: 'SEDANG_BERLANGSUNG', label: 'Sedang Berlangsung' },
               { value: 'AKAN_DATANG', label: 'Akan Datang' },
+              { value: 'SEDANG_BERLANGSUNG', label: 'Sedang Berlangsung' },
+              { value: 'MENUNGGU_VERIFIKASI', label: 'Menunggu Verifikasi' },
+              { value: 'SELESAI', label: 'Selesai' },
+              { value: 'DIKEMBALIKAN', label: 'Dikembalikan / Revisi' },
+              { value: 'DIBATALKAN', label: 'Dibatalkan' },
             ]}
             value={statusFilter}
             onChange={(val) => { setStatusFilter(val); setCurrentPage(1); }}
@@ -523,12 +601,12 @@ export default function ActivityManagementPage() {
         />
       </div>
 
-      {/* ═══════════════ CREATE MODAL ═══════════════ */}
+      {/* ═══════════════ CREATE MANUAL ACTIVITY MODAL ═══════════════ */}
       <CustomModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
-        title="Tambah Kegiatan Baru"
-        subtitle="Jadwalkan peliputan atau penugasan kegiatan tim humas."
+        title="Tambah Kegiatan Manual"
+        subtitle="Fitur ini khusus untuk kegiatan internal/rutin yang TIDAK berasal dari Surat Masuk (cth: Rapat Internal, Briefing, Agenda Rutin)."
         maxWidth="lg"
       >
         <form id="create-form" onSubmit={handleCreateSubmit} className="space-y-4">
@@ -578,18 +656,7 @@ export default function ActivityManagementPage() {
               </div>
             </div>
 
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Status Initial</label>
-              <select
-                value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as ActivityStatus })}
-                className={inputCls}
-              >
-                <option value="AKAN_DATANG">Akan Datang</option>
-                <option value="SEDANG_BERLANGSUNG">Sedang Berlangsung</option>
-                <option value="SELESAI">Selesai</option>
-              </select>
-            </div>
+
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -620,6 +687,25 @@ export default function ActivityManagementPage() {
                   <option key={u.id} value={u.id}>{u.fullName} ({u.roleLabel})</option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* GPS Coordinates & Radius */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+            <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Koordinat GPS Lokasi & Radius Absensi (Opsional)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] text-slate-600 mb-1">Latitude</label>
+                <input type="number" step="any" value={formData.latitude} onChange={(e) => setFormData({ ...formData, latitude: e.target.value })} placeholder="-5.3582" className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-600 mb-1">Longitude</label>
+                <input type="number" step="any" value={formData.longitude} onChange={(e) => setFormData({ ...formData, longitude: e.target.value })} placeholder="105.2321" className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-600 mb-1">Radius (Meter)</label>
+                <input type="number" value={formData.radius} onChange={(e) => setFormData({ ...formData, radius: e.target.value })} placeholder="100" className={inputCls} />
+              </div>
             </div>
           </div>
 
@@ -678,14 +764,7 @@ export default function ActivityManagementPage() {
                 )}
               </div>
             </div>
-            <div>
-              <label className="block text-xs font-semibold text-slate-700 mb-1.5">Status Peliputan</label>
-              <select value={formData.status} onChange={(e) => setFormData({ ...formData, status: e.target.value as ActivityStatus })} className={inputCls}>
-                <option value="AKAN_DATANG">Akan Datang</option>
-                <option value="SEDANG_BERLANGSUNG">Sedang Berlangsung</option>
-                <option value="SELESAI">Selesai</option>
-              </select>
-            </div>
+
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -716,6 +795,25 @@ export default function ActivityManagementPage() {
                   <option key={u.id} value={u.id}>{u.fullName} ({u.roleLabel})</option>
                 ))}
               </select>
+            </div>
+          </div>
+
+          {/* GPS Coordinates & Radius in Edit */}
+          <div className="bg-slate-50 border border-slate-200 rounded-xl p-3.5 space-y-2.5">
+            <p className="text-[11px] font-bold text-slate-700 uppercase tracking-wider">Koordinat GPS Lokasi & Radius Absensi (Opsional)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-[11px] text-slate-600 mb-1">Latitude</label>
+                <input type="number" step="any" value={formData.latitude} onChange={(e) => setFormData({ ...formData, latitude: e.target.value })} placeholder="-5.3582" className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-600 mb-1">Longitude</label>
+                <input type="number" step="any" value={formData.longitude} onChange={(e) => setFormData({ ...formData, longitude: e.target.value })} placeholder="105.2321" className={inputCls} />
+              </div>
+              <div>
+                <label className="block text-[11px] text-slate-600 mb-1">Radius (Meter)</label>
+                <input type="number" value={formData.radius} onChange={(e) => setFormData({ ...formData, radius: e.target.value })} placeholder="100" className={inputCls} />
+              </div>
             </div>
           </div>
 
@@ -790,7 +888,7 @@ export default function ActivityManagementPage() {
                 <span className="bg-slate-100 text-slate-700 text-xs font-bold px-2.5 py-1 rounded-md">
                   {selectedActivity.category}
                 </span>
-                <StatusBadge status={selectedActivity.status} />
+                <StatusBadge status={getDisplayStatus(selectedActivity)} />
               </div>
               <h3 className="text-lg font-bold text-slate-900 leading-snug">{selectedActivity.title}</h3>
             </div>
@@ -858,14 +956,21 @@ export default function ActivityManagementPage() {
             </div>
 
             <div className="pt-4 border-t border-slate-100 flex flex-wrap justify-end gap-2">
-              {selectedActivity.status !== 'SELESAI' && selectedActivity.status !== 'DIBATALKAN' && (
+              {selectedActivity.status !== 'SELESAI' && selectedActivity.status !== 'DIBATALKAN' && currentUser?.role === 'SUPER_ADMIN' && (
                 <CustomButton variant="primary" size="sm" icon={CheckCircle} onClick={handleMarkSelesai}>
                   Tandai Selesai
                 </CustomButton>
               )}
-              <CustomButton variant="secondary" size="sm" onClick={() => { setIsDetailOpen(false); handleOpenEdit(selectedActivity); }}>
-                Edit Kegiatan
-              </CustomButton>
+              {selectedActivity.status !== 'DIBATALKAN' && selectedActivity.status !== 'SELESAI' && currentUser?.role === 'SUPER_ADMIN' && (
+                <CustomButton variant="danger" size="sm" onClick={handleBatalkan}>
+                  Batalkan Kegiatan
+                </CustomButton>
+              )}
+              {currentUser?.role === 'SUPER_ADMIN' && (
+                <CustomButton variant="secondary" size="sm" onClick={() => { setIsDetailOpen(false); handleOpenEdit(selectedActivity); }}>
+                  Edit Kegiatan
+                </CustomButton>
+              )}
               <CustomButton variant="outline" size="sm" onClick={() => setIsDetailOpen(false)}>Tutup</CustomButton>
             </div>
           </div>

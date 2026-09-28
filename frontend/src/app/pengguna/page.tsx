@@ -1,6 +1,8 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
+import { getStoredUser } from '@/utils/session';
 import AdminLayout from '@/components/layout/AdminLayout';
 import {
   StatCard,
@@ -66,6 +68,8 @@ export default function UserManagementPage() {
     status: 'AKTIF' as UserStatus,
   });
 
+  const router = useRouter();
+
   const loadUsers = async () => {
     setLoading(true);
     try {
@@ -80,8 +84,14 @@ export default function UserManagementPage() {
   };
 
   useEffect(() => {
+    const u = getStoredUser();
+    if (u?.role !== 'SUPER_ADMIN') {
+      toast.error('Akses ditolak. Hanya Kepala Humas (Super Admin) yang memiliki akses kelola pengguna.');
+      router.push('/dashboard');
+      return;
+    }
     loadUsers();
-  }, []);
+  }, [router]);
 
   const filteredUsers = users.filter((u) => {
     const matchSearch =
@@ -101,11 +111,13 @@ export default function UserManagementPage() {
 
   const getRoleLabel = (r: Role) => {
     switch (r) {
+      case 'SUPER_ADMIN':
+        return 'Kepala Humas';
       case 'ADMIN':
         return 'Admin Humas';
       case 'USER':
       default:
-        return 'Anggota Humas';
+        return 'Tim Humas';
     }
   };
 
@@ -159,8 +171,9 @@ export default function UserManagementPage() {
       setIsCredsOpen(true);
       toast.success('Personel baru berhasil ditambahkan ke dalam sistem HUMASS!');
       await loadUsers();
-    } catch {
-      toast.error('Gagal menambahkan personel ke server.');
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Gagal menambahkan personel ke server.';
+      toast.error(Array.isArray(errorMessage) ? errorMessage.join(', ') : errorMessage);
     }
   };
 
@@ -181,8 +194,9 @@ export default function UserManagementPage() {
       setIsEditOpen(false);
       toast.success('Informasi profil personel berhasil diperbarui!');
       await loadUsers();
-    } catch {
-      toast.error('Gagal memperbarui data personel.');
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Gagal memperbarui data personel.';
+      toast.error(Array.isArray(errorMessage) ? errorMessage.join(', ') : errorMessage);
     }
   };
 
@@ -192,8 +206,9 @@ export default function UserManagementPage() {
       await userService.update(user.id, { status: nextStatus });
       toast.info(`Akun "${user.fullName}" diubah menjadi ${nextStatus === 'AKTIF' ? 'Aktif' : 'Nonaktif'}.`);
       await loadUsers();
-    } catch {
-      toast.error('Gagal mengubah status akun personel.');
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Gagal mengubah status akun personel.';
+      toast.error(Array.isArray(errorMessage) ? errorMessage.join(', ') : errorMessage);
     }
   };
 
@@ -203,8 +218,9 @@ export default function UserManagementPage() {
       await userService.remove(user.id);
       toast.success(`Personel "${user.fullName}" berhasil dihapus.`);
       await loadUsers();
-    } catch {
-      toast.error('Gagal menghapus personel.');
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Gagal menghapus personel.';
+      toast.error(Array.isArray(errorMessage) ? errorMessage.join(', ') : errorMessage);
     }
   };
 
@@ -222,6 +238,12 @@ export default function UserManagementPage() {
 
   const getRoleBadge = (role: Role, label: string) => {
     switch (role) {
+      case 'SUPER_ADMIN':
+        return (
+          <span className="bg-purple-50 text-purple-800 font-bold px-2.5 py-1 rounded-lg text-xs border border-purple-200">
+            {label}
+          </span>
+        );
       case 'ADMIN':
         return (
           <span className="bg-teal-50 text-teal-800 font-bold px-2.5 py-1 rounded-lg text-xs border border-teal-200">
@@ -229,14 +251,9 @@ export default function UserManagementPage() {
           </span>
         );
       case 'USER':
-        return (
-          <span className="bg-sky-50 text-sky-800 font-bold px-2.5 py-1 rounded-lg text-xs border border-sky-200">
-            {label}
-          </span>
-        );
       default:
         return (
-          <span className="bg-slate-100 text-slate-700 font-bold px-2.5 py-1 rounded-lg text-xs border border-slate-200">
+          <span className="bg-sky-50 text-sky-800 font-bold px-2.5 py-1 rounded-lg text-xs border border-sky-200">
             {label}
           </span>
         );

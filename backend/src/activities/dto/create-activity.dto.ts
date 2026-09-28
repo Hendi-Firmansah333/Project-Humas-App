@@ -55,6 +55,10 @@ export class CreateActivityDto {
   @IsOptional()
   memberIds?: number[];
 
+  @ApiProperty({ example: true, required: false })
+  @IsOptional()
+  isManual?: boolean;
+
   @ApiProperty({
     example: [{ userId: 2, role: 'Reporter' }, { userId: 3, role: 'Dokumentasi' }],
     required: false,
@@ -64,4 +68,21 @@ export class CreateActivityDto {
   @ValidateNested({ each: true })
   @Type(() => ActivityMemberDto)
   members?: ActivityMemberDto[];
+
+  @ApiProperty({ example: -5.3582, required: false })
+  @IsOptional()
+  latitude?: number;
+
+  @ApiProperty({ example: 105.2321, required: false })
+  @IsOptional()
+  longitude?: number;
+
+  @ApiProperty({ example: 100, required: false })
+  @IsOptional()
+  radius?: number;
+
+  @ApiProperty({ example: [{ equipmentId: 1, quantity: 1 }], required: false })
+  @IsArray()
+  @IsOptional()
+  equipmentItems?: { equipmentId: number; quantity: number }[];
 }

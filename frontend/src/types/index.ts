@@ -1,10 +1,45 @@
-export type Role = 'ADMIN' | 'USER';
+export type Role = 'ADMIN' | 'USER' | 'SUPER_ADMIN';
 export type UserStatus = 'AKTIF' | 'NONAKTIF';
-export type ActivityStatus = 'SELESAI' | 'SEDANG_BERLANGSUNG' | 'AKAN_DATANG' | 'DIBATALKAN';
+export type ActivityStatus =
+  | 'MENUNGGU_PERSETUJUAN'
+  | 'DISETUJUI'
+  | 'DITOLAK'
+  | 'DITUGASKAN'
+  | 'SEDANG_BERLANGSUNG'
+  | 'MENUNGGU_VERIFIKASI'
+  | 'MENUNGGU_PERSETUJUAN_AKHIR'
+  | 'SELESAI'
+  | 'DIKEMBALIKAN'
+  | 'PERLU_PERBAIKAN'
+  | 'DIBATALKAN'
+  | 'AKAN_DATANG'       // legacy compat
+  | 'MENUNGGU_VALIDASI'; // legacy compat
+
+export interface ApprovalHistoryEntry {
+  stage: string;
+  status: string;
+  userId: number;
+  fullName: string;
+  role: string;
+  date: string;
+  notes: string;
+}
 export type CheckInStatus = 'SUCCESS' | 'MISSED' | 'TERLAMBAT';
 export type Platform = 'INSTAGRAM' | 'TIKTOK' | 'YOUTUBE';
 export type ContentType = 'REELS' | 'VIDEO_PENDEK' | 'VIDEO_DOKUMENTER';
-export type ContentStatus = 'DRAFT' | 'MENUNGGU' | 'PROSES' | 'REVISI' | 'PUBLISHED' | 'SELESAI' | 'DIBATALKAN';
+export type ContentStatus =
+  | 'DRAFT'
+  | 'DITUGASKAN'
+  | 'DALAM_PENGERJAAN'
+  | 'MENUNGGU_VERIFIKASI_ADMIN'
+  | 'REVISI'
+  | 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS'
+  | 'DISETUJUI'
+  | 'PUBLISHED'
+  | 'SELESAI'
+  | 'DIBATALKAN'
+  | 'MENUNGGU'
+  | 'PROSES';
 export type LoanStatus = 'SEDANG_DIPINJAM' | 'SELESAI' | 'TERLAMBAT';
 export type NotificationType = 'INFO' | 'SUCCESS' | 'WARNING' | 'ALERT';
 
@@ -50,12 +85,43 @@ export interface ActivityMemberInput {
 
 export interface ActivityAttendance {
   id: number;
-  activityId: number;
+  activityId?: number;
   userId: number;
+  status: CheckInStatus;
   latitude?: number;
   longitude?: number;
+  distance?: number;
+  selfieUrl?: string;
+  notes?: string;
+  checkInTime?: string;
   checkInAt?: string;
   user?: User;
+}
+
+export interface IncomingLetter {
+  id: number;
+  letterNumber: string;
+  letterDate: string;
+  receivedDate: string;
+  sender: string;
+  institution: string;
+  subject: string;
+  destination: string;
+  fileUrl?: string;
+  notes?: string;
+  status: string; // BARU, MENUNGGU_VERIFIKASI_ADMIN, MENUNGGU_PERSETUJUAN_KEPALA_HUMAS, DISETUJUI, DITOLAK, DITUGASKAN, SELESAI
+  eventLocation?: string;
+  latitude?: number;
+  longitude?: number;
+  radius?: number;
+  eventDate?: string;
+  startTime?: string;
+  endTime?: string;
+  createdById: number;
+  createdBy?: User;
+  activities?: { id: number; title: string; status: string; date: string }[];
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Activity {
@@ -66,10 +132,16 @@ export interface Activity {
   startTime: string;
   endTime: string;
   location: string;
+  latitude?: number;
+  longitude?: number;
+  radius?: number;
   status: ActivityStatus;
   description: string;
   picId: number;
+  isManual?: boolean;
   pic: User;
+  suratId?: number;
+  surat?: IncomingLetter;
   members?: ActivityMember[];
   media?: ActivityMedia[];
   attendances?: ActivityAttendance[];
@@ -77,8 +149,12 @@ export interface Activity {
   createdAt?: string;
   validatedById?: number;
   validatedBy?: User;
-  validatedAt?: string;
   validationNotes?: string;
+  notes?: string;
+  documentationUrl?: string;
+  result?: string;
+  approvalHistory?: ApprovalHistoryEntry[];
+  loans?: any[];
 }
 
 export interface ActivityInput {
@@ -88,10 +164,14 @@ export interface ActivityInput {
   startTime?: string;
   endTime?: string;
   location?: string;
+  latitude?: number;
+  longitude?: number;
+  radius?: number;
   status?: ActivityStatus;
   description?: string;
   picId?: number;
   members?: ActivityMemberInput[];
+  memberIds?: number[];
 }
 
 export interface DutySchedule {
@@ -118,6 +198,7 @@ export interface ContentPlanMedia {
 export interface ContentPlan {
   id: number;
   title: string;
+  category?: string;
   platform: Platform;
   contentType: string;
   picId: number;
@@ -126,6 +207,7 @@ export interface ContentPlan {
   status: ContentStatus;
   description?: string;
   revisionNote?: string;
+  adminNotes?: string;
   thumbnailUrl?: string;
   draftUrl?: string;
   videoUrl?: string;
@@ -145,16 +227,44 @@ export interface LocationData {
   updatedAt: string;
 }
 
+export interface Equipment {
+  id: number;
+  name: string;
+  code: string;
+  category: string;
+  total: number;
+  broken: number;
+  available: number;
+  borrowed: number;
+  condition: string;
+  storage?: string;
+  description?: string;
+  status: string;
+}
+
+export interface EquipmentLoanItem {
+  id: number;
+  loanId: number;
+  equipmentId: number;
+  equipment: Equipment;
+  quantity: number;
+  returnedQuantity: number;
+  returnedAt?: string;
+}
+
 export interface EquipmentLoan {
   id: number;
   borrowerName: string;
   borrowerPhone: string;
-  equipmentName: string;
   borrowDate: string;
   returnDate: string;
   status: LoanStatus;
   purpose?: string;
+  notes?: string;
   actualReturnDate?: string;
+  activityId?: number;
+  activity?: { id: number; title: string };
+  items: EquipmentLoanItem[];
 }
 
 export interface ReportItem {

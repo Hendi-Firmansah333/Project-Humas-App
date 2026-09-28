@@ -26,5 +26,9 @@ export function clearUserSession() {
 }
 
 export function isAdminUser(user: User | null): boolean {
-  return user?.role === 'ADMIN';
+  return user?.role === 'ADMIN' || user?.role === 'SUPER_ADMIN';
+}
+
+export function isSuperAdmin(user: User | null): boolean {
+  return user?.role === 'SUPER_ADMIN';
 }

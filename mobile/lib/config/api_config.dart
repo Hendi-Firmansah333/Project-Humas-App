@@ -11,12 +11,12 @@ class ApiConfig {
   /// atau gunakan '127.0.0.1' jika menggunakan HP Fisik + perintah `adb reverse tcp:3001 tcp:3001`
   static const String devHost = String.fromEnvironment(
     'API_HOST',
-    defaultValue: '192.168.1.2', // IP Wi-Fi Laptop Yuda
+    defaultValue: '192.168.1.10', // IP Wi-Fi Laptop Terkini
   );
 
   static const String devUrl = String.fromEnvironment(
     'API_URL',
-    defaultValue: 'https://cranky-annemarie-ditzily.ngrok-free.dev',
+    defaultValue: '',
   );
 
   static const int devPort = 3001;

@@ -28,8 +28,8 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Tambah personel baru (Khusus Admin)' })
+  @Roles(Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Tambah personel baru (Khusus Super Admin)' })
   create(@Body() createUserDto: CreateUserDto) {
     return this.usersService.create(createUserDto);
   }
@@ -54,6 +54,7 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @Roles(Role.SUPER_ADMIN)
   @ApiOperation({ summary: 'Update informasi personel' })
   update(
     @Param('id', ParseIntPipe) id: number,
@@ -63,8 +64,8 @@ export class UsersController {
   }
 
   @Patch(':id/password')
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Reset password personel oleh Admin' })
+  @Roles(Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Reset password personel oleh Super Admin' })
   updatePassword(
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: UpdatePasswordDto,
@@ -73,8 +74,8 @@ export class UsersController {
   }
 
   @Delete(':id')
-  @Roles(Role.ADMIN)
-  @ApiOperation({ summary: 'Hapus personel (Khusus Admin)' })
+  @Roles(Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Hapus personel (Khusus Super Admin)' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.remove(id);
   }

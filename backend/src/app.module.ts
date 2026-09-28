@@ -14,6 +14,7 @@ import { LiveLocationModule } from './live-location/live-location.module';
 import { ReportsModule } from './reports/reports.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { IncomingLettersModule } from './incoming-letters/incoming-letters.module';
 import { AuditLoggerMiddleware } from './common/middleware/audit-logger.middleware';
 
 @Module({
@@ -35,6 +36,7 @@ import { AuditLoggerMiddleware } from './common/middleware/audit-logger.middlewa
     ReportsModule,
     NotificationsModule,
     DashboardModule,
+    IncomingLettersModule,
   ],
   controllers: [AppController],
   providers: [

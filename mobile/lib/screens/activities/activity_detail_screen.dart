@@ -72,10 +72,32 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
     }
   }
 
+  bool _isActivityStarted(ActivityItem activity) {
+    try {
+      final dateParts = activity.date.split('-');
+      if (dateParts.length < 3) return true;
+      final year = int.parse(dateParts[0]);
+      final month = int.parse(dateParts[1]);
+      final day = int.parse(dateParts[2]);
+
+      final timeStart = activity.time.split(' - ').first.trim();
+      final timeParts = timeStart.split(':');
+      final hour = int.parse(timeParts[0]);
+      final minute = int.parse(timeParts[1]);
+
+      final startDateTime = DateTime(year, month, day, hour, minute);
+      return DateTime.now().isAfter(startDateTime) || DateTime.now().isAtSameMomentAs(startDateTime);
+    } catch (_) {
+      return true;
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final activity =
         context.watch<AppDataProvider>().activityById(widget.activity.id) ?? widget.activity;
+
+    final isStarted = _isActivityStarted(activity);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -86,9 +108,9 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
           icon: Icon(Icons.arrow_back, color: AppColors.textPrimary),
           onPressed: () => Navigator.pop(context),
         ),
-        title: const Text(
+        title: Text(
           'Detail Kegiatan',
-          style: TextStyle(color: AppColors.primaryDark, fontWeight: FontWeight.w800),
+          style: TextStyle(color: AppColors.textPrimary, fontWeight: FontWeight.w800),
         ),
         centerTitle: true,
       ),
@@ -99,7 +121,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
           children: [
             Container(
               width: double.infinity,
-              padding: const EdgeInsets.all(18),
+              padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: AppColors.card,
                 borderRadius: BorderRadius.circular(16),
@@ -107,13 +129,39 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  StatusBadge(label: activity.status),
-                  const SizedBox(height: 12),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        child: Text(
+                          !isStarted ? 'Akan Datang' : activity.status,
+                          style: const TextStyle(
+                            color: AppColors.primary,
+                            fontWeight: FontWeight.w700,
+                            fontSize: 12,
+                          ),
+                        ),
+                      ),
+                      const Spacer(),
+                      StatusBadge(
+                        label: activity.hasCheckedIn
+                            ? 'Sudah Hadir'
+                            : !isStarted
+                                ? 'Belum Dimulai'
+                                : 'Sedang Berlangsung',
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 14),
                   Text(
                     activity.title,
-                    style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w800),
+                    style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 18),
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 8),
                   Text(
                     activity.description.isNotEmpty
                         ? activity.description
@@ -132,29 +180,49 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
             ),
             const SizedBox(height: 16),
             GestureDetector(
-              onTap: activity.hasCheckedIn
-                  ? null
-                  : () => Navigator.push(
-                        context,
-                        MaterialPageRoute(builder: (_) => CheckinScreen(activity: activity)),
-                      ),
+              onTap: () {
+                if (activity.hasCheckedIn) return;
+                if (!isStarted) {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    SnackBar(
+                      content: Text('Absensi belum dibuka. Kegiatan baru dimulai pukul ${activity.time.split(' - ').first} WIB.'),
+                      backgroundColor: AppColors.danger,
+                    ),
+                  );
+                  return;
+                }
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => CheckinScreen(activity: activity)),
+                );
+              },
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: activity.hasCheckedIn ? const Color(0xFF9CA3AF) : AppColors.primaryDark,
+                  color: activity.hasCheckedIn || !isStarted
+                      ? const Color(0xFF9CA3AF)
+                      : AppColors.primaryDark,
                   borderRadius: BorderRadius.circular(16),
                 ),
                 child: Row(
                   children: [
-                    const Icon(Icons.camera_alt_outlined, color: Colors.white, size: 28),
+                    Icon(
+                      !isStarted ? Icons.lock_clock : Icons.camera_alt_outlined,
+                      color: Colors.white,
+                      size: 28,
+                    ),
                     const SizedBox(width: 14),
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            activity.hasCheckedIn ? 'Sudah Check-in' : 'Check-in Kehadiran',
+                            activity.hasCheckedIn
+                                ? 'Sudah Check-in'
+                                : !isStarted
+                                    ? 'Acara Belum Dimulai'
+                                    : 'Check-in Kehadiran',
                             style: const TextStyle(
                               color: Colors.white,
                               fontWeight: FontWeight.w800,
@@ -167,18 +235,141 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                                 ? (activity.checkInStatus.isNotEmpty
                                     ? activity.checkInStatus
                                     : 'Anda sudah melakukan check-in.')
-                                : 'Melakukan absensi menggunakan selfie dengan validasi lokasi GPS.',
+                                : !isStarted
+                                    ? 'Absensi dibuka saat kegiatan dimulai pada pukul ${activity.time.split(' - ').first} WIB.'
+                                    : 'Melakukan absensi menggunakan selfie dengan validasi lokasi GPS.',
                             style: const TextStyle(color: Colors.white70, fontSize: 12),
                           ),
                         ],
                       ),
                     ),
-                    if (!activity.hasCheckedIn)
+                    if (!activity.hasCheckedIn && isStarted)
                       const Icon(Icons.chevron_right, color: Colors.white),
                   ],
                 ),
               ),
             ),
+            if (activity.assignedEquipments.isNotEmpty) ...[
+              const SizedBox(height: 16),
+              Container(
+                width: double.infinity,
+                padding: const EdgeInsets.all(18),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(16),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        const Icon(Icons.inventory_2_outlined, color: AppColors.primary),
+                        const SizedBox(width: 10),
+                        const Text(
+                          'Peralatan yang Ditugaskan',
+                          style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
+                        ),
+                        const Spacer(),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: AppColors.primary.withValues(alpha: 0.1),
+                            borderRadius: BorderRadius.circular(6),
+                          ),
+                          child: Text(
+                            '${activity.assignedEquipments.length} Alat',
+                            style: const TextStyle(
+                              color: AppColors.primary,
+                              fontWeight: FontWeight.w700,
+                              fontSize: 11,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 12),
+                    ...activity.assignedEquipments.map((eq) {
+                      final isReturned = eq.isReturned;
+                      return Container(
+                        margin: const EdgeInsets.only(bottom: 8),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: AppColors.background,
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: isReturned ? AppColors.success.withValues(alpha: 0.3) : const Color(0xFFE5E7EB),
+                          ),
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 36,
+                              height: 36,
+                              decoration: BoxDecoration(
+                                color: isReturned
+                                    ? AppColors.success.withValues(alpha: 0.1)
+                                    : AppColors.primary.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                isReturned ? Icons.check_circle_outline : Icons.camera_alt_outlined,
+                                color: isReturned ? AppColors.success : AppColors.primary,
+                                size: 20,
+                              ),
+                            ),
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    eq.name,
+                                    style: const TextStyle(
+                                      fontWeight: FontWeight.w700,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 2),
+                                  Text(
+                                    '${eq.category}${eq.brand != null && eq.brand!.isNotEmpty ? ' • ${eq.brand}' : ''} (${eq.code})',
+                                    style: TextStyle(
+                                      color: AppColors.textSecondary,
+                                      fontSize: 11,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            Column(
+                              crossAxisAlignment: CrossAxisAlignment.end,
+                              children: [
+                                Text(
+                                  '${eq.quantity} Unit',
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.w800,
+                                    fontSize: 12,
+                                    color: AppColors.textPrimary,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  isReturned ? 'Dikembalikan' : 'Digunakan',
+                                  style: TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w600,
+                                    color: isReturned ? AppColors.success : const Color(0xFFD97706),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                ),
+              ),
+            ],
             const SizedBox(height: 16),
             Container(
               width: double.infinity,
@@ -202,7 +393,9 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                   ),
                   const SizedBox(height: 8),
                   Text(
-                    'Mengunggah LINK Google Drive dokumentasi kegiatan.',
+                    !isStarted
+                        ? 'Dokumentasi hanya dapat diunggah setelah kegiatan dimulai.'
+                        : 'Mengunggah LINK Google Drive dokumentasi kegiatan.',
                     style: TextStyle(color: AppColors.textSecondary, fontSize: 13),
                   ),
                   if (activity.docStatus.isNotEmpty) ...[
@@ -223,7 +416,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                   const SizedBox(height: 8),
                   TextField(
                     controller: _driveLinkController,
-                    enabled: !_isSubmittingDoc,
+                    enabled: !_isSubmittingDoc && isStarted,
                     decoration: InputDecoration(
                       hintText: 'https://drive.google.com/...',
                       filled: true,
@@ -242,7 +435,9 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                   SizedBox(
                     width: double.infinity,
                     child: OutlinedButton(
-                      onPressed: _isSubmittingDoc ? null : () => _submitDocumentation(activity),
+                      onPressed: (_isSubmittingDoc || !isStarted)
+                          ? null
+                          : () => _submitDocumentation(activity),
                       style: OutlinedButton.styleFrom(
                         foregroundColor: AppColors.primary,
                         side: const BorderSide(color: AppColors.primary),
@@ -251,11 +446,14 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                       ),
                       child: _isSubmittingDoc
                           ? const SizedBox(
-                              width: 22,
-                              height: 22,
+                              height: 20,
+                              width: 20,
                               child: CircularProgressIndicator(strokeWidth: 2),
                             )
-                          : const Text('Kirim Link Dokumentasi', style: TextStyle(fontWeight: FontWeight.w700)),
+                          : const Text(
+                              'Simpan Link Google Drive',
+                              style: TextStyle(fontWeight: FontWeight.w700),
+                            ),
                     ),
                   ),
                 ],

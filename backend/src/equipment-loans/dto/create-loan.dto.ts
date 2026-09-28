@@ -1,6 +1,28 @@
 import { ApiProperty } from '@nestjs/swagger';
-import { IsEnum, IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import {
+  IsEnum,
+  IsNotEmpty,
+  IsNumber,
+  IsOptional,
+  IsString,
+  IsArray,
+  ValidateNested,
+  Min,
+} from 'class-validator';
+import { Type } from 'class-transformer';
 import { LoanStatus } from '@prisma/client';
+
+export class LoanItemDto {
+  @ApiProperty({ example: 1, description: 'ID peralatan dari master Equipment' })
+  @IsNumber()
+  @IsNotEmpty()
+  equipmentId: number;
+
+  @ApiProperty({ example: 2 })
+  @IsNumber()
+  @Min(1)
+  quantity: number;
+}
 
 export class CreateLoanDto {
   @ApiProperty({ example: 'Budi Santoso' })
@@ -13,11 +35,6 @@ export class CreateLoanDto {
   @IsNotEmpty()
   borrowerPhone: string;
 
-  @ApiProperty({ example: 'Kamera Sony A7III' })
-  @IsString()
-  @IsNotEmpty()
-  equipmentName: string;
-
   @ApiProperty({ example: '2025-06-01T08:00:00Z' })
   @IsString()
   @IsNotEmpty()
@@ -28,10 +45,21 @@ export class CreateLoanDto {
   @IsNotEmpty()
   returnDate: string;
 
-  @ApiProperty({ example: 'Dokumentasi Acara' })
+  @ApiProperty({ example: 'Dokumentasi Acara Wisuda' })
   @IsString()
   @IsOptional()
   purpose?: string;
+
+  @ApiProperty({ example: 3, description: 'ID kegiatan terkait (opsional)' })
+  @IsNumber()
+  @IsOptional()
+  activityId?: number;
+
+  @ApiProperty({ type: [LoanItemDto] })
+  @IsArray()
+  @ValidateNested({ each: true })
+  @Type(() => LoanItemDto)
+  items: LoanItemDto[];
 
   @ApiProperty({ enum: LoanStatus, default: LoanStatus.SEDANG_DIPINJAM })
   @IsEnum(LoanStatus)

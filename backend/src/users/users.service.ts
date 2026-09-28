@@ -48,14 +48,17 @@ export class UsersService {
   async findAll(role?: Role, status?: UserStatus, search?: string) {
     const users = await this.prisma.user.findMany({
       where: {
+        deletedAt: null,
         role: role || undefined,
         status: status || undefined,
-        OR: search
-          ? [
-              { fullName: { contains: search } },
-              { username: { contains: search } },
-              { email: { contains: search } },
-            ]
+        AND: search
+          ? {
+              OR: [
+                { fullName: { contains: search, mode: 'insensitive' } },
+                { username: { contains: search, mode: 'insensitive' } },
+                { email: { contains: search, mode: 'insensitive' } },
+              ],
+            }
           : undefined,
       },
       orderBy: { createdAt: 'desc' },
@@ -71,7 +74,7 @@ export class UsersService {
     const user = await this.prisma.user.findUnique({
       where: { id },
     });
-    if (!user) {
+    if (!user || user.deletedAt !== null) {
       throw new NotFoundException(`Personel dengan ID #${id} tidak ditemukan.`);
     }
     const { password, ...result } = user;
@@ -79,7 +82,19 @@ export class UsersService {
   }
 
   async update(id: number, updateUserDto: UpdateUserDto) {
-    await this.findOne(id);
+    const existingUser = await this.prisma.user.findUnique({ where: { id } });
+    if (!existingUser || existingUser.deletedAt !== null) {
+      throw new NotFoundException(`Personel dengan ID #${id} tidak ditemukan.`);
+    }
+
+    if (updateUserDto.role && updateUserDto.role !== Role.SUPER_ADMIN && existingUser.role === Role.SUPER_ADMIN) {
+      const superAdminCount = await this.prisma.user.count({
+        where: { role: Role.SUPER_ADMIN, deletedAt: null },
+      });
+      if (superAdminCount <= 1) {
+        throw new BadRequestException('Tidak dapat mengubah role Kepala Humas (Super Admin) terakhir.');
+      }
+    }
 
     let hashedPassword: string | undefined = undefined;
     if (updateUserDto.password) {
@@ -99,8 +114,24 @@ export class UsersService {
   }
 
   async remove(id: number) {
-    await this.findOne(id);
-    await this.prisma.user.delete({ where: { id } });
+    const user = await this.prisma.user.findUnique({ where: { id } });
+    if (!user || user.deletedAt !== null) {
+      throw new NotFoundException(`Personel dengan ID #${id} tidak ditemukan.`);
+    }
+
+    if (user.role === Role.SUPER_ADMIN) {
+      const superAdminCount = await this.prisma.user.count({
+        where: { role: Role.SUPER_ADMIN, deletedAt: null },
+      });
+      if (superAdminCount <= 1) {
+        throw new BadRequestException('Tidak dapat menghapus Kepala Humas (Super Admin) terakhir.');
+      }
+    }
+
+    await this.prisma.user.update({
+      where: { id },
+      data: { deletedAt: new Date() },
+    });
     return { message: `Personel ID #${id} berhasil dihapus.` };
   }
 

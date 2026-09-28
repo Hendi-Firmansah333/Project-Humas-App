@@ -39,6 +39,56 @@ class TimelineItem {
       );
 }
 
+class AssignedEquipment {
+  const AssignedEquipment({
+    required this.id,
+    required this.name,
+    required this.code,
+    required this.category,
+    this.brand,
+    required this.quantity,
+    this.returnedQuantity = 0,
+    this.returnCondition,
+    this.status = 'SEDANG_DIGUNAKAN',
+  });
+
+  final int id;
+  final String name;
+  final String code;
+  final String category;
+  final String? brand;
+  final int quantity;
+  final int returnedQuantity;
+  final String? returnCondition;
+  final String status;
+
+  bool get isReturned => returnedQuantity >= quantity || status == 'DIKEMBALIKAN';
+
+  Map<String, dynamic> toJson() => {
+        'id': id,
+        'name': name,
+        'code': code,
+        'category': category,
+        'brand': brand,
+        'quantity': quantity,
+        'returnedQuantity': returnedQuantity,
+        'returnCondition': returnCondition,
+        'status': status,
+      };
+
+  factory AssignedEquipment.fromJson(Map<String, dynamic> json) => AssignedEquipment(
+        id: json['id'] as int? ?? 0,
+        name: json['name'] as String? ?? '',
+        code: json['code'] as String? ?? '',
+        category: json['category'] as String? ?? '',
+        brand: json['brand'] as String?,
+        quantity: json['quantity'] as int? ?? 1,
+        returnedQuantity: json['returnedQuantity'] as int? ?? 0,
+        returnCondition: json['returnCondition'] as String?,
+        status: json['status'] as String? ?? 'SEDANG_DIGUNAKAN',
+      );
+}
+
 enum CheckInState { none, checkedIn, late, missed }
 
 class ActivityItem {
@@ -67,6 +117,7 @@ class ActivityItem {
     this.adminNote,
     this.verificationStatus,
     this.jobDesk = '',
+    this.assignedEquipments = const [],
   });
 
   final String id;
@@ -93,6 +144,7 @@ class ActivityItem {
   final String? adminNote;
   final String? verificationStatus;
   final String jobDesk;
+  final List<AssignedEquipment> assignedEquipments;
 
   bool get hasCheckedIn =>
       checkInState == CheckInState.checkedIn || checkInState == CheckInState.late;
@@ -122,6 +174,7 @@ class ActivityItem {
         'adminNote': adminNote,
         'verificationStatus': verificationStatus,
         'jobDesk': jobDesk,
+        'assignedEquipments': assignedEquipments.map((e) => e.toJson()).toList(),
       };
 
   factory ActivityItem.fromJson(Map<String, dynamic> json) => ActivityItem(
@@ -157,6 +210,10 @@ class ActivityItem {
         adminNote: json['adminNote'] as String?,
         verificationStatus: json['verificationStatus'] as String?,
         jobDesk: json['jobDesk'] as String? ?? '',
+        assignedEquipments: (json['assignedEquipments'] as List<dynamic>?)
+                ?.map((e) => AssignedEquipment.fromJson(e as Map<String, dynamic>))
+                .toList() ??
+            const [],
       );
 
   ActivityItem copyWith({
@@ -172,6 +229,7 @@ class ActivityItem {
     String? checkInTime,
     String? adminNote,
     String? verificationStatus,
+    List<AssignedEquipment>? assignedEquipments,
     bool clearSelfie = false,
     bool clearDocumentation = false,
   }) =>
@@ -200,5 +258,6 @@ class ActivityItem {
         adminNote: adminNote ?? this.adminNote,
         verificationStatus: verificationStatus ?? this.verificationStatus,
         jobDesk: jobDesk,
+        assignedEquipments: assignedEquipments ?? this.assignedEquipments,
       );
 }

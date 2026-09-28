@@ -354,14 +354,18 @@ class AppDataProvider extends ChangeNotifier {
   Future<ContentPlanItem> submitContentProof({
     required String contentPlanId,
     required String videoLink,
+    String? caption,
     String? posterPath,
     String? videoFileName,
+    bool sendToReview = true,
   }) async {
     final updated = await _repo.submitContentProof(
       contentPlanId: contentPlanId,
       videoLink: videoLink,
+      caption: caption,
       posterPath: posterPath,
       videoFileName: videoFileName,
+      sendToReview: sendToReview,
     );
     await refreshAll(simulateNetwork: false);
     return updated;

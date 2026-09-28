@@ -11,21 +11,35 @@ import {
 } from '@prisma/client';
 
 const activityStatusLabel: Record<ActivityStatus, string> = {
-  AKAN_DATANG: 'Akan Datang',
+  DRAFT: 'Draft',
+  MENUNGGU_PERSETUJUAN: 'Menunggu Persetujuan',
+  DISETUJUI: 'Disetujui',
+  DITOLAK: 'Ditolak',
+  DITUGASKAN: 'Ditugaskan',
   SEDANG_BERLANGSUNG: 'Sedang Berlangsung',
+  MENUNGGU_VERIFIKASI: 'Menunggu Verifikasi',
+  MENUNGGU_PERSETUJUAN_AKHIR: 'Menunggu Persetujuan Akhir',
   SELESAI: 'Selesai',
+  DIKEMBALIKAN: 'Dikembalikan',
+  PERLU_PERBAIKAN: 'Perlu Perbaikan',
   DIBATALKAN: 'Dibatalkan',
+  AKAN_DATANG: 'Akan Datang',
   MENUNGGU_VALIDASI: 'Menunggu Validasi',
 };
 
 const contentStatusToMobile: Record<ContentStatus, string> = {
   DRAFT: 'belumDikerjakan',
-  MENUNGGU: 'belumDikerjakan',
-  PROSES: 'sedangDikerjakan',
-  REVISI: 'sedangDikerjakan',
+  DITUGASKAN: 'belumDikerjakan',
+  DALAM_PENGERJAAN: 'sedangDikerjakan',
+  MENUNGGU_VERIFIKASI_ADMIN: 'menungguVerifikasiAdmin',
+  MENUNGGU_PERSETUJUAN_KEPALA_HUMAS: 'menungguPersetujuanKepalaHumas',
+  DISETUJUI: 'disetujui',
+  REVISI: 'perluRevisi',
   PUBLISHED: 'selesai',
   SELESAI: 'selesai',
-  DIBATALKAN: 'belumDikerjakan',
+  DIBATALKAN: 'ditolak',
+  MENUNGGU: 'menungguVerifikasiAdmin',
+  PROSES: 'sedangDikerjakan',
 };
 
 const checkInStatusToState = (status?: CheckInStatus | null) => {
@@ -45,6 +59,23 @@ type ActivityWithRelations = Activity & {
   pic: Pick<User, 'fullName' | 'username'>;
   members?: (ActivityMember & { user?: Pick<User, 'fullName'> })[];
   media?: { id: number; fileName: string; fileUrl: string; fileType: string; createdAt: Date; uploader?: Pick<User, 'fullName'> | null }[];
+  loans?: {
+    id: number;
+    status: string;
+    items?: {
+      id: number;
+      quantity: number;
+      returnedQuantity: number;
+      returnCondition: string | null;
+      equipment?: {
+        id: number;
+        name: string;
+        code: string;
+        category: string;
+        brand?: string | null;
+      } | null;
+    }[];
+  }[];
 };
 
 export function mapActivityForMobile(
@@ -63,6 +94,36 @@ export function mapActivityForMobile(
   const latestDoc = docMedia[0];
   const docStatus = latestDoc ? 'Sudah Upload' : 'Belum Upload Dokumentasi';
   const documentationUrl = latestDoc?.fileUrl ?? null;
+
+  const assignedEquipments: Array<{
+    id: number;
+    name: string;
+    code: string;
+    category: string;
+    brand: string | null;
+    quantity: number;
+    returnedQuantity: number;
+    returnCondition: string | null;
+    status: string;
+  }> = [];
+
+  for (const loan of activity.loans ?? []) {
+    for (const it of loan.items ?? []) {
+      if (it.equipment) {
+        assignedEquipments.push({
+          id: it.equipment.id,
+          name: it.equipment.name,
+          code: it.equipment.code,
+          category: it.equipment.category,
+          brand: it.equipment.brand ?? null,
+          quantity: it.quantity,
+          returnedQuantity: it.returnedQuantity,
+          returnCondition: it.returnCondition ?? null,
+          status: it.returnedQuantity >= it.quantity ? 'DIKEMBALIKAN' : 'SEDANG_DIGUNAKAN',
+        });
+      }
+    }
+  }
 
   return {
     id: String(activity.id),
@@ -84,9 +145,9 @@ export function mapActivityForMobile(
             ? 'Check-in: Tidak Check-in'
             : '',
     docStatus,
-    latitude: -5.3582,
-    longitude: 105.2321,
-    geofenceRadiusMeters: 500,
+    latitude: activity.latitude ?? -5.3582,
+    longitude: activity.longitude ?? 105.2321,
+    geofenceRadiusMeters: activity.radius ?? 100,
     timeline: [],
     documentationUrl,
     checkInState: state,
@@ -94,23 +155,36 @@ export function mapActivityForMobile(
     scheduledAt: activity.date.toISOString(),
     isHistory,
     checkInTime: member?.checkInTime ?? null,
-    adminNote: null,
-    verificationStatus: null,
+    adminNote: activity.validationNotes ?? null,
+    verificationStatus: activity.status,
+    assignedEquipments,
   };
 }
 
 function resolveMobileContentStatus(plan: ContentPlan) {
-  if (plan.status === 'SELESAI' || plan.status === 'PUBLISHED') return 'selesai';
+  if (plan.status === 'PUBLISHED' || plan.status === 'SELESAI') return 'selesai';
+  if (plan.status === 'DISETUJUI') return 'disetujui';
   if (plan.status === 'REVISI') return 'perluRevisi';
   if (plan.status === 'DIBATALKAN') return 'ditolak';
-  if (plan.status === 'PROSES' && plan.videoUrl) return 'menungguReview';
-  if (plan.status === 'PROSES') return 'sedangDikerjakan';
+  if (plan.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS') return 'menungguPersetujuanKepalaHumas';
+  if (plan.status === 'MENUNGGU_VERIFIKASI_ADMIN' || plan.status === 'MENUNGGU') return 'menungguVerifikasiAdmin';
+  if (plan.status === 'DALAM_PENGERJAAN' || plan.status === 'PROSES') return 'sedangDikerjakan';
   return 'belumDikerjakan';
 }
 
 function canSubmitContent(plan: ContentPlan) {
-  if (plan.status === 'SELESAI' || plan.status === 'PUBLISHED' || plan.status === 'DIBATALKAN') return false;
-  if (plan.status === 'PROSES' && plan.videoUrl) return false;
+  if (
+    plan.status === 'SELESAI' ||
+    plan.status === 'PUBLISHED' ||
+    plan.status === 'DIBATALKAN' ||
+    plan.status === 'DISETUJUI' ||
+    plan.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS'
+  ) {
+    return false;
+  }
+  if (plan.status === 'MENUNGGU_VERIFIKASI_ADMIN' || plan.status === 'MENUNGGU') {
+    return false;
+  }
   return true;
 }
 
@@ -123,23 +197,28 @@ export function mapContentPlanForMobile(
     id: String(plan.id),
     title: plan.title,
     description: plan.description ?? '',
+    caption: plan.description ?? '',
     tags: [plan.platform, plan.contentType, plan.category ?? ''].filter(Boolean),
     status,
+    rawStatus: plan.status,
     deadline: plan.deadline.toISOString(),
     pic: plan.pic?.fullName ?? 'Admin Humas',
     deadlineLabel: plan.deadline.toLocaleDateString('id-ID'),
     progress:
-      plan.status === 'SELESAI'
+      plan.status === 'SELESAI' || plan.status === 'PUBLISHED' || plan.status === 'DISETUJUI'
         ? 100
-        : plan.status === 'PROSES' && plan.videoUrl
-          ? 85
-          : plan.status === 'PROSES' || plan.status === 'REVISI'
-            ? 60
-            : 0,
-    videoLink: plan.videoUrl,
+        : plan.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS'
+          ? 90
+          : plan.status === 'MENUNGGU_VERIFIKASI_ADMIN' || plan.status === 'MENUNGGU'
+            ? 75
+            : plan.status === 'DALAM_PENGERJAAN' || plan.status === 'PROSES' || plan.status === 'REVISI'
+              ? 50
+              : 0,
+    videoLink: plan.videoUrl || plan.draftUrl,
     posterPath: plan.thumbnailUrl,
     videoFileName: plan.videoUrl ? plan.videoUrl.split('/').pop() : null,
     revisionNote: plan.revisionNote ?? null,
+    adminNotes: plan.adminNotes ?? null,
     canSubmit: canSubmitContent(plan),
     submissionLocked: locked,
   };

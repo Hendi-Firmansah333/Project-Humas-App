@@ -250,7 +250,7 @@ class AppRepository {
       final q = search.toLowerCase();
       final matchesSearch =
           q.isEmpty || item.title.toLowerCase().contains(q) || item.description.toLowerCase().contains(q);
-      final matchesFilter = statusFilter == 'Semua' || item.statusLabel == statusFilter;
+      final matchesFilter = item.matchesFilter(statusFilter);
       return matchesSearch && matchesFilter;
     }).toList();
     return _page(filtered, page);
@@ -439,15 +439,19 @@ class AppRepository {
   Future<ContentPlanItem> submitContentProof({
     required String contentPlanId,
     required String videoLink,
+    String? caption,
     String? posterPath,
     String? videoFileName,
+    bool sendToReview = true,
   }) async {
     if (_useApi) {
       final updated = await ApiService.instance.submitContentProof(
         contentPlanId: contentPlanId,
         videoLink: videoLink,
+        caption: caption,
         posterPath: posterPath,
         videoFileName: videoFileName,
+        sendToReview: sendToReview,
       );
       _replaceContentPlan(updated);
       await _persist();
@@ -459,10 +463,11 @@ class AppRepository {
 
     final updated = plan.copyWith(
       videoLink: videoLink,
+      caption: caption,
       posterPath: posterPath,
       videoFileName: videoFileName,
-      status: ContentPlanStatus.selesai,
-      progress: 100,
+      status: sendToReview ? ContentPlanStatus.menungguVerifikasiAdmin : ContentPlanStatus.sedangDikerjakan,
+      progress: sendToReview ? 75 : 50,
     );
     _replaceContentPlan(updated);
     await _persist();

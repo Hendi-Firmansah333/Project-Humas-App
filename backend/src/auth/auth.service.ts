@@ -37,7 +37,7 @@ export class AuthService implements OnModuleInit {
       where: { username: loginDto.username },
     });
 
-    if (!user) {
+    if (!user || user.deletedAt !== null) {
       throw new UnauthorizedException('Username atau password salah.');
     }
 

@@ -13,8 +13,8 @@ export class LiveLocationController {
 
   @Get()
   @ApiOperation({ summary: 'Daftar koordinat GPS real-time seluruh personel humas' })
-  findAll() {
-    return this.liveLocationService.findAll();
+  findAll(@Request() req: any) {
+    return this.liveLocationService.findAll({ id: req.user.id, role: req.user.role });
   }
 
   @Post('sync')

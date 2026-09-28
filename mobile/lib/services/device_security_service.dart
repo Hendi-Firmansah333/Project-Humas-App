@@ -7,8 +7,8 @@ class DeviceSecurityService {
     return position.isMocked;
   }
 
-  /// Memeriksa akurasi GPS untuk memastikan tidak ada anomali sinyal (akurasi > 100m dianggap mencurigakan)
-  static bool isLocationAccuracyValid(Position position, {double maxAccuracyMeters = 100.0}) {
+  /// Memeriksa akurasi GPS untuk memastikan tidak ada anomali sinyal (akurasi > 200m dianggap mencurigakan)
+  static bool isLocationAccuracyValid(Position position, {double maxAccuracyMeters = 200.0}) {
     return position.accuracy <= maxAccuracyMeters;
   }
 
