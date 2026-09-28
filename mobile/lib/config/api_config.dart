@@ -11,7 +11,11 @@ class ApiConfig {
   /// atau gunakan '127.0.0.1' jika menggunakan HP Fisik + perintah `adb reverse tcp:3001 tcp:3001`
   static const String devHost = String.fromEnvironment(
     'API_HOST',
+<<<<<<< HEAD
     defaultValue: '192.168.1.10', // IP Wi-Fi Laptop Terkini
+=======
+    defaultValue: 'localhost', 
+>>>>>>> 304838d414986c944b71e6c9e03d194ee69632c7
   );
 
   static const String devUrl = String.fromEnvironment(
@@ -27,7 +31,9 @@ class ApiConfig {
     }
     if (kIsWeb) return 'http://localhost:$devPort/api';
     if (defaultTargetPlatform == TargetPlatform.android) {
-      return 'http://$devHost:$devPort/api';
+      // Pada Android Emulator, 'localhost' dialihkan ke '10.0.2.2' (IP host laptop)
+      final host = (devHost == 'localhost' || devHost == '127.0.0.1') ? '10.0.2.2' : devHost;
+      return 'http://$host:$devPort/api';
     }
     return 'http://127.0.0.1:$devPort/api';
   }
