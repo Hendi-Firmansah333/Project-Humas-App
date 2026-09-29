@@ -1,4 +1,4 @@
-# HUMAS POLINELA — Mobile App
+# HUMAS POLINELA — Mobile App yuda
 
 > Bagian **mobile** dari monorepo [`Project-Humas-App`](../README.md). Jalankan perintah Flutter dari folder `mobile/` ini.
 
