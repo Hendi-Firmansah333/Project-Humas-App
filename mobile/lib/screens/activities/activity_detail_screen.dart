@@ -345,7 +345,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                               children: [
                                 Text(
                                   '${eq.quantity} Unit',
-                                  style: const TextStyle(
+                                  style: TextStyle(
                                     fontWeight: FontWeight.w800,
                                     fontSize: 12,
                                     color: AppColors.textPrimary,

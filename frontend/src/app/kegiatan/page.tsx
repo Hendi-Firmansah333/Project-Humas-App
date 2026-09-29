@@ -541,12 +541,10 @@ export default function ActivityManagementPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-lg font-bold text-slate-900 tracking-tight">
-              {currentUser?.role === 'USER' ? 'Daftar Kegiatan Saya' : 'Daftar Kegiatan Kehumasan'}
+              Daftar Kegiatan Kehumasan
             </h1>
             <p className="text-xs text-slate-400 mt-0.5">
-              {currentUser?.role === 'USER'
-                ? 'Daftar kegiatan di mana Anda ditugaskan sebagai PIC Lapangan atau Anggota Tim.'
-                : 'Kelola penjadwalan, penugasan personel (PIC), dan status peliputan kegiatan tim humas.'}
+              Kelola penjadwalan, penugasan personel (PIC), dan status peliputan kegiatan tim humas.
             </p>
           </div>
           {currentUser?.role === 'SUPER_ADMIN' && (

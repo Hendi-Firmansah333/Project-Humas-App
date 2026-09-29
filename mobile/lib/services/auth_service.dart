@@ -63,9 +63,9 @@ class AuthService {
         user = await ApiService.instance.fetchProfile();
       }
       final role = user['role'] as String? ?? 'USER';
-      if (role == 'ADMIN') {
+      if (role == 'ADMIN' || role == 'SUPER_ADMIN') {
         await ApiClient.instance.clearToken();
-        return 'Akses mobile hanya untuk Anggota Humas. Admin menggunakan aplikasi web.';
+        return 'Akses mobile hanya untuk Anggota Tim Humas. Admin dan Kepala Humas menggunakan aplikasi web.';
       }
       await UserProfileService.instance.syncFromApi(user);
       await setLoggedIn(true);
