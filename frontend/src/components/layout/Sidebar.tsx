@@ -90,78 +90,44 @@ function getSidebarSections(role?: string): { label: string; items: NavItem[] }[
     ];
   }
 
-  if (role === 'ADMIN') {
-    return [
-      {
-        label: '',
-        items: [dashboardItem],
-      },
-      {
-        label: 'OPERASIONAL',
-        items: [
-          { type: 'item', name: 'Surat Masuk', href: '/surat-masuk', icon: Mail } as NavItem,
-          { type: 'item', name: 'Kegiatan', href: '/kegiatan', icon: CalendarCheck2 } as NavItem,
-          { type: 'item', name: 'Content Plan', href: '/content-plan', icon: FileText } as NavItem,
-          { type: 'item', name: 'Live Location Tim', href: '/live-location', icon: MapPin } as NavItem,
-          { type: 'item', name: 'Inventaris & Peminjaman', href: '/peminjaman-alat', icon: Wrench } as NavItem,
-          { type: 'item', name: 'Jadwal Piket', href: '/jadwal-piket', icon: Calendar } as NavItem,
-        ],
-      },
-      {
-        label: 'VERIFIKASI',
-        items: [
-          { type: 'item', name: 'Verifikasi Kelengkapan', href: '/verifikasi-kegiatan', icon: ClipboardList, badge: -1 } as NavItem,
-        ],
-      },
-      {
-        label: 'MONITORING',
-        items: [
-          {
-            type: 'group',
-            name: 'Riwayat',
-            icon: History,
-            id: 'riwayat',
-            children: [
-              { name: 'Riwayat Kegiatan', href: '/riwayat-kegiatan', icon: ClipboardList },
-              { name: 'Riwayat Content Plan', href: '/riwayat-content-plan', icon: FileText },
-              { name: 'Riwayat Peminjaman', href: '/riwayat-peminjaman', icon: Package },
-            ],
-          } as NavItem,
-          { type: 'item', name: 'Laporan', href: '/laporan', icon: BarChart3 } as NavItem,
-        ],
-      },
-      {
-        label: 'AKUN',
-        items: [profilItem],
-      },
-    ];
-  }
-
-  // TIM HUMAS (Role USER)
+  // ADMIN (Default Web Role)
   return [
     {
       label: '',
       items: [dashboardItem],
     },
     {
-      label: 'TUGAS SAYA',
+      label: 'OPERASIONAL',
       items: [
-        { type: 'item', name: 'Kegiatan Saya', href: '/kegiatan', icon: CalendarCheck2 } as NavItem,
-        { type: 'item', name: 'Content Plan Saya', href: '/content-plan', icon: FileText } as NavItem,
+        { type: 'item', name: 'Surat Masuk', href: '/surat-masuk', icon: Mail } as NavItem,
+        { type: 'item', name: 'Kegiatan', href: '/kegiatan', icon: CalendarCheck2 } as NavItem,
+        { type: 'item', name: 'Content Plan', href: '/content-plan', icon: FileText } as NavItem,
+        { type: 'item', name: 'Live Location Tim', href: '/live-location', icon: MapPin } as NavItem,
+        { type: 'item', name: 'Inventaris & Peminjaman', href: '/peminjaman-alat', icon: Wrench } as NavItem,
         { type: 'item', name: 'Jadwal Piket', href: '/jadwal-piket', icon: Calendar } as NavItem,
       ],
     },
     {
-      label: 'OPERASIONAL',
+      label: 'VERIFIKASI',
       items: [
-        { type: 'item', name: 'Live Location', href: '/live-location', icon: MapPin } as NavItem,
-        { type: 'item', name: 'Peminjaman Alat', href: '/peminjaman-alat', icon: Wrench } as NavItem,
+        { type: 'item', name: 'Verifikasi Kelengkapan', href: '/verifikasi-kegiatan', icon: ClipboardList, badge: -1 } as NavItem,
       ],
     },
     {
-      label: 'RIWAYAT',
+      label: 'MONITORING',
       items: [
-        { type: 'item', name: 'Riwayat Saya', href: '/riwayat-kegiatan', icon: History } as NavItem,
+        {
+          type: 'group',
+          name: 'Riwayat',
+          icon: History,
+          id: 'riwayat',
+          children: [
+            { name: 'Riwayat Kegiatan', href: '/riwayat-kegiatan', icon: ClipboardList },
+            { name: 'Riwayat Content Plan', href: '/riwayat-content-plan', icon: FileText },
+            { name: 'Riwayat Peminjaman', href: '/riwayat-peminjaman', icon: Package },
+          ],
+        } as NavItem,
+        { type: 'item', name: 'Laporan', href: '/laporan', icon: BarChart3 } as NavItem,
       ],
     },
     {
@@ -300,7 +266,7 @@ export default function Sidebar({
             <div className="truncate">
               <h1 className="font-bold text-sm text-slate-900 leading-tight">HUMAS POLINELA</h1>
               <p className="text-[11px] text-slate-400 font-medium leading-tight">
-                {currentUser?.role === 'SUPER_ADMIN' ? 'Kepala Humas' : currentUser?.role === 'ADMIN' ? 'Admin Humas' : 'Tim Humas'}
+                {currentUser?.role === 'SUPER_ADMIN' ? 'Kepala Humas' : 'Admin Humas'}
               </p>
             </div>
           )}

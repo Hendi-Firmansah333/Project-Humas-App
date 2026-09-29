@@ -105,7 +105,6 @@ export default function DashboardPage() {
     );
   }
 
-  const isStaffOnly = currentUser?.role === 'USER';
   const stats = dashboardData.statistics || {};
 
   // Chart data definitions
@@ -130,139 +129,19 @@ export default function DashboardPage() {
       <div className="bg-gradient-to-r from-teal-700 via-teal-800 to-teal-900 rounded-2xl p-6 text-white shadow-md">
         <div>
           <span className="bg-teal-600/60 text-teal-100 text-[11px] font-bold px-3 py-1 rounded-full uppercase tracking-wider">
-            {currentUser?.role === 'SUPER_ADMIN' ? 'Kepala Humas' : currentUser?.role === 'ADMIN' ? 'Admin Humas' : 'Tim Humas'}
+            {currentUser?.role === 'SUPER_ADMIN' ? 'Kepala Humas' : 'Admin Humas'}
           </span>
           <h1 className="text-xl sm:text-2xl font-extrabold mt-2">
-            Selamat Datang, {currentUser?.fullName || 'Personel Humas'}!
+            Selamat Datang, {currentUser?.fullName || 'Admin Humas'}!
           </h1>
           <p className="text-xs text-teal-100/90 mt-1 max-w-2xl leading-relaxed">
-            {isStaffOnly
-              ? 'Pantau kegiatan yang ditugaskan kepada Anda, check-in tugas peliputan, dan unggah draf content plan.'
-              : 'Pantau kondisi operasional kehumasan, persetujuan kegiatan, peminjaman alat, dan alur kerja tim secara real-time.'}
+            Pantau kondisi operasional kehumasan, persetujuan kegiatan, peminjaman alat, dan alur kerja tim secara real-time.
           </p>
         </div>
       </div>
 
-      {/* ── Dashboard Personel / TIM HUMAS View ─────────────────────── */}
-      {isStaffOnly ? (
-        <div className="space-y-6">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <StatCard
-              title="Kegiatan Ditugaskan"
-              value={stats.myAssignedActivitiesCount || 0}
-              subtitle="Total kegiatan peliputan"
-              icon={CalendarCheck2}
-              iconBgClass="bg-teal-50"
-              iconColorClass="text-teal-600"
-            />
-            <StatCard
-              title="Belum Check-In"
-              value={stats.myPendingCheckInsCount || 0}
-              subtitle="Menunggu kehadiran lokasi"
-              icon={Clock}
-              iconBgClass="bg-amber-50"
-              iconColorClass="text-amber-600"
-            />
-            <StatCard
-              title="Content Plan Saya"
-              value={stats.myAssignedContentPlansCount || 0}
-              subtitle="Target kreator konten"
-              icon={FileText}
-              iconBgClass="bg-sky-50"
-              iconColorClass="text-sky-600"
-            />
-            <StatCard
-              title="Notifikasi"
-              value={stats.unreadNotificationsCount || 0}
-              subtitle="Pesan masuk belum dibaca"
-              icon={Bell}
-              iconBgClass="bg-purple-50"
-              iconColorClass="text-purple-600"
-            />
-          </div>
-
-          {/* Action Items - Tugas Saya */}
-          {dashboardData.actionItems && dashboardData.actionItems.filter((a: any) => a.count > 0).length > 0 && (
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-3">
-              <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                <AlertCircle className="w-4 h-4 text-amber-500" />
-                TUGAS SAYA — Membutuhkan Tindakan
-              </h3>
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-                {dashboardData.actionItems.filter((a: any) => a.count > 0).map((item: any) => (
-                  <Link key={item.id} href={item.link}>
-                    <div className="p-4 rounded-xl border border-amber-200 bg-amber-50/50 hover:bg-amber-100/60 transition-all cursor-pointer flex items-center justify-between">
-                      <div>
-                        <p className="text-[11px] text-amber-700 font-bold uppercase tracking-wider">{item.label}</p>
-                        <p className="text-2xl font-black text-amber-800 mt-1">{item.count}</p>
-                      </div>
-                      <ArrowRight className="w-4 h-4 text-amber-400" />
-                    </div>
-                  </Link>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Agenda Kegiatan Saya */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                  <CalendarCheck2 className="w-4 h-4 text-teal-600" />
-                  Kegiatan Ditugaskan Kepada Saya
-                </h3>
-                <Link href="/kegiatan" className="text-xs text-teal-600 font-bold hover:underline">Lihat Semua →</Link>
-              </div>
-              {(!dashboardData.upcomingActivitiesList || dashboardData.upcomingActivitiesList.length === 0) ? (
-                <p className="text-xs text-slate-400 italic py-6 text-center">Belum ada kegiatan yang ditugaskan kepada Anda.</p>
-              ) : (
-                <div className="space-y-3">
-                  {dashboardData.upcomingActivitiesList.map((act: any) => (
-                    <div key={act.id} className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-bold text-slate-800 text-xs">{act.title}</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">📍 {act.location} • 📅 {formatDateID(act.date.split('T')[0])}</p>
-                      </div>
-                      <Link href={`/kegiatan/${act.id}`}>
-                        <CustomButton variant="outline" size="sm">Detail</CustomButton>
-                      </Link>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {/* Content Plan Saya */}
-            <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs">
-              <div className="flex items-center justify-between pb-3 border-b border-slate-100 mb-4">
-                <h3 className="font-bold text-slate-800 text-sm flex items-center gap-2">
-                  <FileText className="w-4 h-4 text-sky-600" />
-                  Target Content Plan Saya
-                </h3>
-                <Link href="/content-plan" className="text-xs text-sky-600 font-bold hover:underline">Lihat Semua →</Link>
-              </div>
-              {(!dashboardData.upcomingContentPlansList || dashboardData.upcomingContentPlansList.length === 0) ? (
-                <p className="text-xs text-slate-400 italic py-6 text-center">Belum ada content plan yang ditugaskan kepada Anda.</p>
-              ) : (
-                <div className="space-y-3">
-                  {dashboardData.upcomingContentPlansList.map((cp: any) => (
-                    <div key={cp.id} className="p-3 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between gap-3">
-                      <div>
-                        <p className="font-bold text-slate-800 text-xs">{cp.title}</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">Platform: <strong>{cp.platform}</strong> • Deadline: {formatDateID(cp.deadline.split('T')[0])}</p>
-                      </div>
-                      <StatusBadge status={cp.status} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      ) : (
-        /* ── Dashboard Operasional / Management (SUPER ADMIN & ADMIN) ── */
-        <div className="space-y-6">
+      {/* ── Dashboard Operasional / Management (SUPER ADMIN & ADMIN) ── */}
+      <div className="space-y-6">
           {/* 5 Main Stat Cards */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">
             <StatCard
@@ -409,7 +288,6 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
-      )}
     </AdminLayout>
   );
 }

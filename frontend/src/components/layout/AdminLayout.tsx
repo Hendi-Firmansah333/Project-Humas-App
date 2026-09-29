@@ -31,16 +31,16 @@ export default function AdminLayout({ children, title }: AdminLayoutProps) {
       try {
         const profile = await authService.profile();
         syncUserSession(profile);
-        if (profile.role !== 'SUPER_ADMIN' && profile.role !== 'ADMIN' && profile.role !== 'USER') {
+        if (profile.role !== 'SUPER_ADMIN' && profile.role !== 'ADMIN') {
           localStorage.removeItem('humass_token');
           localStorage.removeItem('humass_user');
-          router.replace('/login?error=unauthorized');
+          router.replace('/login?error=admin_only');
           return;
         }
       } catch {
         const stored = getStoredUser();
-        if (stored?.role !== 'SUPER_ADMIN' && stored?.role !== 'ADMIN' && stored?.role !== 'USER') {
-          router.replace('/login?error=unauthorized');
+        if (stored?.role !== 'SUPER_ADMIN' && stored?.role !== 'ADMIN') {
+          router.replace('/login?error=admin_only');
           return;
         }
       }

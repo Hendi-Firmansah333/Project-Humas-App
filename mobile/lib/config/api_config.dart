@@ -9,11 +9,10 @@ class ApiConfig {
   /// Ganti IP ini dengan IP Laptop Anda jika via Wi-Fi, 
   /// atau gunakan '10.0.2.2' jika menggunakan Android Emulator,
   /// atau gunakan '127.0.0.1' jika menggunakan HP Fisik + perintah `adb reverse tcp:3001 tcp:3001`
-static const String devHost = String.fromEnvironment(
-  'API_HOST',
-  defaultValue: 'localhost',
-);
-
+  static const String devHost = String.fromEnvironment(
+    'API_HOST',
+    defaultValue: 'localhost',
+  );
 
   static const String devUrl = String.fromEnvironment(
     'API_URL',

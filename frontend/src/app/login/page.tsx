@@ -31,8 +31,8 @@ export default function LoginPage() {
       const data = await authService.login(username, password);
       const token = data.accessToken || data.token;
       if (token) {
-        if (data.user?.role !== 'ADMIN' && data.user?.role !== 'SUPER_ADMIN' && data.user?.role !== 'USER') {
-          setError('Akses Web hanya untuk personel Humas.');
+        if (data.user?.role !== 'ADMIN' && data.user?.role !== 'SUPER_ADMIN') {
+          setError('Akses Web hanya untuk Super Admin (Kepala Humas) dan Admin Humas. Anggota Tim Humas silakan gunakan aplikasi mobile.');
           return;
         }
         localStorage.setItem('humass_token', token);
