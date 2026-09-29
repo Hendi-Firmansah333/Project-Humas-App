@@ -13,14 +13,14 @@ async function main() {
 
   const superAdmin = await prisma.user.upsert({
     where: { username: 'kepala.humas' },
-    update: { role: 'SUPER_ADMIN', roleLabel: 'Kepala Humas' },
+    update: { role: 'ADMIN', roleLabel: 'Kepala Humas' },
     create: {
       fullName: 'Kepala Humas',
       username: 'kepala.humas',
       email: 'kepala.humas@polinela.ac.id',
       phone: '0812-3333-4444',
       password,
-      role: 'SUPER_ADMIN',
+      role: 'ADMIN',
       roleLabel: 'Kepala Humas',
       status: 'AKTIF',
     },
@@ -134,18 +134,18 @@ async function main() {
     where: { title: 'Reels Dies Natalis 2026', deletedAt: null },
   });
   if (!existingContent) {
-  await prisma.contentPlan.create({
-    data: {
-      title: 'Reels Dies Natalis 2026',
-      category: 'Sosial Media',
-      platform: Platform.INSTAGRAM,
-      contentType: ContentType.REELS,
-      picId: staff.id,
-      deadline: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
-      status: ContentStatus.PROSES,
-      description: 'Highlight acara pembukaan Dies Natalis.',
-    },
-  });
+    await prisma.contentPlan.create({
+      data: {
+        title: 'Reels Dies Natalis 2026',
+        category: 'Sosial Media',
+        platform: Platform.INSTAGRAM,
+        contentType: ContentType.REELS,
+        picId: staff.id,
+        deadline: new Date(Date.now() + 3 * 24 * 60 * 60 * 1000),
+        status: ContentStatus.PROSES,
+        description: 'Highlight acara pembukaan Dies Natalis.',
+      },
+    });
   }
 
   const eq1 = await prisma.equipment.upsert({
@@ -201,22 +201,22 @@ async function main() {
 
   const notificationCount = await prisma.notification.count();
   if (notificationCount === 0) {
-  await prisma.notification.createMany({
-    data: [
-      {
-        userId: staff.id,
-        title: 'Jadwal Liputan Baru',
-        message: 'Anda ditugaskan meliput Dies Natalis pukul 09:00 WIB.',
-        type: 'INFO',
-      },
-      {
-        userId: admin.id,
-        title: 'Content Plan Deadline',
-        message: 'Reels Dies Natalis jatuh tempo dalam 3 hari.',
-        type: 'WARNING',
-      },
-    ],
-  });
+    await prisma.notification.createMany({
+      data: [
+        {
+          userId: staff.id,
+          title: 'Jadwal Liputan Baru',
+          message: 'Anda ditugaskan meliput Dies Natalis pukul 09:00 WIB.',
+          type: 'INFO',
+        },
+        {
+          userId: admin.id,
+          title: 'Content Plan Deadline',
+          message: 'Reels Dies Natalis jatuh tempo dalam 3 hari.',
+          type: 'WARNING',
+        },
+      ],
+    });
   }
 
   for (const [userId, lat, lng, address] of [
@@ -282,16 +282,16 @@ async function main() {
     where: { title: 'Laporan Kegiatan Dies Natalis' },
   });
   if (!existingReport) {
-  await prisma.report.create({
-    data: {
-      title: 'Laporan Kegiatan Dies Natalis',
-      category: 'Kegiatan',
-      date: new Date(),
-      picId: admin.id,
-      summary: 'Kegiatan berjalan lancar dengan dokumentasi lengkap.',
-      status: 'Selesai',
-    },
-  });
+    await prisma.report.create({
+      data: {
+        title: 'Laporan Kegiatan Dies Natalis',
+        category: 'Kegiatan',
+        date: new Date(),
+        picId: admin.id,
+        summary: 'Kegiatan berjalan lancar dengan dokumentasi lengkap.',
+        status: 'Selesai',
+      },
+    });
   }
 
   // Perbaiki data lama: hapus duplikat & pastikan PIC terdaftar sebagai anggota (sinkron mobile)

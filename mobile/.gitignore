@@ -46,3 +46,5 @@ app.*.map.json
 
 # Machine-specific Android SDK paths (jangan di-push)
 /android/local.properties
+# Widget Preview related
+.widget_preview/

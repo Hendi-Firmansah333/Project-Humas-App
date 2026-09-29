@@ -1,55 +1,144 @@
-# dependencies
-node_modules/
+# ==============================================================================
+# Monorepo .gitignore (Backend NestJS + Frontend Next.js + Mobile Flutter)
+# ==============================================================================
 
-# build
-dist/
-build/
+# ------------------------------------------------------------------------------
+# 1. OS & Sistem Operasi
+# ------------------------------------------------------------------------------
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+desktop.ini
+*.swp
+*.swo
+*~
 
-# logs
-npm-debug.log*
-yarn-debug.log*
-pnpm-debug.log*
+# ------------------------------------------------------------------------------
+# 2. Editor & IDE (Mencegah konflik setting workspace antar anggota tim)
+# ------------------------------------------------------------------------------
+.idea/
+*.iml
+*.iws
+*.ipr
+.vscode/
+.history/
 
-# env
+# ------------------------------------------------------------------------------
+# 3. Environment & Kredensial Rahasia (Keamanan & pencegahan kebocoran secret)
+# ------------------------------------------------------------------------------
 .env
 .env.*
-!.env.example
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+**/.env
+**/.env.*
+!**/.env.example
+*.pem
+*.key
+*.cert
 
-# IDE
-.vscode/
-.idea/
+# ------------------------------------------------------------------------------
+# 4. Logs & Debugging
+# ------------------------------------------------------------------------------
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
 
-# OS
-.DS_Store
-Thumbs.db
-
-# coverage
+# ------------------------------------------------------------------------------
+# 5. Build, Cache, & Dependencies (Menghindari push puluhan ribu file build)
+# ------------------------------------------------------------------------------
+node_modules/
+**/node_modules/
+dist/
+**/dist/
+build/
+**/build/
 coverage/
-
-# cache
+**/coverage/
 .cache/
+**/cache/
+*.tsbuildinfo
+**/*.tsbuildinfo
 
-# prisma
+# ------------------------------------------------------------------------------
+# 6. Database Lokal & Prisma (Mencegah timpaan file DB / dev SQLite)
+# ------------------------------------------------------------------------------
+*.db
+*.db-journal
+*.sqlite
+*.sqlite3
 prisma/dev.db
+backend/prisma/dev.db
+dev.db
+/generated/prisma
+backend/generated/
 
-# uploads
+# ------------------------------------------------------------------------------
+# 7. File Upload & Media Sementara
+# ------------------------------------------------------------------------------
 uploads/
-
-# temp
+**/uploads/*
+!**/uploads/.gitkeep
 tmp/
+temp/
 
-# Flutter / Dart (mobile/)
+# ------------------------------------------------------------------------------
+# 8. Frontend (Next.js)
+# ------------------------------------------------------------------------------
+frontend/.next/
+**/.next/
+frontend/out/
+frontend/.vercel/
+frontend/next-env.d.ts
+
+# ------------------------------------------------------------------------------
+# 9. Mobile (Flutter / Android / iOS / Desktop)
+# ------------------------------------------------------------------------------
+# Dart / Flutter generated
 mobile/.dart_tool/
 mobile/.flutter-plugins
 mobile/.flutter-plugins-dependencies
 mobile/.packages
-mobile/build/
-mobile/.idea/
-mobile/*.iml
+mobile/.pub/
+mobile/.pub-cache/
+mobile/.widget_preview/
+**/.dart_tool/
+**/.flutter-plugins*
+
+# Android machine-specific (Path SDK lokal masing-masing laptop & build gradle)
 mobile/android/local.properties
+**/android/local.properties
 mobile/android/.gradle/
+**/android/.gradle/
+mobile/android/app/build/
+mobile/android/app/debug/
+mobile/android/app/profile/
+mobile/android/app/release/
+*.jks
+*.keystore
+key.properties
+mobile/android/key.properties
+
+# iOS generated
 mobile/ios/Pods/
 mobile/ios/.symlinks/
+mobile/ios/Flutter/Flutter.framework
+mobile/ios/Flutter/Flutter.podspec
+mobile/ios/Flutter/Generated.xcconfig
+mobile/ios/Flutter/app.flx
+mobile/ios/.last_build_id
+mobile/ios/Runner/GeneratedPluginRegistrant.*
+
+# Desktop & Web ephemeral
 mobile/windows/flutter/ephemeral/
 mobile/linux/flutter/ephemeral/
 mobile/macos/Flutter/ephemeral/
+**/ephemeral/
