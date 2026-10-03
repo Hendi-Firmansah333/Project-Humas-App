@@ -13,14 +13,14 @@ async function main() {
 
   const superAdmin = await prisma.user.upsert({
     where: { username: 'kepala.humas' },
-    update: { role: 'ADMIN', roleLabel: 'Kepala Humas' },
+    update: { role: 'SUPER_ADMIN', roleLabel: 'Kepala Humas' },
     create: {
       fullName: 'Kepala Humas',
       username: 'kepala.humas',
       email: 'kepala.humas@polinela.ac.id',
       phone: '0812-3333-4444',
       password,
-      role: 'ADMIN',
+      role: 'SUPER_ADMIN',
       roleLabel: 'Kepala Humas',
       status: 'AKTIF',
     },
