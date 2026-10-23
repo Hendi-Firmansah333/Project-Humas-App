@@ -138,7 +138,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
             ),
           ),
       actions: [
-        if (trailing != null) trailing!,
+        ?trailing,
         if (showSearch)
           Padding(
             padding: const EdgeInsets.only(right: 8),

@@ -160,8 +160,8 @@ class ApiService {
     final data = await ApiClient.instance.post('/activities/$activityId/check-in', body: {
       'selfiePath': selfiePath,
       'isLate': isLate,
-      if (latitude != null) 'latitude': latitude,
-      if (longitude != null) 'longitude': longitude,
+      'latitude': ?latitude,
+      'longitude': ?longitude,
     });
     return _activityFromApi(data['item'] as Map<String, dynamic>);
   }
@@ -218,7 +218,7 @@ class ApiService {
       'longitude': longitude,
       'address': address,
       'isOnline': isOnline,
-      if (distance != null) 'distance': distance,
+      'distance': ?distance,
     });
   }
 

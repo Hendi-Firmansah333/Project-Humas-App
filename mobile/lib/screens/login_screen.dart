@@ -216,13 +216,13 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withOpacity(isDark ? 0.25 : 0.05),
+                            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
                             blurRadius: 40,
                             offset: const Offset(0, 12),
                           ),
                         ],
                         border: Border.all(
-                          color: isDark ? Colors.white.withOpacity(0.06) : const Color(0xFFF3F4F6),
+                          color: isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFF3F4F6),
                         ),
                       ),
                       child: Column(
@@ -244,7 +244,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
-                                  borderSide: BorderSide(color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE5E7EB)),
+                                  borderSide: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFE5E7EB)),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
@@ -282,7 +282,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
-                                  borderSide: BorderSide(color: isDark ? Colors.white.withOpacity(0.08) : const Color(0xFFE5E7EB)),
+                                  borderSide: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFE5E7EB)),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
@@ -373,8 +373,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         shape: BoxShape.circle,
         gradient: RadialGradient(
           colors: [
-            AppColors.brand600.withOpacity(isDark ? 0.08 : 0.15),
-            AppColors.brand600.withOpacity(0.0),
+            AppColors.brand600.withValues(alpha: isDark ? 0.08 : 0.15),
+            AppColors.brand600.withValues(alpha: 0.0),
           ],
         ),
       ),

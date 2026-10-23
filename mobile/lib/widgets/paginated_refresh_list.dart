@@ -71,8 +71,7 @@ class PaginatedRefreshList extends StatelessWidget {
           return false;
         },
         child: ListView.separated(
-          physics: appScrollPhysics,
-          cacheExtent: 400,
+          scrollCacheExtent: ScrollCacheExtent.pixels(400), physics: appScrollPhysics,
           padding: padding,
           itemCount: itemCount + (isLoadingMore ? 1 : 0),
           separatorBuilder: separatorBuilder ?? (context, index) => const SizedBox(height: 12),

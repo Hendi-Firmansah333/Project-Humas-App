@@ -20,7 +20,7 @@ void main() {
       runInShell: true
     );
     
-    final output = result.stdout.toString() + '\n' + result.stderr.toString();
+    final output = '${result.stdout}\n${result.stderr}';
 
     // Regex untuk mencocokkan format error build:
     // lib/screens/activities/activities_list_screen.dart(63,23): error G8388A750: Constant evaluation error
@@ -60,7 +60,7 @@ void main() {
       final file = File(filePathRaw);
       if (!file.existsSync()) {
         // Coba cari di lib/
-        final altFile = File('lib/' + filePathRaw.replaceAll(RegExp(r'^lib/'), ''));
+        final altFile = File('lib/${filePathRaw.replaceAll(RegExp(r'^lib/'), '')}');
         if (!altFile.existsSync()) continue;
       }
 
@@ -92,7 +92,7 @@ void main() {
       }
 
       if (found) {
-        file.writeAsStringSync(lines.join('\n') + '\n');
+        file.writeAsStringSync('${lines.join('\n')}\n');
         fixedInThisLoop++;
         totalFixed++;
       }

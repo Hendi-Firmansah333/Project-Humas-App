@@ -134,7 +134,7 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
                 const SizedBox(height: 16),
                 SwitchListTile(
                   contentPadding: EdgeInsets.zero,
-                  activeColor: AppColors.brand600,
+                  activeThumbColor: AppColors.brand600,
                   title: Text(
                     'Hanya yang sedang bertugas',
                     style: _pj(13, FontWeight.w600, isDark ? Colors.white : AppColors.slate800),
