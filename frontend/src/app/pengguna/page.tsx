@@ -1,0 +1,788 @@
+'use client';
+
+import React, { useState, useEffect } from 'react';
+import { getStoredUser } from '@/utils/session';
+import AdminLayout from '@/components/layout/AdminLayout';
+import {
+  StatCard,
+  DataTable,
+  Column,
+  StatusBadge,
+  SearchBox,
+  FilterDropdown,
+  CustomButton,
+  CustomModal,
+  PaginationBar,
+  UserAvatar,
+} from '@/components/common';
+import DashboardSkeleton from '@/components/common/DashboardSkeleton';
+import {
+  Plus,
+  Eye,
+  Edit3,
+  Trash2,
+  Users,
+  UserCheck,
+  Radio,
+  UserX,
+  Mail,
+  Phone,
+  Calendar,
+  Shield,
+  Power,
+  KeyRound,
+} from 'lucide-react';
+import { User, Role, UserStatus } from '@/types';
+import { formatDateID } from '@/utils/formatters';
+import { toast } from 'sonner';
+import { userService } from '@/services';
+
+export default function UserManagementPage() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [unauthorized, setUnauthorized] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [roleFilter, setRoleFilter] = useState('');
+  const [statusFilter, setStatusFilter] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
+  const itemsPerPage = 5;
+
+  // Modals state
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isEditOpen, setIsEditOpen] = useState(false);
+  const [isDetailOpen, setIsDetailOpen] = useState(false);
+  const [isResetPwOpen, setIsResetPwOpen] = useState(false);
+  const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [newPassword, setNewPassword] = useState('');
+
+  const [createdCredentials, setCreatedCredentials] = useState<{ username: string; email: string } | null>(null);
+  const [isCredsOpen, setIsCredsOpen] = useState(false);
+
+  // Form State
+  const [formData, setFormData] = useState({
+    fullName: '',
+    username: '',
+    email: '',
+    phone: '',
+    role: 'USER' as Role,
+    status: 'AKTIF' as UserStatus,
+  });
+
+  const loadUsers = async () => {
+    setLoading(true);
+    try {
+      const data = await userService.getAll();
+      setUsers(Array.isArray(data) ? data : []);
+    } catch {
+      toast.error('Gagal memuat data personel dari server.');
+      setUsers([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    const u = getStoredUser();
+    if (!u || (u.role !== 'ADMIN' && u.role !== 'SUPER_ADMIN')) {
+      setUnauthorized(true);
+      setLoading(false);
+      return;
+    }
+    loadUsers();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const filteredUsers = users.filter((u) => {
+    const matchSearch =
+      u.fullName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      u.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const matchRole = roleFilter ? u.role === roleFilter : true;
+    const matchStatus = statusFilter ? u.status === statusFilter : true;
+    return matchSearch && matchRole && matchStatus;
+  });
+
+  const totalPages = Math.ceil(filteredUsers.length / itemsPerPage);
+  const paginatedUsers = filteredUsers.slice(
+    (currentPage - 1) * itemsPerPage,
+    currentPage * itemsPerPage,
+  );
+
+  const getRoleLabel = (r: Role) => {
+    switch (r) {
+      case 'SUPER_ADMIN':
+        return 'Kepala Humas';
+      case 'ADMIN':
+        return 'Admin Humas';
+      case 'USER':
+      default:
+        return 'Tim Humas';
+    }
+  };
+
+  const handleOpenCreate = () => {
+    setFormData({
+      fullName: '',
+      username: '',
+      email: '',
+      phone: '',
+      role: 'USER',
+      status: 'AKTIF',
+    });
+    setIsCreateOpen(true);
+  };
+
+  const handleOpenEdit = (user: User) => {
+    setSelectedUser(user);
+    setFormData({
+      fullName: user.fullName,
+      username: user.username,
+      email: user.email,
+      phone: user.phone || '',
+      role: user.role,
+      status: user.status,
+    });
+    setIsEditOpen(true);
+  };
+
+  const handleCreateSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formData.fullName || !formData.email) {
+      toast.error('Harap lengkapi Nama Lengkap dan Email!');
+      return;
+    }
+
+    const finalUsername = formData.username || formData.fullName.toLowerCase().replace(/\s+/g, '.');
+
+    try {
+      await userService.create({
+        fullName: formData.fullName,
+        username: finalUsername,
+        email: formData.email,
+        phone: formData.phone,
+        role: formData.role,
+        roleLabel: getRoleLabel(formData.role),
+        status: formData.status,
+        password: 'polinela123',
+      });
+      setIsCreateOpen(false);
+      setCreatedCredentials({ username: finalUsername, email: formData.email });
+      setIsCredsOpen(true);
+      toast.success('Personel baru berhasil ditambahkan ke dalam sistem HUMASS!');
+      await loadUsers();
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Gagal menambahkan personel ke server.';
+      toast.error(Array.isArray(errorMessage) ? errorMessage.join(', ') : errorMessage);
+    }
+  };
+
+  const handleEditSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+
+    try {
+      await userService.update(selectedUser.id, {
+        fullName: formData.fullName,
+        username: formData.username,
+        email: formData.email,
+        phone: formData.phone,
+        role: formData.role,
+        roleLabel: getRoleLabel(formData.role),
+        status: formData.status,
+      });
+      setIsEditOpen(false);
+      toast.success('Informasi profil personel berhasil diperbarui!');
+      await loadUsers();
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Gagal memperbarui data personel.';
+      toast.error(Array.isArray(errorMessage) ? errorMessage.join(', ') : errorMessage);
+    }
+  };
+
+  const handleToggleStatus = async (user: User) => {
+    const nextStatus = user.status === 'AKTIF' ? 'NONAKTIF' : 'AKTIF';
+    try {
+      await userService.update(user.id, { status: nextStatus });
+      toast.info(`Akun "${user.fullName}" diubah menjadi ${nextStatus === 'AKTIF' ? 'Aktif' : 'Nonaktif'}.`);
+      await loadUsers();
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Gagal mengubah status akun personel.';
+      toast.error(Array.isArray(errorMessage) ? errorMessage.join(', ') : errorMessage);
+    }
+  };
+
+  const handleRemoveUser = async (user: User) => {
+    if (!window.confirm(`Hapus personel "${user.fullName}" dari sistem?`)) return;
+    try {
+      await userService.remove(user.id);
+      toast.success(`Personel "${user.fullName}" berhasil dihapus.`);
+      await loadUsers();
+    } catch (err: any) {
+      const errorMessage = err.response?.data?.message || 'Gagal menghapus personel.';
+      toast.error(Array.isArray(errorMessage) ? errorMessage.join(', ') : errorMessage);
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!selectedUser) return;
+    try {
+      await userService.updatePassword(selectedUser.id, { password: 'polinela123' });
+      setIsResetPwOpen(false);
+      toast.success(`Password untuk "${selectedUser.fullName}" berhasil direset menjadi "polinela123"!`);
+    } catch {
+      toast.error('Gagal mereset password.');
+    }
+  };
+
+  const getRoleBadge = (role: Role, label: string) => {
+    switch (role) {
+      case 'SUPER_ADMIN':
+        return (
+          <span className="bg-purple-50 text-purple-800 font-bold px-2.5 py-1 rounded-lg text-xs border border-purple-200">
+            {label}
+          </span>
+        );
+      case 'ADMIN':
+        return (
+          <span className="bg-teal-50 text-teal-800 font-bold px-2.5 py-1 rounded-lg text-xs border border-teal-200">
+            {label}
+          </span>
+        );
+      case 'USER':
+      default:
+        return (
+          <span className="bg-sky-50 text-sky-800 font-bold px-2.5 py-1 rounded-lg text-xs border border-sky-200">
+            {label}
+          </span>
+        );
+    }
+  };
+
+  const columns: Column<User>[] = [
+    {
+      key: 'no',
+      header: 'No',
+      render: (_, idx) => (
+        <span className="font-semibold text-slate-600">
+          {(currentPage - 1) * itemsPerPage + idx + 1}
+        </span>
+      ),
+      className: 'w-12 text-center',
+    },
+    {
+      key: 'profil',
+      header: 'Profil Personel',
+      render: (item) => (
+        <div className="flex items-center gap-3">
+          <UserAvatar src={item.avatar} name={item.fullName} size="md" />
+          <div>
+            <p className="font-bold text-slate-800 leading-snug">{item.fullName}</p>
+            <p className="text-[11px] text-slate-400">@{item.username}</p>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: 'email',
+      header: 'Email & Kontak',
+      render: (item) => (
+        <div className="text-xs">
+          <p className="font-semibold text-slate-700 flex items-center gap-1.5">
+            <Mail className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+            <span>{item.email}</span>
+          </p>
+          {item.phone && (
+            <p className="text-slate-400 text-[11px] mt-0.5 flex items-center gap-1.5">
+              <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+              <span>{item.phone}</span>
+            </p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'role',
+      header: 'Role / Peran',
+      render: (item) => getRoleBadge(item.role, item.roleLabel),
+    },
+    {
+      key: 'status',
+      header: 'Status Akun',
+      render: (item) => <StatusBadge status={item.status} />,
+    },
+    {
+      key: 'joinedAt',
+      header: 'Tanggal Bergabung',
+      render: (item) => (
+        <span className="text-xs text-slate-600 font-medium">{formatDateID(item.joinedAt)}</span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Aksi',
+      render: (item) => (
+        <div className="flex items-center gap-1.5 justify-center">
+          <button
+            onClick={() => {
+              setSelectedUser(item);
+              setIsDetailOpen(true);
+            }}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors cursor-pointer"
+            title="Lihat Detail Personel"
+          >
+            <Eye className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleOpenEdit(item)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors cursor-pointer"
+            title="Edit Data Personel"
+          >
+            <Edit3 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => {
+              setSelectedUser(item);
+              setNewPassword('');
+              setIsResetPwOpen(true);
+            }}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-purple-600 hover:bg-purple-50 transition-colors cursor-pointer"
+            title="Reset Password"
+          >
+            <KeyRound className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleToggleStatus(item)}
+            className={`p-1.5 rounded-lg transition-colors cursor-pointer ${
+              item.status === 'AKTIF'
+                ? 'text-slate-400 hover:text-red-600 hover:bg-red-50'
+                : 'text-slate-400 hover:text-green-600 hover:bg-green-50'
+            }`}
+            title={item.status === 'AKTIF' ? 'Nonaktifkan Akun' : 'Aktifkan Akun'}
+          >
+            <Power className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => handleRemoveUser(item)}
+            className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 transition-colors cursor-pointer"
+            title="Hapus Personel"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
+        </div>
+      ),
+      className: 'w-32 text-center',
+    },
+  ];
+
+  if (unauthorized) {
+    return (
+      <AdminLayout title="Manajemen Personel & Hak Akses">
+        <div className="flex flex-col items-center justify-center py-24 text-center">
+          <div className="w-16 h-16 rounded-2xl bg-red-50 flex items-center justify-center mb-4">
+            <Shield className="w-8 h-8 text-red-400" />
+          </div>
+          <h2 className="text-lg font-bold text-slate-800 mb-1">Akses Ditolak</h2>
+          <p className="text-sm text-slate-400 max-w-xs">
+            Halaman ini hanya dapat diakses oleh Admin Humas atau Kepala Humas.
+          </p>
+        </div>
+      </AdminLayout>
+    );
+  }
+
+  if (loading) {
+    return (
+      <AdminLayout title="Manajemen Personel & Hak Akses">
+        <DashboardSkeleton />
+      </AdminLayout>
+    );
+  }
+
+
+  return (
+    <AdminLayout title="Manajemen Personel & Hak Akses">
+      {/* Statistics Row: 4 StatCards */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
+        <StatCard
+          title="Total Personel"
+          value={`${users.length} Orang`}
+          subtitle="Tim Humas Politeknik Negeri Lampung"
+          icon={Users}
+          iconBgClass="bg-teal-50"
+          iconColorClass="text-teal-600"
+        />
+        <StatCard
+          title="Personel Aktif"
+          value={`${users.filter((u) => u.status === 'AKTIF').length} Orang`}
+          subtitle="Memiliki hak akses sistem HUMASS"
+          icon={UserCheck}
+          iconBgClass="bg-green-50"
+          iconColorClass="text-green-600"
+        />
+        <StatCard
+          title="Bertugas Lapangan"
+          value={`${users.filter((u) => u.role === 'USER').length} Orang`}
+          subtitle="Anggota Humas terdaftar"
+          icon={Radio}
+          iconBgClass="bg-sky-50"
+          iconColorClass="text-sky-600"
+        />
+        <StatCard
+          title="Nonaktif / Cuti"
+          value={`${users.filter((u) => u.status === 'NONAKTIF').length} Orang`}
+          subtitle="Akun dinonaktifkan sementara"
+          icon={UserX}
+          iconBgClass="bg-orange-50"
+          iconColorClass="text-orange-600"
+        />
+      </div>
+
+      {/* Header Banner & Table Controls */}
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight">Daftar Personel Kehumasan</h1>
+            <p className="text-xs text-slate-400 mt-0.5">
+              Kelola data profil, peran (Role Access Control), dan status keaktifan akun petugas humas.
+            </p>
+          </div>
+          <CustomButton variant="primary" icon={Plus} onClick={handleOpenCreate}>
+            Tambah Personel
+          </CustomButton>
+        </div>
+
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
+          <SearchBox
+            value={searchQuery}
+            onChange={(val) => {
+              setSearchQuery(val);
+              setCurrentPage(1);
+            }}
+            placeholder="Cari nama personel, username, atau email..."
+            className="w-full sm:w-80"
+          />
+          <div className="flex flex-wrap items-center gap-2.5">
+            <FilterDropdown
+              options={[
+                { value: 'ADMIN', label: 'Admin Humas' },
+                { value: 'USER', label: 'Anggota Humas' },
+              ]}
+              value={roleFilter}
+              onChange={(val) => {
+                setRoleFilter(val);
+                setCurrentPage(1);
+              }}
+              placeholder="Semua Role"
+            />
+            <FilterDropdown
+              options={[
+                { value: 'AKTIF', label: 'Aktif' },
+                { value: 'NONAKTIF', label: 'Nonaktif' },
+              ]}
+              value={statusFilter}
+              onChange={(val) => {
+                setStatusFilter(val);
+                setCurrentPage(1);
+              }}
+              placeholder="Semua Status"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Main Personnel Table */}
+      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+        <DataTable columns={columns} data={paginatedUsers} emptyMessage="Tidak ada personel yang sesuai dengan kriteria." />
+        <PaginationBar
+          currentPage={currentPage}
+          totalPages={totalPages || 1}
+          totalItems={filteredUsers.length}
+          onPageChange={setCurrentPage}
+          itemName="personel"
+        />
+      </div>
+
+      {/* Create User Modal */}
+      <CustomModal
+        isOpen={isCreateOpen}
+        onClose={() => setIsCreateOpen(false)}
+        title="Tambah Personel Baru"
+        subtitle="Daftarkan akun petugas kehumasan untuk hak akses sistem."
+        maxWidth="6xl"
+      >
+        <form onSubmit={handleCreateSubmit} className="space-y-4 text-[12px]">
+          <div>
+            <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Nama Lengkap *</label>
+            <input
+              type="text"
+              required
+              value={formData.fullName}
+              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+              placeholder="Contoh: Budi Santoso, S.I.Kom"
+              className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Username *</label>
+              <input
+                type="text"
+                required
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                placeholder="budi.s"
+                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Email Polinela *</label>
+              <input
+                type="email"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                placeholder="budi@polinela.ac.id"
+                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Nomor Telepon / WhatsApp</label>
+              <input
+                type="text"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                placeholder="0812-3456-7890"
+                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Role / Hak Akses *</label>
+              <select
+                value={formData.role}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value as Role })}
+                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all cursor-pointer"
+              >
+                <option value="ADMIN">Admin Humas</option>
+                <option value="USER">Anggota Humas</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setIsCreateOpen(false)}
+              className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-[8px] transition-colors cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 bg-gradient-to-r from-[#0D9488] to-[#14B8A6] hover:from-[#0F766E] hover:to-[#0D9488] text-white text-[12px] font-semibold rounded-[8px] shadow-xs transition-all cursor-pointer"
+            >
+              Simpan Personel
+            </button>
+          </div>
+        </form>
+      </CustomModal>
+
+      {/* Edit User Modal */}
+      <CustomModal
+        isOpen={isEditOpen}
+        onClose={() => setIsEditOpen(false)}
+        title="Edit Data Personel"
+        subtitle={selectedUser ? `@${selectedUser.username}` : ''}
+        maxWidth="6xl"
+      >
+        <form onSubmit={handleEditSubmit} className="space-y-4 text-[12px]">
+          <div>
+            <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Nama Lengkap *</label>
+            <input
+              type="text"
+              required
+              value={formData.fullName}
+              onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+              className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Email Polinela *</label>
+              <input
+                type="email"
+                required
+                value={formData.email}
+                onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
+              />
+            </div>
+            <div>
+              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Nomor WhatsApp</label>
+              <input
+                type="text"
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
+              />
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Role / Peran</label>
+              <select
+                value={formData.role}
+                onChange={(e) => setFormData({ ...formData, role: e.target.value as Role })}
+                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all cursor-pointer"
+              >
+                <option value="ADMIN">Admin Humas</option>
+                <option value="USER">Anggota Humas</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Status Akun</label>
+              <select
+                value={formData.status}
+                onChange={(e) => setFormData({ ...formData, status: e.target.value as UserStatus })}
+                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all cursor-pointer"
+              >
+                <option value="AKTIF">AKTIF</option>
+                <option value="NONAKTIF">NONAKTIF</option>
+              </select>
+            </div>
+          </div>
+
+          <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => setIsEditOpen(false)}
+              className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-[8px] transition-colors cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="submit"
+              className="px-5 py-2 bg-gradient-to-r from-[#0D9488] to-[#14B8A6] hover:from-[#0F766E] hover:to-[#0D9488] text-white text-[12px] font-semibold rounded-[8px] shadow-xs transition-all cursor-pointer"
+            >
+              Simpan Perubahan
+            </button>
+          </div>
+        </form>
+      </CustomModal>
+
+      {/* Detail User Modal */}
+      <CustomModal
+        isOpen={isDetailOpen}
+        onClose={() => setIsDetailOpen(false)}
+        title="Detail Profil Personel"
+        maxWidth="sm"
+      >
+        {selectedUser && (
+          <div className="space-y-4">
+            <div className="flex items-center gap-4 p-4 rounded-xl bg-slate-50 border border-slate-200">
+              <UserAvatar src={selectedUser.avatar} name={selectedUser.fullName} size="lg" />
+              <div>
+                <StatusBadge status={selectedUser.status} />
+                <h4 className="font-bold text-base text-slate-900 mt-1">{selectedUser.fullName}</h4>
+                <p className="text-xs text-teal-600 font-semibold">{selectedUser.roleLabel}</p>
+              </div>
+            </div>
+
+            <div className="space-y-2.5 text-xs text-slate-700">
+              <p><strong>Username:</strong> @{selectedUser.username}</p>
+              <p><strong>Email Polinela:</strong> {selectedUser.email}</p>
+              <p><strong>Nomor WhatsApp:</strong> {selectedUser.phone || '-'}</p>
+              <p><strong>Tanggal Bergabung:</strong> {formatDateID(selectedUser.joinedAt)}</p>
+            </div>
+
+            <div className="flex justify-end pt-3 border-t border-slate-100">
+              <CustomButton variant="primary" size="sm" onClick={() => setIsDetailOpen(false)}>
+                Tutup
+              </CustomButton>
+            </div>
+          </div>
+        )}
+      </CustomModal>
+      {/* Reset Password Modal */}
+      <CustomModal
+        isOpen={isResetPwOpen}
+        onClose={() => { setIsResetPwOpen(false); }}
+        title="Reset Password Personel"
+        subtitle={selectedUser ? `Akun: @${selectedUser.username}` : ''}
+        maxWidth="sm"
+      >
+        {selectedUser && (
+          <form onSubmit={handleResetPassword} className="space-y-4">
+            <div className="flex items-center gap-3 p-3 rounded-xl bg-amber-50 border border-amber-250">
+              <UserAvatar src={selectedUser.avatar} name={selectedUser.fullName} size="md" />
+              <div>
+                <p className="font-bold text-sm text-slate-800">{selectedUser.fullName}</p>
+                <p className="text-xs text-teal-650 font-semibold">{selectedUser.roleLabel}</p>
+              </div>
+            </div>
+            <div className="py-2">
+              <p className="text-xs text-slate-650 leading-relaxed">
+                Apakah Anda yakin ingin mereset password personel ini? Password akan diatur kembali ke password default: <strong className="text-teal-600 font-bold">polinela123</strong>.
+              </p>
+            </div>
+            <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+              <CustomButton type="button" variant="outline" onClick={() => { setIsResetPwOpen(false); }}>
+                Batal
+              </CustomButton>
+              <CustomButton type="submit" variant="primary">
+                Ya, Reset Password
+              </CustomButton>
+            </div>
+          </form>
+        )}
+      </CustomModal>
+
+      {/* Credentials Confirmation Dialog */}
+      <CustomModal
+        isOpen={isCredsOpen}
+        onClose={() => setIsCredsOpen(false)}
+        title="Personel Berhasil Ditambahkan"
+        subtitle="Bagikan informasi kredensial login berikut."
+        maxWidth="sm"
+      >
+        {createdCredentials && (
+          <div className="space-y-4">
+            <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
+              <p><strong>Username:</strong> <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-150">{createdCredentials.username}</span></p>
+              <p><strong>Password Default:</strong> <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-150">polinela123</span></p>
+              <p className="text-[11px] text-slate-400">Gunakan kredensial di atas untuk masuk ke sistem HUMASS.</p>
+            </div>
+            <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
+              <CustomButton
+                type="button"
+                variant="primary"
+                className="w-full justify-center"
+                onClick={() => {
+                  navigator.clipboard.writeText(`Halo! Berikut kredensial login Anda untuk sistem HUMASS:\nUsername: ${createdCredentials.username}\nPassword Default: polinela123\nSilakan login di portal resmi.`);
+                  toast.success('Kredensial disalin ke clipboard!');
+                }}
+              >
+                Salin Kredensial
+              </CustomButton>
+              <a
+                href={`https://wa.me/?text=${encodeURIComponent(`Halo! Berikut kredensial login Anda untuk sistem HUMASS:\nUsername: ${createdCredentials.username}\nPassword Default: polinela123`)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-colors w-full"
+              >
+                Bagikan via WhatsApp
+              </a>
+            </div>
+          </div>
+        )}
+      </CustomModal>
+    </AdminLayout>
+  );
+}

@@ -1,0 +1,55 @@
+# dependencies
+node_modules/
+
+# build
+dist/
+build/
+
+# logs
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# env
+.env
+.env.*
+!.env.example
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# coverage
+coverage/
+
+# cache
+.cache/
+
+# prisma
+prisma/dev.db
+
+# uploads
+uploads/
+
+# temp
+tmp/
+
+# Flutter / Dart (mobile/)
+mobile/.dart_tool/
+mobile/.flutter-plugins
+mobile/.flutter-plugins-dependencies
+mobile/.packages
+mobile/build/
+mobile/.idea/
+mobile/*.iml
+mobile/android/local.properties
+mobile/android/.gradle/
+mobile/ios/Pods/
+mobile/ios/.symlinks/
+mobile/windows/flutter/ephemeral/
+mobile/linux/flutter/ephemeral/
+mobile/macos/Flutter/ephemeral/

@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: humas_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: humas
+      POSTGRES_PASSWORD: yuda
+      POSTGRES_DB: Polihumas
+    ports:
+      - "5432:5432"
+    volumes:
+      - humas_pg_data:/var/lib/postgresql/data
+
+volumes:
+  humas_pg_data:
