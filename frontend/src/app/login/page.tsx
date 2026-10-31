@@ -145,7 +145,7 @@ export default function LoginPage() {
         localStorage.setItem('humass_token', token);
         localStorage.setItem('humass_user', JSON.stringify(data.user));
         toast.success('Login berhasil! Selamat datang, ' + (data.user?.fullName || 'Admin Humas'));
-        router.push('/dashboard');
+        window.location.href = '/dashboard';
       }
     } catch (err: any) {
       const errorMsg = err?.response?.data?.message || 'Username atau password salah.';

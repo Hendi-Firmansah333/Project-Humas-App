@@ -18,6 +18,7 @@ import {
   Compass,
   Check,
   Lightbulb,
+  Layers,
 } from 'lucide-react';
 import type * as GeoJSON from 'geojson';
 
@@ -205,6 +206,7 @@ export default function LocationMapInner({
   const [isSearching, setIsSearching] = useState(false);
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showResults, setShowResults] = useState(false);
+  const [mapStyleType, setMapStyleType] = useState<'satellite' | 'streets'>('satellite');
 
   // Debounced search via OpenStreetMap Nominatim
   useEffect(() => {
@@ -356,37 +358,52 @@ export default function LocationMapInner({
         </div>
       </div>
 
-      {/* ── Main MapLibre Map ── */}
-      <Map
-        center={[longitude, latitude]}
-        zoom={16}
-        theme="light"
-        styles={{
-          light: {
-            version: 8,
-            sources: {
-              'google-maps': {
-                type: 'raster',
-                tiles: [
-                  'https://mt0.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=AIzaSyAspkC4V1-LjBsDLsWj06GrdkrPhXX2v8g',
-                  'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=AIzaSyAspkC4V1-LjBsDLsWj06GrdkrPhXX2v8g',
-                  'https://mt2.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=AIzaSyAspkC4V1-LjBsDLsWj06GrdkrPhXX2v8g',
-                  'https://mt3.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=AIzaSyAspkC4V1-LjBsDLsWj06GrdkrPhXX2v8g',
+      {/* ── Main MapLibre Map (Mapbox Satellite Streets with high-res fallback) ── */}
+      {(() => {
+        const mapboxToken = process.env.NEXT_PUBLIC_MAPBOX_TOKEN || '';
+        const isSatellite = mapStyleType === 'satellite';
+        const styleId = isSatellite ? 'satellite-streets-v12' : 'streets-v12';
+
+        return (
+          <Map
+            key={mapStyleType}
+            center={[longitude, latitude]}
+            zoom={16}
+            theme="light"
+            styles={{
+              light: {
+                version: 8,
+                sources: {
+                  'map-tiles': {
+                    type: 'raster',
+                    tiles: mapboxToken
+                      ? [
+                          `https://api.mapbox.com/styles/v1/mapbox/${styleId}/tiles/512/{z}/{x}/{y}@2x?access_token=${mapboxToken}`,
+                        ]
+                      : isSatellite
+                      ? [
+                          'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+                        ]
+                      : [
+                          'https://a.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+                          'https://b.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+                          'https://c.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}@2x.png',
+                        ],
+                    tileSize: isSatellite && !mapboxToken ? 256 : 512,
+                    maxzoom: 22,
+                  },
+                },
+                layers: [
+                  {
+                    id: 'map-tiles-layer',
+                    type: 'raster',
+                    source: 'map-tiles',
+                    minzoom: 0,
+                    maxzoom: 22,
+                  },
                 ],
-                tileSize: 256,
-              },
-            },
-            layers: [
-              {
-                id: 'google-maps-layer',
-                type: 'raster',
-                source: 'google-maps',
-                minzoom: 0,
-                maxzoom: 21,
-              },
-            ],
-          } as any,
-        }}
+              } as any,
+            }}
         className="w-full h-full cursor-crosshair"
       >
         <MapFlyTo center={[longitude, latitude]} zoom={16} />
@@ -437,6 +454,8 @@ export default function LocationMapInner({
           </MarkerContent>
         </MapMarker>
       </Map>
+    );
+  })()}
 
       {/* ── Floating Locate Me Button ── */}
       <button
@@ -451,6 +470,17 @@ export default function LocationMapInner({
         ) : (
           <Locate className="w-4 h-4 text-teal-600" />
         )}
+      </button>
+
+      {/* ── Floating Map Type Switcher (Satelit / Peta) ── */}
+      <button
+        type="button"
+        onClick={() => setMapStyleType((prev) => (prev === 'satellite' ? 'streets' : 'satellite'))}
+        title={mapStyleType === 'satellite' ? 'Beralih ke Tampilan Peta Jalan' : 'Beralih ke Tampilan Citra Satelit'}
+        className="absolute top-14 right-3 z-20 bg-white/95 hover:bg-white text-slate-800 border border-slate-200/90 px-2.5 py-1.5 rounded-xl shadow-md transition-all active:scale-95 flex items-center gap-1.5 text-[11px] font-bold"
+      >
+        <Layers className={`w-3.5 h-3.5 ${mapStyleType === 'satellite' ? 'text-emerald-600' : 'text-teal-600'}`} />
+        <span>{mapStyleType === 'satellite' ? 'Satelit' : 'Peta'}</span>
       </button>
 
       {/* ── Floating Helper Guide (Shopee Style) ── */}

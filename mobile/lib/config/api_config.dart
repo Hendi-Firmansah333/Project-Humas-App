@@ -21,6 +21,13 @@ class ApiConfig {
 
   static const int devPort = 3001;
 
+  /// Mapbox Access Token - set via --dart-define=MAPBOX_TOKEN=... saat build
+  /// Jangan hardcode token di sini, gunakan environment variable
+  static const String mapboxAccessToken = String.fromEnvironment(
+    'MAPBOX_TOKEN',
+    defaultValue: '',  // Set via --dart-define=MAPBOX_TOKEN=<token> saat build
+  );
+
   static String get baseUrl {
     if (devUrl.isNotEmpty) {
       return devUrl.endsWith('/api') ? devUrl : '$devUrl/api';

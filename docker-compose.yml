@@ -1,16 +1,77 @@
+version: '3.8'
+
 services:
+  # ── 1. Database (PostgreSQL 16) ──
   postgres:
     image: postgres:16-alpine
     container_name: humas_postgres
     restart: unless-stopped
     environment:
-      POSTGRES_USER: humas
-      POSTGRES_PASSWORD: yuda
-      POSTGRES_DB: Polihumas
+      POSTGRES_USER: ${POSTGRES_USER:-humas}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-yuda}
+      POSTGRES_DB: ${POSTGRES_DB:-Polihumas}
     ports:
       - "5432:5432"
     volumes:
       - humas_pg_data:/var/lib/postgresql/data
+      - ./backend/prisma/backups:/backups
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-humas} -d ${POSTGRES_DB:-Polihumas}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - humas_network
+
+  # ── 2. Backend (NestJS + Prisma) ──
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: humas_backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-humas}:${POSTGRES_PASSWORD:-yuda}@postgres:5432/${POSTGRES_DB:-Polihumas}?schema=public
+      JWT_SECRET: ${JWT_SECRET:-humass_production_secure_key_polinela_2026}
+      PORT: 3001
+      NODE_ENV: production
+      ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000
+    ports:
+      - "3001:3001"
+    volumes:
+      - humas_uploads:/app/uploads
+    networks:
+      - humas_network
+
+  # ── 3. Frontend Web Admin (Next.js 16) ──
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: humas_frontend
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      NEXT_PUBLIC_API_URL: http://localhost:3001/api
+    ports:
+      - "3000:3000"
+    networks:
+      - humas_network
 
 volumes:
   humas_pg_data:
+    name: humas_pg_data
+  humas_uploads:
+    name: humas_uploads
+
+networks:
+  humas_network:
+    name: humas_network
+    driver: bridge

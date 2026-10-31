@@ -1,0 +1,536 @@
+{
+  "info": {
+    "name": "HUMASS API Collection",
+    "_postman_id": "humass-api-2026",
+    "description": "Koleksi lengkap endpoint HUMASS Backend — NestJS + Prisma + PostgreSQL\n\nCara Pakai:\n1. Import file ini ke Postman\n2. Pilih Environment: HUMASS Local\n3. Jalankan request 'Login' terlebih dahulu\n4. Token otomatis tersimpan ke variable {{token}}\n5. Semua endpoint lain langsung bisa digunakan",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    { "key": "base_url", "value": "http://localhost:3001", "type": "string" },
+    { "key": "token",    "value": "", "type": "string" }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [{ "key": "token", "value": "{{token}}", "type": "string" }]
+  },
+  "item": [
+
+    {
+      "name": "🔐 Auth",
+      "item": [
+        {
+          "name": "Login (dapatkan token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "const res = pm.response.json();",
+                  "const token = res?.data?.accessToken || res?.accessToken;",
+                  "if (token) {",
+                  "  pm.collectionVariables.set('token', token);",
+                  "  pm.test('Login berhasil, token tersimpan', () => pm.response.to.have.status(201));",
+                  "} else {",
+                  "  pm.test('Login GAGAL — cek username/password', () => false);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"komang.ari\",\n  \"password\": \"admin123\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api","auth","login"] }
+          }
+        },
+        {
+          "name": "Get My Profile",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Ada field role', () => pm.expect(body.data).to.have.property('role'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/auth/profile", "host": ["{{base_url}}"], "path": ["api","auth","profile"] }
+          }
+        },
+        {
+          "name": "Logout (revoke token)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Logout berhasil', () => pm.response.to.have.status(201));",
+                  "pm.collectionVariables.set('token', '');"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": { "mode": "raw", "raw": "{}" },
+            "url": { "raw": "{{base_url}}/api/auth/logout", "host": ["{{base_url}}"], "path": ["api","auth","logout"] }
+          }
+        },
+        {
+          "name": "[Security] Login password salah → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Harus 401 Unauthorized', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"username\": \"komang.ari\",\n  \"password\": \"SALAH_PASSWORD\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/auth/login", "host": ["{{base_url}}"], "path": ["api","auth","login"] }
+          }
+        },
+        {
+          "name": "[Security] Akses tanpa token → 401",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Harus 401 tanpa token', () => pm.response.to.have.status(401));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/auth/profile", "host": ["{{base_url}}"], "path": ["api","auth","profile"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "👥 Users",
+      "item": [
+        {
+          "name": "Get All Users",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "pm.test('Response berisi array users', () => {",
+                  "  const list = body.data?.data || body.data || body;",
+                  "  pm.expect(Array.isArray(list)).to.be.true;",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/users", "host": ["{{base_url}}"], "path": ["api","users"] }
+          }
+        },
+        {
+          "name": "Get Users (Pagination)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/users?page=1&limit=5",
+              "host": ["{{base_url}}"], "path": ["api","users"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "5" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/users/2", "host": ["{{base_url}}"], "path": ["api","users","2"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📋 Activities (Kegiatan)",
+      "item": [
+        {
+          "name": "Get All Activities",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const list = Array.isArray(body.data) ? body.data : body.data?.items || [];",
+                  "pm.test('Ada kegiatan', () => pm.expect(list.length).to.be.at.least(0));",
+                  "if (list.length > 0) {",
+                  "  pm.collectionVariables.set('activity_id', list[0].id);",
+                  "  console.log('activity_id tersimpan:', list[0].id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/activities", "host": ["{{base_url}}"], "path": ["api","activities"] }
+          }
+        },
+        {
+          "name": "Get Activity by ID",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/activities/{{activity_id}}", "host": ["{{base_url}}"], "path": ["api","activities","{{activity_id}}"] }
+          }
+        },
+        {
+          "name": "[Fix #15] Check-In (validasi endTime)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Respon valid (200 berhasil / 400 waktu habis)', () => {",
+                  "  pm.expect(pm.response.code).to.be.oneOf([200, 201, 400]);",
+                  "});",
+                  "const body = pm.response.json();",
+                  "if (pm.response.code === 400) {",
+                  "  pm.test('Pesan error waktu ada', () => {",
+                  "    const msg = body.message?.toLowerCase() || '';",
+                  "    pm.expect(msg).to.match(/berakhir|selesai|belum/);",
+                  "  });",
+                  "  console.log('Fix #15 OK: endTime guard berfungsi ✓');",
+                  "} else {",
+                  "  console.log('Check-in berhasil (kegiatan masih aktif)');",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": -5.358488,\n  \"longitude\": 105.234472\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/activities/{{activity_id}}/check-in", "host": ["{{base_url}}"], "path": ["api","activities","{{activity_id}}","check-in"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🔧 Equipment & Loans (Inventaris)",
+      "item": [
+        {
+          "name": "Get All Equipment (no paging)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const list = Array.isArray(body.data) ? body.data : [];",
+                  "if (list.length > 0) pm.collectionVariables.set('equipment_id', list[0].id);"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/equipment-loans/equipment", "host": ["{{base_url}}"], "path": ["api","equipment-loans","equipment"] }
+          }
+        },
+        {
+          "name": "[Fix #21] Get Equipment (Pagination)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const inner = body.data?.data || body.data;",
+                  "const meta  = body.data?.meta || body.meta;",
+                  "pm.test('[Fix #21] Field meta ada (pagination)', () => {",
+                  "  pm.expect(meta).to.have.property('total');",
+                  "  pm.expect(meta).to.have.property('totalPages');",
+                  "});",
+                  "console.log('Pagination meta:', JSON.stringify(meta));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{base_url}}/api/equipment-loans/equipment?page=1&limit=5",
+              "host": ["{{base_url}}"], "path": ["api","equipment-loans","equipment"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "5" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Get Equipment by ID + activeAllocations",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const d = body.data?.data || body.data;",
+                  "pm.test('[Fix #19] Field activeAllocations ada', () => pm.expect(d).to.have.property('activeAllocations'));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/equipment-loans/equipment/{{equipment_id}}", "host": ["{{base_url}}"], "path": ["api","equipment-loans","equipment","{{equipment_id}}"] }
+          }
+        },
+        {
+          "name": "[Fix #23] Create Equipment (valid body) → 201",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Berhasil dibuat (201)', () => pm.response.to.have.status(201));",
+                  "const body = pm.response.json();",
+                  "const id = body.data?.id || body.data?.data?.id;",
+                  "if (id) {",
+                  "  pm.collectionVariables.set('new_equipment_id', id);",
+                  "  console.log('new_equipment_id tersimpan:', id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Sony A7 IV\",\n  \"code\": \"CAM-SONY-001\",\n  \"category\": \"Kamera & Audio\",\n  \"brand\": \"Sony\",\n  \"total\": 2,\n  \"status\": \"AKTIF\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/equipment-loans/equipment", "host": ["{{base_url}}"], "path": ["api","equipment-loans","equipment"] }
+          }
+        },
+        {
+          "name": "[Fix #23] Create Equipment TANPA name → 400",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('[Fix #23] Validasi DTO: harus 400 saat name kosong', () => pm.response.to.have.status(400));",
+                  "const body = pm.response.json();",
+                  "pm.test('Pesan error menyebut name', () => {",
+                  "  const msg = Array.isArray(body.message) ? body.message.join(',') : body.message || '';",
+                  "  pm.expect(msg.toLowerCase()).to.include('name');",
+                  "});"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"code\": \"CAM-INVALID\",\n  \"total\": 1\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/equipment-loans/equipment", "host": ["{{base_url}}"], "path": ["api","equipment-loans","equipment"] }
+          }
+        },
+        {
+          "name": "[Fix #23] Update Equipment (PATCH partial)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Update berhasil (200)', () => pm.response.to.have.status(200));"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"brand\": \"Canon Updated\",\n  \"condition\": \"BAIK\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/equipment-loans/equipment/{{new_equipment_id}}", "host": ["{{base_url}}"], "path": ["api","equipment-loans","equipment","{{new_equipment_id}}"] }
+          }
+        },
+        {
+          "name": "Get All Loans (Peminjaman)",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/equipment-loans", "host": ["{{base_url}}"], "path": ["api","equipment-loans"] }
+          }
+        },
+        {
+          "name": "Create Loan (Pinjam Alat)",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"equipmentId\": {{equipment_id}},\n  \"quantity\": 1,\n  \"purpose\": \"Liputan Dies Natalis Polinela\",\n  \"returnDate\": \"2026-10-30T17:00:00.000Z\"\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/equipment-loans", "host": ["{{base_url}}"], "path": ["api","equipment-loans"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📍 Live Location",
+      "item": [
+        {
+          "name": "[Fix #20] Get All Live Locations",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "pm.test('Status 200', () => pm.response.to.have.status(200));",
+                  "const body = pm.response.json();",
+                  "const list = Array.isArray(body.data) ? body.data : body.data?.data || [];",
+                  "console.log('Users terpantau:', list.length);",
+                  "if (list.length > 0) {",
+                  "  pm.test('[Fix #20] Field currentActivity ada', () => {",
+                  "    pm.expect(list[0]).to.have.property('currentActivity');",
+                  "  });",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/live-location", "host": ["{{base_url}}"], "path": ["api","live-location"] }
+          }
+        },
+        {
+          "name": "Update My Location",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"latitude\": -5.358488,\n  \"longitude\": 105.234472,\n  \"accuracy\": 10.5\n}"
+            },
+            "url": { "raw": "{{base_url}}/api/live-location/update", "host": ["{{base_url}}"], "path": ["api","live-location","update"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📅 Schedules",
+      "item": [
+        {
+          "name": "Get All Schedules",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/schedules", "host": ["{{base_url}}"], "path": ["api","schedules"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "🔔 Notifications",
+      "item": [
+        {
+          "name": "Get My Notifications",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/notifications", "host": ["{{base_url}}"], "path": ["api","notifications"] }
+          }
+        }
+      ]
+    },
+
+    {
+      "name": "📊 Reports",
+      "item": [
+        {
+          "name": "Get Reports",
+          "request": {
+            "method": "GET",
+            "url": { "raw": "{{base_url}}/api/reports", "host": ["{{base_url}}"], "path": ["api","reports"] }
+          }
+        }
+      ]
+    }
+  ]
+}

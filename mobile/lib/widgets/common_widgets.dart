@@ -21,37 +21,12 @@ class AppLogo extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return SizedBox(
       width: size,
       height: size,
-      decoration: BoxDecoration(
-        gradient: const LinearGradient(
-          colors: [AppColors.brand600, AppColors.brand500, AppColors.polinelaCyan],
-          begin: Alignment.bottomLeft,
-          end: Alignment.topRight,
-        ),
-        borderRadius: BorderRadius.circular(size * 0.3),
-        boxShadow: showShadow
-            ? [
-                BoxShadow(
-                  color: AppColors.brand500.withValues(alpha: 0.25),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ]
-            : null,
-      ),
-      padding: const EdgeInsets.all(2),
-      child: Container(
-        decoration: BoxDecoration(
-          color: Colors.white,
-          borderRadius: BorderRadius.circular(size * 0.25),
-        ),
-        padding: const EdgeInsets.all(3),
-        child: Image.asset(
-          assetPath,
-          fit: BoxFit.contain,
-        ),
+      child: Image.asset(
+        assetPath,
+        fit: BoxFit.contain,
       ),
     );
   }
@@ -106,8 +81,8 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                const AppLogo(size: 34),
-                const SizedBox(width: 10),
+                const AppLogo(size: 32),
+                const SizedBox(width: 8),
                 Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   mainAxisAlignment: MainAxisAlignment.center,
@@ -117,7 +92,7 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                       style: GoogleFonts.plusJakartaSans(
                         color: isDark ? Colors.white : AppColors.slate900,
                         fontWeight: FontWeight.w800,
-                        fontSize: 12,
+                        fontSize: 13,
                         letterSpacing: 0.6,
                         height: 1.1,
                       ),

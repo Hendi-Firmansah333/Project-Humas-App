@@ -29,7 +29,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
   late Animation<double> _passwordAnim;
   late Animation<double> _actionsAnim;
   late Animation<double> _buttonAnim;
-  late Animation<double> _infoAnim;
 
   @override
   void initState() {
@@ -60,10 +59,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     _buttonAnim = CurvedAnimation(
       parent: _staggeredController,
       curve: const Interval(0.48, 0.98, curve: Curves.easeOutCubic),
-    );
-    _infoAnim = CurvedAnimation(
-      parent: _staggeredController,
-      curve: const Interval(0.60, 1.0, curve: Curves.easeOutCubic),
     );
 
     // Mulai animasi staggered setelah transisi layar selesai

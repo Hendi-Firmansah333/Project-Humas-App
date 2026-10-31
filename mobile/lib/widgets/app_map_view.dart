@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import '../config/api_config.dart';
 
 class MapMarkerData {
   const MapMarkerData({
@@ -95,9 +96,11 @@ class _AppMapViewState extends State<AppMapView> {
                 ),
               ),
               children: [
-                // Google Maps Tiles
+                // Map Tiles (Mapbox Satellite Streets Hybrid with Esri Satellite fallback)
                 TileLayer(
-                  urlTemplate: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=AIzaSyAspkC4V1-LjBsDLsWj06GrdkrPhXX2v8g',
+                  urlTemplate: ApiConfig.mapboxAccessToken.isNotEmpty
+                      ? 'https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}@2x?access_token=${ApiConfig.mapboxAccessToken}'
+                      : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
                   userAgentPackageName: 'com.example.poli_humas',
                   maxZoom: 20,
                 ),
