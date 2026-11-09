@@ -587,7 +587,15 @@ export default function VerifikasiKelengkapanPage() {
         subtitle={selectedActivity ? `ID: #${selectedActivity.id} • ${selectedActivity.title}` : ''}
         maxWidth="6xl"
       >
-        {selectedActivity && (
+        {selectedActivity && (() => {
+          // Ekstrak documentationUrl dari media array jika field langsung tidak ada
+          // Backend admin endpoint mengembalikan raw object dengan media[], bukan documentationUrl
+          const activityDocUrl =
+            selectedActivity.documentationUrl ||
+            (selectedActivity.media ?? []).find((m: any) => m.fileType === 'application/link')?.fileUrl ||
+            null;
+
+          return (
           <div className="space-y-5">
             {/* Warning jika ada catatan perbaikan */}
             {selectedActivity.status === 'PERLU_PERBAIKAN' && (
@@ -654,13 +662,13 @@ export default function VerifikasiKelengkapanPage() {
             {/* Link Dokumentasi Google Drive */}
             <div>
               <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Tautan Dokumentasi (Google Drive)</h5>
-              {selectedActivity.documentationUrl ? (
+              {activityDocUrl ? (
                 <div className="p-3.5 bg-sky-50 rounded-xl border border-sky-200 flex items-center justify-between">
                   <span className="text-xs text-sky-800 font-semibold truncate max-w-sm">
-                    {selectedActivity.documentationUrl}
+                    {activityDocUrl}
                   </span>
                   <a
-                    href={selectedActivity.documentationUrl}
+                    href={activityDocUrl}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 px-3 py-1 bg-sky-600 text-white rounded-lg text-xs font-bold hover:bg-sky-700 transition-colors shrink-0"
@@ -776,13 +784,14 @@ export default function VerifikasiKelengkapanPage() {
                 size="sm"
                 icon={Send}
                 onClick={() => handleVerifyActivityComplete(selectedActivity.id)}
-                disabled={isSubmitting || !selectedActivity.documentationUrl}
+                disabled={isSubmitting || !activityDocUrl}
               >
                 Verifikasi Lengkap & Ajukan ke Kepala Humas
               </CustomButton>
             </div>
           </div>
-        )}
+          );
+        })()}
       </CustomModal>
 
       {/* ── MODAL 1B: Form Catatan Perbaikan Kegiatan ─────────────── */}
