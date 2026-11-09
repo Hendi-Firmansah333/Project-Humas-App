@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/layout/AdminLayout';
 import {
@@ -36,6 +36,7 @@ import {
   Tag,
   ShieldCheck,
   AlertTriangle,
+  RefreshCw,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { activityService, contentService } from '@/services';
@@ -92,7 +93,40 @@ export default function VerifikasiKelengkapanPage() {
   const itemsPerPage = 8;
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const loadData = async () => {
+  // Realtime polling states
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const POLL_INTERVAL_MS = 30_000; // polling setiap 30 detik
+
+  const loadData = useCallback(async (silent = false) => {
+    if (!silent) return; // loading awal ditangani di init
+    setIsRefreshing(true);
+    try {
+      const [resVerifAct, resContent] = await Promise.all([
+        activityService.getAll({ status: 'MENUNGGU_VERIFIKASI' }).catch(() => ({ items: [] })),
+        contentService.getAll({ page: 1, pageSize: 100 }).catch(() => ({ items: [] })),
+      ]);
+
+      setActivities(resVerifAct.items || []);
+
+      const mappedContents = (resContent.items || []).map((p: ContentPlan) => {
+        return contentPlanToItem(p) as unknown as ContentItem;
+      });
+      const pendingReview = mappedContents.filter(
+        (item: ContentItem) => item.status === 'MENUNGGU_VERIFIKASI_ADMIN' || item.status === 'MENUNGGU'
+      );
+      setContentPlans(pendingReview);
+      setLastUpdated(new Date());
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setIsRefreshing(false);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const loadDataFull = async () => {
     try {
       const [resVerifAct, resContent] = await Promise.all([
         activityService.getAll({ status: 'MENUNGGU_VERIFIKASI' }).catch(() => ({ items: [] })),
@@ -110,6 +144,7 @@ export default function VerifikasiKelengkapanPage() {
         (item: ContentItem) => item.status === 'MENUNGGU_VERIFIKASI_ADMIN' || item.status === 'MENUNGGU'
       );
       setContentPlans(pendingReview);
+      setLastUpdated(new Date());
     } catch (err) {
       console.error(err);
       toast.error('Gagal memuat data verifikasi.');
@@ -126,10 +161,19 @@ export default function VerifikasiKelengkapanPage() {
 
     const init = async () => {
       setLoading(true);
-      await loadData();
+      await loadDataFull();
       setLoading(false);
     };
     init();
+
+    // Auto-polling setiap 30 detik (silent refresh, tidak tampilkan loading)
+    pollingRef.current = setInterval(() => {
+      loadData(true);
+    }, POLL_INTERVAL_MS);
+
+    return () => {
+      if (pollingRef.current) clearInterval(pollingRef.current);
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -142,7 +186,7 @@ export default function VerifikasiKelengkapanPage() {
       await activityService.submitVerification(id, 'Verifikasi lengkap oleh Admin Humas');
       toast.success('Kegiatan telah diverifikasi dan diteruskan ke Kepala Humas untuk persetujuan akhir.');
       setIsDetailActivityOpen(false);
-      await loadData();
+      await loadDataFull();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Gagal memverifikasi kegiatan.');
     } finally {
@@ -163,7 +207,7 @@ export default function VerifikasiKelengkapanPage() {
       setIsReturnActivityOpen(false);
       setIsDetailActivityOpen(false);
       setReturnActivityNotes('');
-      await loadData();
+      await loadDataFull();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Gagal mengembalikan kegiatan.');
     } finally {
@@ -183,7 +227,7 @@ export default function VerifikasiKelengkapanPage() {
       setIsVerifyContentOpen(false);
       setIsDetailContentOpen(false);
       setVerifyContentNotes('');
-      await loadData();
+      await loadDataFull();
     } catch {
       toast.error('Gagal mengajukan konten ke Kepala Humas.');
     } finally {
@@ -205,7 +249,7 @@ export default function VerifikasiKelengkapanPage() {
       setIsReturnContentOpen(false);
       setIsDetailContentOpen(false);
       setReturnContentNotes('');
-      await loadData();
+      await loadDataFull();
     } catch {
       toast.error('Gagal mengirimkan catatan perbaikan.');
     } finally {
@@ -501,6 +545,26 @@ export default function VerifikasiKelengkapanPage() {
               Periksa kelengkapan dokumentasi kegiatan dan materi content plan dari tim sebelum diajukan untuk persetujuan Kepala Humas.
             </p>
           </div>
+        </div>
+        {/* Realtime indicator + tombol refresh manual */}
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="flex items-center gap-1.5 text-[11px] text-slate-400">
+            <span className={`inline-block w-2 h-2 rounded-full ${isRefreshing ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400 animate-pulse'}`} />
+            {isRefreshing ? (
+              <span>Memperbarui...</span>
+            ) : lastUpdated ? (
+              <span>Update: {lastUpdated.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+            ) : null}
+          </div>
+          <button
+            onClick={async () => { setIsRefreshing(true); await loadDataFull(); setIsRefreshing(false); }}
+            disabled={isRefreshing}
+            title="Refresh data sekarang"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-slate-200 bg-slate-50 hover:bg-slate-100 text-xs font-semibold text-slate-600 transition-colors disabled:opacity-50"
+          >
+            <RefreshCw className={`w-3.5 h-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
+            Refresh
+          </button>
         </div>
       </div>
 

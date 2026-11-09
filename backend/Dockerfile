@@ -8,7 +8,7 @@ COPY package*.json ./
 COPY prisma ./prisma/
 
 RUN npm ci
-z
+
 COPY . .
 
 RUN npx prisma generate
