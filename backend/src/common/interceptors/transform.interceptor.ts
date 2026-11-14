@@ -16,13 +16,19 @@ export interface StandardResponse<T> {
 
 @Injectable()
 export class TransformInterceptor<T>
-  implements NestInterceptor<T, StandardResponse<T>>
+  implements NestInterceptor<T, StandardResponse<T> | T>
 {
   intercept(
     context: ExecutionContext,
     next: CallHandler,
-  ): Observable<StandardResponse<T>> {
-    const statusCode = context.switchToHttp().getResponse().statusCode;
+  ): Observable<StandardResponse<T> | T> {
+    const http = context.switchToHttp();
+    const request = http.getRequest<{ url?: string }>();
+    if (request?.url?.includes('/events/stream')) {
+      return next.handle();
+    }
+
+    const statusCode = http.getResponse().statusCode;
 
     return next.handle().pipe(
       map((data) => ({

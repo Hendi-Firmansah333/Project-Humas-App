@@ -72,24 +72,46 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
     }
   }
 
-  bool _isActivityStarted(ActivityItem activity) {
+  DateTime? _parseStartDateTime(ActivityItem activity) {
     try {
-      final dateParts = activity.date.split('-');
-      if (dateParts.length < 3) return true;
-      final year = int.parse(dateParts[0]);
-      final month = int.parse(dateParts[1]);
-      final day = int.parse(dateParts[2]);
+      DateTime? baseDate = activity.scheduledAt ?? DateTime.tryParse(activity.date.trim());
+      if (baseDate == null) {
+        final dateParts = activity.date.trim().split('-');
+        if (dateParts.length >= 3) {
+          final year = int.parse(dateParts[0]);
+          final month = int.parse(dateParts[1]);
+          final day = int.parse(dateParts[2].split('T').first);
+          baseDate = DateTime(year, month, day);
+        }
+      }
+      if (baseDate == null) return null;
 
-      final timeStart = activity.time.split(' - ').first.trim();
+      final timeStart = activity.time.split(' - ').first.replaceAll('WIB', '').trim();
       final timeParts = timeStart.split(':');
-      final hour = int.parse(timeParts[0]);
-      final minute = int.parse(timeParts[1]);
-
-      final startDateTime = DateTime(year, month, day, hour, minute);
-      return DateTime.now().isAfter(startDateTime) || DateTime.now().isAtSameMomentAs(startDateTime);
+      if (timeParts.length >= 2) {
+        final hour = int.tryParse(timeParts[0]) ?? baseDate.hour;
+        final minute = int.tryParse(timeParts[1]) ?? baseDate.minute;
+        return DateTime(baseDate.year, baseDate.month, baseDate.day, hour, minute);
+      }
+      return baseDate;
     } catch (_) {
-      return true;
+      return null;
     }
+  }
+
+  bool _isCheckInOpen(ActivityItem activity) {
+    final startDateTime = _parseStartDateTime(activity);
+    if (startDateTime == null) return true;
+    final openTime = startDateTime.subtract(const Duration(minutes: 15));
+    final now = DateTime.now();
+    return now.isAfter(openTime) || now.isAtSameMomentAs(openTime);
+  }
+
+  bool _isActivityStarted(ActivityItem activity) {
+    final startDateTime = _parseStartDateTime(activity);
+    if (startDateTime == null) return true;
+    final now = DateTime.now();
+    return now.isAfter(startDateTime) || now.isAtSameMomentAs(startDateTime);
   }
 
   @override
@@ -98,6 +120,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
         context.watch<AppDataProvider>().activityById(widget.activity.id) ?? widget.activity;
 
     final isStarted = _isActivityStarted(activity);
+    final isCheckInOpen = _isCheckInOpen(activity);
 
     return Scaffold(
       backgroundColor: AppColors.background,
@@ -182,10 +205,12 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
             GestureDetector(
               onTap: () {
                 if (activity.hasCheckedIn) return;
-                if (!isStarted) {
+                if (!isCheckInOpen) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(
-                      content: Text('Absensi belum dibuka. Kegiatan baru dimulai pukul ${activity.time.split(' - ').first} WIB.'),
+                      content: Text(
+                        'Absensi belum dibuka. Presensi dibuka 15 menit sebelum kegiatan dimulai (${activity.time.split(' - ').first} WIB).',
+                      ),
                       backgroundColor: AppColors.danger,
                     ),
                   );
@@ -200,7 +225,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                 width: double.infinity,
                 padding: const EdgeInsets.all(18),
                 decoration: BoxDecoration(
-                  color: activity.hasCheckedIn || !isStarted
+                  color: activity.hasCheckedIn || !isCheckInOpen
                       ? const Color(0xFF9CA3AF)
                       : AppColors.primaryDark,
                   borderRadius: BorderRadius.circular(16),
@@ -208,7 +233,7 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                 child: Row(
                   children: [
                     Icon(
-                      !isStarted ? Icons.lock_clock : Icons.camera_alt_outlined,
+                      !isCheckInOpen ? Icons.lock_clock : Icons.camera_alt_outlined,
                       color: Colors.white,
                       size: 28,
                     ),
@@ -220,8 +245,8 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                           Text(
                             activity.hasCheckedIn
                                 ? 'Sudah Check-in'
-                                : !isStarted
-                                    ? 'Acara Belum Dimulai'
+                                : !isCheckInOpen
+                                    ? 'Presensi Belum Dibuka'
                                     : 'Check-in Kehadiran',
                             style: const TextStyle(
                               color: Colors.white,
@@ -235,15 +260,15 @@ class _ActivityDetailScreenState extends State<ActivityDetailScreen> {
                                 ? (activity.checkInStatus.isNotEmpty
                                     ? activity.checkInStatus
                                     : 'Anda sudah melakukan check-in.')
-                                : !isStarted
-                                    ? 'Absensi dibuka saat kegiatan dimulai pada pukul ${activity.time.split(' - ').first} WIB.'
+                                : !isCheckInOpen
+                                    ? 'Absensi dibuka 15 menit sebelum pukul ${activity.time.split(' - ').first} WIB.'
                                     : 'Melakukan absensi menggunakan selfie dengan validasi lokasi GPS.',
                             style: const TextStyle(color: Colors.white70, fontSize: 12),
                           ),
                         ],
                       ),
                     ),
-                    if (!activity.hasCheckedIn && isStarted)
+                    if (!activity.hasCheckedIn && isCheckInOpen)
                       const Icon(Icons.chevron_right, color: Colors.white),
                   ],
                 ),

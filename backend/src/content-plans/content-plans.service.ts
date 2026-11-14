@@ -6,10 +6,14 @@ import { SubmitProofDto } from './dto/submit-proof.dto';
 import { ContentStatus, Platform, Role } from '@prisma/client';
 import { buildPaginatedResult, parsePagination } from '../common/utils/pagination.util';
 import { mapContentPlanForMobile } from '../common/mappers/mobile.mapper';
+import { RealtimeEventsService } from '../events/realtime-events.service';
 
 @Injectable()
 export class ContentPlansService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private eventsService: RealtimeEventsService,
+  ) {}
 
   private include = {
     pic: { select: { id: true, fullName: true, username: true, roleLabel: true, avatar: true } },
@@ -39,28 +43,43 @@ export class ContentPlansService {
       include: this.include,
     });
 
+    const sideEffects: Promise<unknown>[] = [];
+
     if (userId) {
-      await this.prisma.auditLog.create({
-        data: {
-          userId,
-          action: 'CREATE_CONTENT_PLAN',
-          entity: 'ContentPlan',
-          entityId: String(plan.id),
-          newValue: JSON.stringify({ title: plan.title, platform: plan.platform, picId: plan.picId }),
-        },
-      });
+      sideEffects.push(
+        this.prisma.auditLog.create({
+          data: {
+            userId,
+            action: 'CREATE_CONTENT_PLAN',
+            entity: 'ContentPlan',
+            entityId: String(plan.id),
+            newValue: JSON.stringify({ title: plan.title, platform: plan.platform, picId: plan.picId }),
+          },
+        }),
+      );
     }
 
     if (plan.picId) {
-      await this.prisma.notification.create({
-        data: {
-          userId: plan.picId,
-          title: 'Tugas Content Plan Baru',
-          message: `Kamu telah ditugaskan untuk Content Plan "${dto.title}" pada platform ${dto.platform}.`,
-          type: 'INFO',
-        },
-      });
+      sideEffects.push(
+        this.prisma.notification.create({
+          data: {
+            userId: plan.picId,
+            title: 'Tugas Content Plan Baru',
+            message: `Kamu telah ditugaskan untuk Content Plan "${dto.title}" pada platform ${dto.platform}.`,
+            type: 'INFO',
+          },
+        }),
+      );
     }
+
+    if (sideEffects.length > 0) {
+      await Promise.all(sideEffects);
+    }
+    this.eventsService.emitMultiple(
+      plan.picId ? ['contentPlans', 'notifications'] : ['contentPlans'],
+      'created',
+      plan.id,
+    );
 
     return plan;
   }
@@ -207,6 +226,7 @@ export class ContentPlansService {
       include: this.include,
     });
 
+    this.eventsService.emit('contentPlans', 'updated', id);
     return updated;
   }
 
@@ -225,6 +245,7 @@ export class ContentPlansService {
       include: this.include,
     });
 
+    this.eventsService.emit('contentPlans', 'started', id);
     return updated;
   }
 
@@ -294,6 +315,9 @@ export class ContentPlansService {
           type: 'INFO',
         },
       });
+      this.eventsService.emitMultiple(['contentPlans', 'notifications'], 'submitted_work', id);
+    } else {
+      this.eventsService.emit('contentPlans', 'saved_draft', id);
     }
 
     return updated;
@@ -320,6 +344,7 @@ export class ContentPlansService {
       },
     });
 
+    this.eventsService.emitMultiple(['contentPlans', 'notifications'], 'verified_admin', id);
     return updated;
   }
 
@@ -355,6 +380,11 @@ export class ContentPlansService {
       });
     }
 
+    this.eventsService.emitMultiple(
+      plan.picId ? ['contentPlans', 'notifications'] : ['contentPlans'],
+      'requested_fix',
+      id,
+    );
     return updated;
   }
 
@@ -381,6 +411,11 @@ export class ContentPlansService {
       });
     }
 
+    this.eventsService.emitMultiple(
+      plan.picId ? ['contentPlans', 'notifications'] : ['contentPlans'],
+      'approved',
+      id,
+    );
     return updated;
   }
 
@@ -411,6 +446,11 @@ export class ContentPlansService {
       });
     }
 
+    this.eventsService.emitMultiple(
+      plan.picId ? ['contentPlans', 'notifications'] : ['contentPlans'],
+      'requested_revision',
+      id,
+    );
     return updated;
   }
 
@@ -434,6 +474,7 @@ export class ContentPlansService {
       },
     });
 
+    this.eventsService.emitMultiple(['contentPlans', 'notifications'], 'published', id);
     return updated;
   }
 
@@ -449,6 +490,7 @@ export class ContentPlansService {
       include: this.include,
     });
 
+    this.eventsService.emit('contentPlans', 'cancelled', id);
     return updated;
   }
 
@@ -458,6 +500,7 @@ export class ContentPlansService {
       where: { id },
       data: { deletedAt: new Date() },
     });
+    this.eventsService.emit('contentPlans', 'deleted', id);
     return { message: `Rencana konten ID #${id} berhasil dihapus.` };
   }
 
@@ -511,6 +554,7 @@ export class ContentPlansService {
       });
     }
 
+    this.eventsService.emit('contentPlans', 'submitted_proof', id);
     return { item: mapContentPlanForMobile(updated) };
   }
 
@@ -525,10 +569,12 @@ export class ContentPlansService {
 
   async restore(id: number) {
     await this.findOneRaw(id);
-    return this.prisma.contentPlan.update({
+    const restored = await this.prisma.contentPlan.update({
       where: { id },
       data: { status: ContentStatus.DITUGASKAN, deletedAt: null },
       include: this.include,
     });
+    this.eventsService.emit('contentPlans', 'restored', id);
+    return restored;
   }
 }

@@ -443,7 +443,7 @@ class _RedesignedNotificationCard extends StatelessWidget {
       case NotificationType.jadwalBerubah:
         return (const Color(0xFFFFFBEB), const Color(0xFFD97706), Icons.sync_rounded);
       case NotificationType.checkInReminder:
-        return (const Color(0xFFF0FDFA), const Color(0xFF0D9488), Icons.location_on_rounded);
+        return (AppColors.brand50, AppColors.primary, Icons.location_on_rounded);
       case NotificationType.umum:
         return (const Color(0xFFF1F5F9), const Color(0xFF475569), Icons.notifications_rounded);
     }

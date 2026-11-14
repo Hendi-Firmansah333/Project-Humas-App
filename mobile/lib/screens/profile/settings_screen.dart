@@ -100,17 +100,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           ),
           _SettingsTile(
-            icon: Icons.dark_mode_outlined,
-            iconColor: AppColors.primary,
-            title: T.t('dark_mode'),
-            subtitle: T.t('dark_mode_sub'),
-            trailing: Switch(
-              value: _settings.darkModeEnabled,
-              activeTrackColor: AppColors.primary,
-              onChanged: _settings.setDarkMode,
-            ),
-          ),
-          _SettingsTile(
             icon: Icons.language,
             iconColor: AppColors.primary,
             title: T.t('language'),

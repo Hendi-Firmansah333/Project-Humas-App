@@ -2,19 +2,52 @@ import { Injectable, NotFoundException, BadRequestException } from '@nestjs/comm
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
+import { RealtimeEventsService } from '../events/realtime-events.service';
 
 @Injectable()
 export class SchedulesService {
-  constructor(private prisma: PrismaService) {}
+  private lastSyncAt = 0;
+  private syncPromise: Promise<void> | null = null;
+  private static readonly SYNC_TTL_MS = 15000;
+
+  constructor(
+    private prisma: PrismaService,
+    private eventsService: RealtimeEventsService,
+  ) {}
 
   private async syncStatus() {
+    const nowMs = Date.now();
+    if (nowMs - this.lastSyncAt < SchedulesService.SYNC_TTL_MS) {
+      return;
+    }
+    if (this.syncPromise) {
+      return this.syncPromise;
+    }
+
+    this.syncPromise = this.runSyncStatus().finally(() => {
+      this.syncPromise = null;
+      this.lastSyncAt = Date.now();
+    });
+    return this.syncPromise;
+  }
+
+  private async runSyncStatus() {
     const schedules = await this.prisma.dutySchedule.findMany({
       where: {
+        deletedAt: null,
         status: { in: ['AKAN_DATANG', 'SEDANG_BERLANGSUNG'] },
+      },
+      select: {
+        id: true,
+        status: true,
+        date: true,
+        startTime: true,
+        endTime: true,
       },
     });
 
     const now = new Date();
+    const updates: Array<{ id: number; status: string }> = [];
 
     for (const s of schedules) {
       let currentStatus = s.status;
@@ -38,11 +71,20 @@ export class SchedulesService {
       }
 
       if (currentStatus !== s.status) {
-        await this.prisma.dutySchedule.update({
-          where: { id: s.id },
-          data: { status: currentStatus },
-        });
+        updates.push({ id: s.id, status: currentStatus });
       }
+    }
+
+    if (updates.length > 0) {
+      await Promise.all(
+        updates.map((u) =>
+          this.prisma.dutySchedule.update({
+            where: { id: u.id },
+            data: { status: u.status },
+          }),
+        ),
+      );
+      this.eventsService.emit('schedules', 'status_synced');
     }
   }
 
@@ -134,6 +176,7 @@ export class SchedulesService {
       },
     });
 
+    this.eventsService.emitMultiple(['schedules', 'notifications'], 'created', schedule.id);
     return schedule;
   }
 
@@ -237,7 +280,7 @@ export class SchedulesService {
       throw new BadRequestException('Jadwal piket bentrok! Anggota sudah memiliki jadwal piket lain pada waktu yang sama.');
     }
 
-    return this.prisma.dutySchedule.update({
+    const updated = await this.prisma.dutySchedule.update({
       where: { id },
       data: {
         userId: dto.userId,
@@ -251,11 +294,14 @@ export class SchedulesService {
         user: { select: { id: true, fullName: true, username: true, roleLabel: true, avatar: true } },
       },
     });
+    this.eventsService.emit('schedules', 'updated', id);
+    return updated;
   }
 
   async remove(id: number) {
     await this.findOne(id);
     await this.prisma.dutySchedule.delete({ where: { id } });
+    this.eventsService.emit('schedules', 'deleted', id);
     return { message: `Jadwal piket ID #${id} berhasil dihapus.` };
   }
 }

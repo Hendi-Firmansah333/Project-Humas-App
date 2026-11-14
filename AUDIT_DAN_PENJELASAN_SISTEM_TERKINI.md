@@ -26,14 +26,14 @@ Sistem kini menerapkan hierarki birokrasi 3-tingkat (*Super Admin / Kepala Humas
 | **Mobile App** | Android Native (Kotlin/Java) | **Flutter 3 (Dart)** Multiplatform (Android SDK target 34) | Berubah ke Flutter Modern |
 | **Penyimpanan Media** | Firebase Storage / Lokal | **Cloudinary Cloud Storage** & link Google Drive terstruktur | Berubah ke Cloudinary API |
 | **Peta & Geolocation** | Google Maps API | **OpenStreetMap / Flutter Map (Leaflet)** + Geolocator API Native | Berubah (OpenSource Tile Provider) |
-| **Push Notification** | Firebase Cloud Messaging (FCM) | **FCM Service** terintegrasi di Mobile + Database Polling Badges di Web | Sesuai & Diperluas |
+| **Push Notification** | Firebase Cloud Messaging (FCM) | **In-app Notification (API/DB)** + **FCM Service Stub** (siap integrasi Firebase) | Stub Siap Integrasi |
 | **Autentikasi & Keamanan**| Sesi standar | **JWT (JSON Web Token)**, Role-Based Access Control (RBAC), Device Mock-Location Detector | Ditingkatkan secara ketat |
 
 ### B. Kondisi Repositori & Direktori
 
-1. **`backend/`**: Berjalan aktif di port `5000` (`http://localhost:5000/api`). Terdiri dari modul-modul: `auth`, `users`, `activities`, `incoming-letters`, `content-plans`, `equipment-loans`, `schedules`, `live-location`, `dashboard`, `reports`, `notifications`, `prisma`, dan `common`.
+1. **`backend/`**: Berjalan aktif di port `3001` (`http://localhost:3001/api`). Terdiri dari modul-modul: `auth`, `users`, `activities`, `incoming-letters`, `content-plans`, `equipment-loans`, `schedules`, `live-location`, `dashboard`, `reports`, `notifications`, `prisma`, dan `common`.
 2. **`frontend/`**: Berjalan aktif di port `3000` (`http://localhost:3000`). Terdiri dari halaman Next.js App Router: `/dashboard`, `/surat-masuk`, `/kegiatan`, `/verifikasi-kegiatan`, `/persetujuan`, `/content-plan`, `/peminjaman-alat`, `/jadwal-piket`, `/live-location`, `/laporan`, `/pengguna`, `/profil`, dan sub-halaman riwayat.
-3. **`mobile/`**: Aplikasi Flutter siap build (`apk`), mengelola autentikasi mobile, daftar penugasan kegiatan, presensi GPS selfie, unggah tautan dokumentasi Google Drive, pengerjaan content plan, live location tracking per 10 detik, dan pusat notifikasi.
+3. **`mobile/`**: Aplikasi Flutter (Android/iOS/Web), mengelola autentikasi mobile, daftar penugasan kegiatan, presensi GPS selfie, unggah tautan dokumentasi Google Drive, pengerjaan content plan, live location tracking per 30 detik (dengan persetujuan UU PDP), dan pusat notifikasi (tema dikunci ke *Light Mode*).
 
 ---
 
@@ -84,9 +84,9 @@ Berikut adalah audit modul fungsional aktual yang telah terpasang di dalam sourc
 6. **Modul Content Plan Media Sosial (`/content-plan`)**: Perencanaan editorial (Instagram, TikTok, YouTube, Website, Facebook), penugasan PIC, integrasi link draf & video, alur review berjenjang.
 7. **Modul Peminjaman Peralatan / Inventaris (`/peminjaman-alat`)**: Manajemen stok alat kamera & audio, kalkulasi ketersediaan real-time, pencatatan peminjaman, deteksi keterlambatan otomatis, pencatatan kondisi alat kembali (*Baik*, *Rusak Ringan*, *Rusak Berat*, *Hilang*).
 8. **Modul Jadwal Piket (`/jadwal-piket`)**: Penjadwalan shift staf/anggota, deteksi bentrok jadwal (*conflict detection algorithm*), sinkronisasi status waktu real-time.
-9. **Modul Live Location Tracking (`/live-location`)**: Pemantauan radar tim berbasis Leaflet OpenStreetMap di web dan background geolocator di mobile dengan interval pembaruan 10 detik.
+9. **Modul Live Location Tracking (`/live-location`)**: Pemantauan radar tim berbasis Leaflet OpenStreetMap di web dan geolocator/flutter_map di mobile dengan interval pembaruan 30 detik (berbasis persetujuan UU PDP serta timeout status offline otomatis 15 menit).
 10. **Modul Laporan & Evaluasi Kinerja (`/laporan`)**: Rekapitulasi kegiatan, content plan, peminjaman alat, serta kalkulasi otomatis Nilai Kinerja Anggota (Formula: 60% Presensi + 25% Dokumentasi + 15% Content Plan).
-11. **Modul Notifikasi & Audit Log (`/notifications`, Database AuditLog)**: Notifikasi push FCM ke Android, in-app notification center, badge notifikasi sidebar, dan audit trail pencatatan aktivitas sistem.
+11. **Modul Notifikasi & Audit Log (`/notifications`, Database AuditLog)**: In-app notification center berbasis database & API (dengan `FcmService` stub di mobile siap integrasi Firebase/FCM), badge notifikasi sidebar, dan audit trail pencatatan aktivitas sistem.
 
 ---
 
@@ -136,7 +136,7 @@ Penugasan kegiatan dan konten dilakukan dengan aturan bisnis ketat:
 1. **Validasi Role Pelaksana**: PIC dan Anggota yang dipilih **wajib** memiliki akun dengan `Role = USER` (Anggota Tim Humas). Admin atau Super Admin tidak dapat ditugaskan sebagai PIC/Anggota kegiatan lapangan.
 2. **Validasi Duplikasi & Rangkap Tugas**: Sistem menolak jika PIC merangkap sebagai Anggota dalam satu kegiatan yang sama, atau jika terdapat ID anggota ganda.
 3. **Penetapan PIC Lapangan**: PIC bertanggung jawab mengoordinasikan presensi tim dan memastikan link Google Drive dokumentasi diunggah ke sistem.
-4. **Notifikasi Otomatis**: Setiap anggota yang terpilih langsung menerima push notification FCM dan rekaman agenda pada aplikasi mobile mereka.
+4. **Notifikasi Otomatis**: Setiap anggota yang terpilih langsung menerima notifikasi di *In-App Notification Center* dan rekaman agenda pada aplikasi mobile mereka (push FCM opsional saat `firebase_messaging` diaktifkan).
 
 ---
 
@@ -184,8 +184,8 @@ Fitur presensi kehadiran pada aplikasi Mobile telah diaudit dengan rincian logik
 2. **Validasi Jarak Haversine**: Perhitungan jarak menggunakan formula *Haversine* pada layer backend dan `Geolocator.distanceBetween` pada layer mobile.
 3. **Keamanan Anti-Fake GPS**: Modul `DeviceSecurityService` pada aplikasi mobile memeriksa integritas perangkat (`position.isMocked`) untuk mencegah penggunaan aplikasi Fake GPS / Lokasi Palsu.
 4. **Validasi Waktu Presensi**:
-   - Anggota **TIDAK DAPAT** melakukan presensi sebelum jam mulai kegiatan (`now < startDateTime`). Sistem akan mengeluarkan pesan penolakan: *"Absensi belum tersedia. Kegiatan baru dimulai pada pukul HH:mm WIB"*.
-   - Jika presensi dilakukan setelah jam mulai, sistem tetap mencatat kehadiran namun memberi label status `TERLAMBAT`.
+   - Anggota **TIDAK DAPAT** melakukan presensi sebelum 15 menit menjelang jam mulai kegiatan (`now < startDateTime - 15 menit`). Sistem akan mengeluarkan pesan penolakan: *"Absensi belum tersedia. Presensi dibuka 15 menit sebelum kegiatan dimulai (pukul HH:mm WIB)"*. Server juga menentukan status keterlambatan (`isLate`) secara mutlak berdasarkan jam server (`startDateTime + 15 menit` toleransi).
+   - Jika presensi dilakukan melewati toleransi keterlambatan (lebih dari 15 menit setelah jam mulai), sistem tetap mencatat kehadiran namun memberi label status `TERLAMBAT`.
 5. **Bukti Kehadiran**: Presensi mewajibkan pengambilan foto kamera depan (*selfie*) secara langsung di tempat dan mencatat timestamp server, koordinat GPS, serta jarak fisik meter dari pusat acara.
 
 ---
@@ -259,7 +259,7 @@ Aplikasi Flutter `poli_humas` memiliki struktur navigasi:
    - Daftar tugas konten media sosial yang dibebankan kepada user yang login.
    - Detail konten, kolom pengisian caption/copywriting, input link Google Drive hasil video/desain, dan tombol kirim review.
 5. **Live Location Service**:
-   - Background location polling yang mengirimkan koordinat latitude/longitude perangkat setiap 10 detik ke endpoint backend `/api/live-location/my-location`.
+   - Background location polling yang mengirimkan koordinat latitude/longitude perangkat setiap 30 detik (setelah persetujuan UU PDP) ke endpoint backend `/api/live-location/sync`.
    - Peta Live Location rekan tim lapangan.
 6. **Pusat Notifikasi & Profil**: Menampilkan push notification kegiatan, update status tugas, dan manajemen profil staf.
 
@@ -303,7 +303,7 @@ Aplikasi Flutter `poli_humas` memiliki struktur navigasi:
 
 ### D. Status Presensi (`CheckInStatus`)
 1. `SUCCESS`: Hadir tepat waktu di dalam radius geofence kegiatan.
-2. `TERLAMBAT`: Hadir di lokasi geofence tetapi melewati jam mulai kegiatan.
+2. `TERLAMBAT`: Hadir di lokasi geofence tetapi melewati batas toleransi 15 menit dari jam mulai kegiatan.
 3. `MISSED`: Anggota tidak melakukan presensi sampai kegiatan berakhir.
 4. `IZIN`: Anggota memiliki keterangan dispensasi/izin resmi.
 
@@ -328,9 +328,9 @@ Aplikasi Flutter `poli_humas` memiliki struktur navigasi:
 | 8 | **Content Plan** | Pencatatan rencana konten sederhana | Modul editorial komprehensif dengan alur PIC -> Submit Draf -> Verifikasi Admin -> Approve Kepala Humas -> Publish | **BERUBAH** | **YA (Wajib)** |
 | 9 | **Peminjaman Alat** | Pencatatan inventaris sederhana | Manajemen stok dinamis on-the-fly, deteksi otomatis keterlambatan, pencatatan kondisi fisik alat kembali | **SESUAI (DI-UPGRADE)** | **YA** |
 | 10 | **Jadwal Piket** | Belum ada | Modul jadwal piket staf dengan algoritma pencegahan jadwal bentrok (*Conflict Detection*) | **BERTAMBAH** | **YA** |
-| 11 | **Live Location Tracking**| Pelacakan lokasi anggota di peta | Real-time tracking per 10 detik via Flutter Background Service + Peta Leaflet OpenStreetMap di Web & Mobile | **SESUAI** | **YA (Perjelas Engine)** |
+| 11 | **Live Location Tracking**| Pelacakan lokasi anggota di peta | Real-time tracking per 30 detik (dengan persetujuan UU PDP) via Geolocator + Peta OpenStreetMap di Web & Mobile | **SESUAI** | **YA (Perjelas Engine)** |
 | 12 | **Evaluasi & Laporan** | Laporan statis | Ekspor Laporan Periodik + Perhitungan Otomatis Nilai Kinerja Anggota (Formula Pembobotan) | **BERTAMBAH** | **YA** |
-| 13 | **Sistem Notifikasi** | Notifikasi FCM standar | Push Notification FCM ke Mobile + In-App Notification Center + Dynamic Badge Merah di Sidebar Web | **SESUAI (DI-UPGRADE)** | **YA** |
+| 13 | **Sistem Notifikasi** | Notifikasi FCM standar | In-App Notification Center + Dynamic Badge Merah di Sidebar Web (`FcmService` stub di Mobile siap integrasi Firebase) | **DIIMPLEMENTASI SEBAGIAN** | **YA** |
 
 ---
 
@@ -368,12 +368,12 @@ Perubahan logika utama antara proposal lama dengan implementasi saat ini:
 
 Status temuan audit teknis berdasarkan inspeksi source code:
 
-1. **FCM Push Notification Mobile Background Handler**:
-   - *Kondisi*: Notifikasi FCM telah terintegrasi di tingkat controller backend dan Flutter app. Namun, penanganan pesan saat aplikasi dalam status *Terminated / Killed* masih sangat bergantung pada konfigurasi file `google-services.json` dan kebijakan manajemen baterai OEM Android (beberapa tipe perangkat Android mematikan background service).
-   - *Rekomendasi Dokumen*: Cantumkan sebagai "Telah Diimplementasikan dengan ketergantungan pada izin background service perangkat Android".
-2. **Live Location Background Battery Consumption**:
-   - *Kondisi*: Interval tracking 10 detik berfungsi baik saat aplikasi aktif (*Foreground*), namun konsumsi daya baterai meningkat jika pelacakan dibiarkan berjalan terus-menerus.
-   - *Rekomendasi Dokumen*: Jelaskan mekanisme pelacakan diaktifkan saat jam penugasan kegiatan berlangsung.
+1. **FCM Push Notification Mobile (`FcmService` Stub)**:
+   - *Kondisi*: Paket `firebase_messaging` belum terpasang di `pubspec.yaml` dan `FcmService` pada aplikasi Flutter saat ini masih berupa stub. Notifikasi tim tetap berjalan fungsional melalui *In-App Notification Center* (berbasis database & polling API) pada Web maupun Mobile.
+   - *Rekomendasi Dokumen*: Cantumkan sebagai "*In-App Notification* aktif penuh; *Push Notification* FCM berstatus stub dan siap diintegrasikan setelah file `google-services.json` serta dependensi Firebase ditambahkan".
+2. **Live Location Foreground Tracking & UU PDP Consent**:
+   - *Kondisi*: Pelacakan dijalankan menggunakan timer sinkronisasi setiap 30 detik saat aplikasi aktif (*Foreground*) setelah pengguna memberikan persetujuan privasi (UU PDP), serta berhenti dan menandai status offline secara aman saat aplikasi masuk latar belakang (*paused/detached*) dengan mempertahankan koordinat terakhir, plus timeout offline otomatis 15 menit di server.
+   - *Rekomendasi Dokumen*: Jelaskan mekanisme *foreground tracking* 30 detik berbasis persetujuan pengguna UU PDP dan batas toleransi aktif 15 menit.
 
 ---
 
@@ -427,7 +427,7 @@ Status temuan audit teknis berdasarkan inspeksi source code:
 | 18 | **Live Location** | Radar Pelacakan Posisi Tim Lapangan (10s) | Super Admin, Admin (User kirim koordinat) | Web + Mobile | IMPLEMENTED |
 | 19 | **Laporan & Ekspor** | Cetak Rekapitulasi Kegiatan & Aset (PDF/Excel) | Super Admin, Admin | Web | IMPLEMENTED |
 | 20 | **Evaluasi Kinerja**| Perhitungan Otomatis Skor Kinerja Anggota | Super Admin, Admin | Web | IMPLEMENTED |
-| 21 | **Notifikasi** | Push Notification FCM, Notification Center, Badges| Semua Role | Web + Mobile | IMPLEMENTED |
+| 21 | **Notifikasi** | In-App Notification Center, Badges, & FCM Stub | Semua Role | Web + Mobile | IMPLEMENTED (FCM STUB) |
 
 ---
 
@@ -509,6 +509,6 @@ Guna menyelaraskan dokumen akademik/proposal proyek dengan realitas implementasi
 
 Implementasi sistem **Project-Humas-App** yang ada saat ini berada dalam kondisi **jauh lebih matang, lengkap, dan berorientasi institusional** dibandingkan rancangan awal pada `Penjelasan.md`. 
 
-Pengembangan telah berhasil menjawab kebutuhan riil birokrasi kehumasan Politeknik Negeri Lampung melalui pemisahan peran yang tegas antara pembuat kebijakan (*Kepala Humas*), verifikator operasional (*Admin Humas*), dan pelaksana teknis lapangan (*Anggota Tim*). Seluruh modul utama (Surat Masuk, Penugasan Kegiatan, Presensi GPS & Selfie, Verifikasi Kelengkapan, Persetujuan Akhir, Content Plan, Peminjaman Alat, Jadwal Piket, Live Location, Laporan Kinerja, dan Notifikasi FCM) telah terhubung secara fungsional (*end-to-end*) antara Web Dashboard dan Mobile Application.
+Pengembangan telah berhasil menjawab kebutuhan riil birokrasi kehumasan Politeknik Negeri Lampung melalui pemisahan peran yang tegas antara pembuat kebijakan (*Kepala Humas*), verifikator operasional (*Admin Humas*), dan pelaksana teknis lapangan (*Anggota Tim*). Seluruh modul utama (Surat Masuk, Penugasan Kegiatan, Presensi GPS & Selfie, Verifikasi Kelengkapan, Persetujuan Akhir, Content Plan, Peminjaman Alat, Jadwal Piket, Live Location, Laporan Kinerja, dan In-App Notifikasi) telah terhubung secara fungsional (*end-to-end*) antara Web Dashboard dan Mobile Application, dengan tampilan seragam *Light Mode* dan identitas Logo P Humas Polinela.
 
 Dokumen audit ini siap dijadikan rujukan utama dalam memperbarui naskah Proposal Proyek Mandiri / Laporan Tugas Akhir agar selaras dengan fakta implementasi teknis perangkat lunak.

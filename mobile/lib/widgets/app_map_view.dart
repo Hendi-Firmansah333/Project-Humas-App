@@ -169,11 +169,11 @@ class _AppMapViewState extends State<AppMapView> {
                                       height: 44,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                        color: const Color(0xFF14B8A6).withValues(alpha: 0.25),
+                                        color: const Color(0xFF0284C7).withValues(alpha: 0.25),
                                       ),
                                     ),
 
-                                  // Main Avatar Badge Circle (Matching Web: teal gradient, white border, bold initials)
+                                  // Main Avatar Badge Circle (Polinela Navy/Cyan gradient, white border, bold initials)
                                   Container(
                                     width: 36,
                                     height: 36,
@@ -181,7 +181,7 @@ class _AppMapViewState extends State<AppMapView> {
                                       shape: BoxShape.circle,
                                       gradient: m.isActive
                                           ? const LinearGradient(
-                                              colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
+                                              colors: [Color(0xFF003D58), Color(0xFF0284C7)],
                                               begin: Alignment.topLeft,
                                               end: Alignment.bottomRight,
                                             )
@@ -191,12 +191,12 @@ class _AppMapViewState extends State<AppMapView> {
                                               end: Alignment.bottomRight,
                                             ),
                                       border: Border.all(
-                                        color: m.isSelected ? const Color(0xFF2DD4BF) : Colors.white,
+                                        color: m.isSelected ? const Color(0xFF38BDF8) : Colors.white,
                                         width: m.isSelected ? 3.0 : 2.0,
                                       ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: (m.isActive ? const Color(0xFF0F766E) : Colors.black)
+                                          color: (m.isActive ? const Color(0xFF003D58) : Colors.black)
                                               .withValues(alpha: 0.4),
                                           blurRadius: 8,
                                           offset: const Offset(0, 3),

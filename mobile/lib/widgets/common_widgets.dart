@@ -92,18 +92,18 @@ class AppHeader extends StatelessWidget implements PreferredSizeWidget {
                       style: GoogleFonts.plusJakartaSans(
                         color: isDark ? Colors.white : AppColors.slate900,
                         fontWeight: FontWeight.w800,
-                        fontSize: 13,
-                        letterSpacing: 0.6,
+                        fontSize: 12.5,
+                        letterSpacing: 0.5,
                         height: 1.1,
                       ),
                     ),
                     Text(
-                      'POLINELA',
+                      'Politeknik Negeri Lampung',
                       style: GoogleFonts.plusJakartaSans(
-                        color: AppColors.brand600,
-                        fontWeight: FontWeight.w800,
-                        fontSize: 10,
-                        letterSpacing: 1.2,
+                        color: isDark ? Colors.white60 : AppColors.slate400,
+                        fontWeight: FontWeight.w600,
+                        fontSize: 10.5,
+                        letterSpacing: -0.2,
                         height: 1.1,
                       ),
                     ),
@@ -364,6 +364,18 @@ class SectionTitle extends StatelessWidget {
   }
 }
 
+class _NavItemConfig {
+  const _NavItemConfig({
+    required this.activeIcon,
+    required this.inactiveIcon,
+    required this.labelKey,
+  });
+
+  final IconData activeIcon;
+  final IconData inactiveIcon;
+  final String labelKey;
+}
+
 class AppBottomNav extends StatelessWidget {
   const AppBottomNav({
     super.key,
@@ -377,11 +389,31 @@ class AppBottomNav extends StatelessWidget {
   final int unreadCount;
 
   static const _items = [
-    (Icons.home_rounded, 'Home'),
-    (Icons.assignment_outlined, 'Activities'),
-    (Icons.calendar_month_outlined, 'Content'),
-    (Icons.notifications_outlined, 'Alerts'),
-    (Icons.person_outline, 'Profile'),
+    _NavItemConfig(
+      activeIcon: Icons.home_rounded,
+      inactiveIcon: Icons.home_outlined,
+      labelKey: 'home',
+    ),
+    _NavItemConfig(
+      activeIcon: Icons.event_available_rounded,
+      inactiveIcon: Icons.event_note_outlined,
+      labelKey: 'activities',
+    ),
+    _NavItemConfig(
+      activeIcon: Icons.perm_media_rounded,
+      inactiveIcon: Icons.perm_media_outlined,
+      labelKey: 'content',
+    ),
+    _NavItemConfig(
+      activeIcon: Icons.notifications_rounded,
+      inactiveIcon: Icons.notifications_outlined,
+      labelKey: 'alerts',
+    ),
+    _NavItemConfig(
+      activeIcon: Icons.person_rounded,
+      inactiveIcon: Icons.person_outline_rounded,
+      labelKey: 'profile',
+    ),
   ];
 
   @override
@@ -389,7 +421,8 @@ class AppBottomNav extends StatelessWidget {
     final isDark = AppColors.isDark;
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : Colors.white.withValues(alpha: 0.96),
+        color: isDark ? const Color(0xFF0F172A) : Colors.white,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
         border: Border(
           top: BorderSide(
             color: isDark ? Colors.white10 : const Color(0xFFF1F5F9),
@@ -398,32 +431,34 @@ class AppBottomNav extends StatelessWidget {
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.06),
+            color: const Color(0xFF0F172A).withValues(alpha: 0.07),
             blurRadius: 16,
-            offset: const Offset(0, -3),
+            offset: const Offset(0, -4),
           ),
         ],
       ),
       child: SafeArea(
         top: false,
         child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: SizedBox(
-            height: 54,
+            height: 58,
             child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceAround,
               children: List.generate(_items.length, (index) {
-                final (icon, label) = _items[index];
+                final item = _items[index];
                 final selected = index == currentIndex;
-                return _BottomNavItem(
-                  icon: icon,
-                  label: T.t(label.toLowerCase()),
-                  selected: selected,
-                  showBadge: index == 3 && unreadCount > 0 && !selected,
-                  onTap: () {
-                    HapticFeedback.lightImpact();
-                    onTap(index);
-                  },
+                return Expanded(
+                  child: _BottomNavItem(
+                    activeIcon: item.activeIcon,
+                    inactiveIcon: item.inactiveIcon,
+                    label: T.t(item.labelKey),
+                    selected: selected,
+                    showBadge: index == 3 && unreadCount > 0 && !selected,
+                    onTap: () {
+                      HapticFeedback.lightImpact();
+                      onTap(index);
+                    },
+                  ),
                 );
               }),
             ),
@@ -436,14 +471,16 @@ class AppBottomNav extends StatelessWidget {
 
 class _BottomNavItem extends StatelessWidget {
   const _BottomNavItem({
-    required this.icon,
+    required this.activeIcon,
+    required this.inactiveIcon,
     required this.label,
     required this.selected,
     required this.onTap,
     this.showBadge = false,
   });
 
-  final IconData icon;
+  final IconData activeIcon;
+  final IconData inactiveIcon;
   final String label;
   final bool selected;
   final bool showBadge;
@@ -452,82 +489,89 @@ class _BottomNavItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isDark = AppColors.isDark;
+    final iconColor = selected
+        ? AppColors.primary
+        : (isDark ? Colors.white54 : const Color(0xFF5C647A));
+    final textColor = selected
+        ? AppColors.primary
+        : (isDark ? Colors.white54 : const Color(0xFF5C647A));
+
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        curve: Curves.easeOutCubic,
-        padding: EdgeInsets.symmetric(
-          horizontal: selected ? 14 : 8,
-          vertical: 5,
-        ),
-        decoration: BoxDecoration(
-          color: selected
-              ? (isDark
-                  ? AppColors.brand600.withValues(alpha: 0.25)
-                  : AppColors.brand50)
-              : Colors.transparent,
-          borderRadius: BorderRadius.circular(16),
-          border: selected
-              ? Border.all(
-                  color: isDark
-                      ? AppColors.brand600.withValues(alpha: 0.4)
-                      : AppColors.brand200,
-                  width: 1,
-                )
-              : null,
-        ),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            SizedBox(
-              width: 24,
-              height: 22,
-              child: Stack(
-                clipBehavior: Clip.none,
-                alignment: Alignment.center,
-                children: [
-                  Icon(
-                    icon,
-                    color: selected
-                        ? AppColors.brand600
-                        : (isDark ? Colors.white54 : AppColors.slate400),
-                    size: 20,
-                  ),
-                  if (showBadge)
-                    Positioned(
-                      right: -3,
-                      top: -1,
-                      child: Container(
-                        width: 7,
-                        height: 7,
-                        decoration: BoxDecoration(
-                          color: AppColors.rose,
-                          shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 1.5),
+      child: Container(
+        height: double.infinity,
+        alignment: Alignment.center,
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOutCubic,
+          padding: EdgeInsets.symmetric(
+            horizontal: selected ? 12 : 6,
+            vertical: 4,
+          ),
+          decoration: BoxDecoration(
+            color: selected
+                ? (isDark
+                    ? AppColors.primary.withValues(alpha: 0.25)
+                    : const Color(0xFFD1EFF6))
+                : Colors.transparent,
+            borderRadius: BorderRadius.circular(14),
+            border: selected
+                ? Border.all(
+                    color: isDark
+                        ? AppColors.primary.withValues(alpha: 0.4)
+                        : const Color(0xFFBCE7F0),
+                    width: 1,
+                  )
+                : null,
+          ),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              SizedBox(
+                width: 24,
+                height: 22,
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  alignment: Alignment.center,
+                  children: [
+                    Icon(
+                      selected ? activeIcon : inactiveIcon,
+                      color: iconColor,
+                      size: selected ? 21 : 20,
+                    ),
+                    if (showBadge)
+                      Positioned(
+                        right: -3,
+                        top: -1,
+                        child: Container(
+                          width: 7,
+                          height: 7,
+                          decoration: BoxDecoration(
+                            color: AppColors.rose,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white, width: 1.5),
+                          ),
                         ),
                       ),
-                    ),
-                ],
+                  ],
+                ),
               ),
-            ),
-            const SizedBox(height: 2),
-            Text(
-              label,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                fontSize: 10,
-                fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-                color: selected
-                    ? AppColors.brand700
-                    : (isDark ? Colors.white54 : AppColors.slate400),
+              const SizedBox(height: 2),
+              Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: TextStyle(
+                  fontSize: 10,
+                  fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
+                  color: textColor,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

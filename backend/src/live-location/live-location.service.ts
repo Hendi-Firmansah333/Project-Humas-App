@@ -3,10 +3,14 @@ import { PrismaService } from '../prisma/prisma.service';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import { Role, ActivityStatus } from '@prisma/client';
 import { mapTeamMemberFromLocation } from '../common/mappers/mobile.mapper';
+import { RealtimeEventsService } from '../events/realtime-events.service';
 
 @Injectable()
 export class LiveLocationService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private eventsService: RealtimeEventsService,
+  ) {}
 
   async findAll(userOrMobile?: { id: number; role: Role } | boolean, mobileParam = false) {
     let user: { id: number; role: Role } | undefined;
@@ -45,65 +49,69 @@ export class LiveLocationService {
 
     const now = new Date();
     const FIFTEEN_MINUTES_MS = 15 * 60 * 1000;
+    const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
 
-    const enhancedLocations = await Promise.all(
-      locations.map(async (loc) => {
-        const timeDiff = now.getTime() - new Date(loc.updatedAt).getTime();
-        const isOnline = timeDiff <= FIFTEEN_MINUTES_MS && loc.isOnline;
+    // Fetch all today's active activities once to eliminate N+1 DB queries
+    const todayActivities =
+      locations.length > 0
+        ? await this.prisma.activity.findMany({
+            where: {
+              deletedAt: null,
+              status: {
+                in: [ActivityStatus.DISETUJUI, ActivityStatus.DITUGASKAN, ActivityStatus.SEDANG_BERLANGSUNG],
+              },
+              date: { gte: todayStart, lte: todayEnd },
+            },
+            select: {
+              id: true,
+              title: true,
+              date: true,
+              location: true,
+              status: true,
+              picId: true,
+              members: { select: { userId: true } },
+            },
+          })
+        : [];
 
-        const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-        const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59);
+    const enhancedLocations = locations.map((loc) => {
+      const timeDiff = now.getTime() - new Date(loc.updatedAt).getTime();
+      const isOnline = timeDiff <= FIFTEEN_MINUTES_MS && loc.isOnline;
 
-        const currentActivity = await this.prisma.activity.findFirst({
-          where: {
-            deletedAt: null,
-            status: { in: [ActivityStatus.DISETUJUI, ActivityStatus.DITUGASKAN, ActivityStatus.SEDANG_BERLANGSUNG] },
-            date: { gte: todayStart, lte: todayEnd },
-            OR: [
-              { picId: loc.userId },
-              { members: { some: { userId: loc.userId } } },
-            ],
-          },
-          select: {
-            id: true,
-            title: true,
-            date: true,
-            location: true,
-            status: true,
-            picId: true,
-          },
-        });
+      const currentActivity = todayActivities.find(
+        (a) => a.picId === loc.userId || a.members.some((m) => m.userId === loc.userId),
+      );
 
-        let activityAssignment: any = null;
-        if (currentActivity) {
-          activityAssignment = {
-            id: currentActivity.id,
-            title: currentActivity.title,
-            date: currentActivity.date,
-            location: currentActivity.location,
-            status: currentActivity.status,
-            userRoleInActivity: currentActivity.picId === loc.userId ? 'PIC' : 'Anggota',
-          };
-        }
-
-        return {
-          ...loc,
-          isOnline,
-          updatedAtFormatted: loc.updatedAt,
-          currentActivity: activityAssignment,
+      let activityAssignment: any = null;
+      if (currentActivity) {
+        activityAssignment = {
+          id: currentActivity.id,
+          title: currentActivity.title,
+          date: currentActivity.date,
+          location: currentActivity.location,
+          status: currentActivity.status,
+          userRoleInActivity: currentActivity.picId === loc.userId ? 'PIC' : 'Anggota',
         };
-      }),
-    );
+      }
+
+      return {
+        ...loc,
+        isOnline,
+        updatedAtFormatted: loc.updatedAt,
+        currentActivity: activityAssignment,
+      };
+    });
 
     if (isMobileRequest) {
-      return { items: locations.map(mapTeamMemberFromLocation) };
+      return { items: enhancedLocations.map(mapTeamMemberFromLocation) };
     }
 
     return enhancedLocations;
   }
 
   async updateLocation(userId: number, dto: UpdateLocationDto) {
-    return this.prisma.location.upsert({
+    const updated = await this.prisma.location.upsert({
       where: { userId },
       update: {
         latitude: dto.latitude,
@@ -126,5 +134,7 @@ export class LiveLocationService {
         },
       },
     });
+    this.eventsService.emit('teamLocations', 'synced', userId);
+    return updated;
   }
 }

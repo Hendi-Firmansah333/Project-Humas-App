@@ -2,10 +2,14 @@ import { Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { buildPaginatedResult, parsePagination } from '../common/utils/pagination.util';
 import { mapNotificationForMobile } from '../common/mappers/mobile.mapper';
+import { RealtimeEventsService } from '../events/realtime-events.service';
 
 @Injectable()
 export class NotificationsService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private eventsService: RealtimeEventsService,
+  ) {}
 
   private buildWhere(userId: number, filter?: string, search?: string) {
     const readFilter =
@@ -61,6 +65,7 @@ export class NotificationsService {
       where: { id },
       data: { isRead: true },
     });
+    this.eventsService.emit('notifications', 'read', id);
     return { message: 'Notifikasi ditandai sudah dibaca.' };
   }
 
@@ -69,6 +74,7 @@ export class NotificationsService {
       where: { deletedAt: null, OR: [{ userId }, { userId: null }], isRead: false },
       data: { isRead: true },
     });
+    this.eventsService.emit('notifications', 'read_all');
     return { message: 'Semua notifikasi ditandai sudah dibaca.' };
   }
 
@@ -82,6 +88,7 @@ export class NotificationsService {
       where: { id },
       data: { deletedAt: new Date() },
     });
+    this.eventsService.emit('notifications', 'deleted', id);
     return { message: 'Notifikasi berhasil dihapus.' };
   }
 }

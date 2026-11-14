@@ -1,21 +1,20 @@
 import 'dart:convert';
-import 'dart:io';
 import 'package:dio/dio.dart';
+import 'package:image_picker/image_picker.dart';
 
 class CloudinaryService {
-  // TODO: Silakan ganti 'YOUR_CLOUD_NAME' dengan Cloud Name dari Dashboard Cloudinary Anda
   static const String cloudName = 'dcpne6otf';
   static const String uploadPreset = 'humas_checkin';
 
-  /// Fungsi untuk mengunggah gambar ke Cloudinary dan mengembalikan URL publik HTTPS
+  /// Mengunggah gambar ke Cloudinary secara lintas-platform (Android, iOS, & Web) dan mengembalikan URL publik HTTPS.
   static Future<String?> uploadImage(String filePath) async {
     try {
-      final file = File(filePath);
-      if (!await file.exists()) {
-        throw Exception('File gambar tidak ditemukan di perangkat.');
+      final file = XFile(filePath);
+      final bytes = await file.readAsBytes();
+      if (bytes.isEmpty) {
+        throw Exception('File gambar kosong atau tidak ditemukan di perangkat.');
       }
 
-      final bytes = await file.readAsBytes();
       final base64Image = base64Encode(bytes);
       final ext = filePath.split('.').last.toLowerCase();
       final mimeType = ext == 'png' ? 'image/png' : 'image/jpeg';

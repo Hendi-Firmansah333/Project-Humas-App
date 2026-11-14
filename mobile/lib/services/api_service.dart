@@ -25,24 +25,32 @@ class ApiService {
 
   Future<AppDataSnapshot> fetchSnapshot() async {
     const mobileQuery = {'page': 1, 'pageSize': 50, 'mobile': '1'};
-    final activities = await ApiClient.instance.get('/activities', query: mobileQuery);
-    final history = await ApiClient.instance.get('/activities/history', query: mobileQuery);
-    final contentPlans = await ApiClient.instance.get('/content-plans', query: mobileQuery);
-    final notifications = await ApiClient.instance.get('/notifications', query: mobileQuery);
-    final team = await ApiClient.instance.get('/team-locations', query: {'mobile': '1'});
-
     final userId = UserProfileService.instance.profile.id;
-    List<dynamic> schedulesList = [];
-    if (userId != null) {
-      try {
-        final schedules = await ApiClient.instance.get('/schedules', query: {'userId': userId.toString()});
-        if (schedules['items'] is List) {
-          schedulesList = schedules['items'] as List<dynamic>;
-        }
-      } catch (e) {
-        debugPrint('Failed to fetch schedules: $e');
-      }
-    }
+
+    final results = await Future.wait<Map<String, dynamic>>([
+      ApiClient.instance.get('/activities', query: mobileQuery),
+      ApiClient.instance.get('/activities/history', query: mobileQuery),
+      ApiClient.instance.get('/content-plans', query: mobileQuery),
+      ApiClient.instance.get('/notifications', query: mobileQuery),
+      ApiClient.instance.get('/team-locations', query: {'mobile': '1'}),
+      if (userId != null)
+        ApiClient.instance
+            .get('/schedules', query: {'userId': userId.toString()})
+            .catchError((Object e) {
+              debugPrint('Failed to fetch schedules: $e');
+              return <String, dynamic>{};
+            })
+      else
+        Future.value(<String, dynamic>{}),
+    ]);
+
+    final activities = results[0];
+    final history = results[1];
+    final contentPlans = results[2];
+    final notifications = results[3];
+    final team = results[4];
+    final schedules = results[5];
+    final schedulesList = schedules['items'] is List ? schedules['items'] as List<dynamic> : <dynamic>[];
 
     return AppDataSnapshot(
       activities: (activities['items'] as List<dynamic>? ?? [])
@@ -64,6 +72,57 @@ class ApiService {
           .map((e) => DutyScheduleItem.fromJson(e as Map<String, dynamic>))
           .toList(),
     );
+  }
+
+  Future<Map<String, dynamic>> fetchRealtimeVersions() {
+    return ApiClient.instance.get('/events/version');
+  }
+
+  Future<({List<ActivityItem> active, List<ActivityItem> history})> fetchActivitiesSnapshotPair() async {
+    const mobileQuery = {'page': 1, 'pageSize': 50, 'mobile': '1'};
+    final results = await Future.wait<Map<String, dynamic>>([
+      ApiClient.instance.get('/activities', query: mobileQuery),
+      ApiClient.instance.get('/activities/history', query: mobileQuery),
+    ]);
+    return (
+      active: (results[0]['items'] as List<dynamic>? ?? [])
+          .map((e) => _activityFromApi(e as Map<String, dynamic>))
+          .toList(),
+      history: (results[1]['items'] as List<dynamic>? ?? [])
+          .map((e) => _activityFromApi(e as Map<String, dynamic>))
+          .toList(),
+    );
+  }
+
+  Future<List<ContentPlanItem>> fetchContentPlansSnapshotList() async {
+    const mobileQuery = {'page': 1, 'pageSize': 50, 'mobile': '1'};
+    final data = await ApiClient.instance.get('/content-plans', query: mobileQuery);
+    return (data['items'] as List<dynamic>? ?? [])
+        .map((e) => ContentPlanItem.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<AppNotification>> fetchNotificationsSnapshotList() async {
+    const mobileQuery = {'page': 1, 'pageSize': 50, 'mobile': '1'};
+    final data = await ApiClient.instance.get('/notifications', query: mobileQuery);
+    return (data['items'] as List<dynamic>? ?? [])
+        .map((e) => _notificationFromApi(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<TeamMember>> fetchTeamLocationsSnapshotList() async {
+    final team = await ApiClient.instance.get('/team-locations', query: {'mobile': '1'});
+    return (team['items'] as List<dynamic>? ?? [])
+        .map((e) => TeamMember.fromJson(e as Map<String, dynamic>))
+        .toList();
+  }
+
+  Future<List<DutyScheduleItem>> fetchSchedulesSnapshotList() async {
+    final userId = UserProfileService.instance.profile.id;
+    if (userId == null) return const [];
+    final schedules = await ApiClient.instance.get('/schedules', query: {'userId': userId.toString()});
+    final list = schedules['items'] is List ? schedules['items'] as List<dynamic> : <dynamic>[];
+    return list.map((e) => DutyScheduleItem.fromJson(e as Map<String, dynamic>)).toList();
   }
 
   Future<Map<String, dynamic>> fetchProfile() async {

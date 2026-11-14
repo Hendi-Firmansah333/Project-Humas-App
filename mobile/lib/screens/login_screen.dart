@@ -124,9 +124,8 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    final brightness = Theme.of(context).brightness;
-    final isDark = brightness == Brightness.dark;
-    final bgColor = isDark ? const Color(0xFF121212) : Colors.white;
+    const isDark = false;
+    const bgColor = Colors.white;
 
     return Scaffold(
       backgroundColor: bgColor,

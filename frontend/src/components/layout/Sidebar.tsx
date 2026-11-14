@@ -258,7 +258,7 @@ export default function Sidebar({
           <img
             alt="HUMAS POLINELA"
             className="w-8 h-8 object-contain shrink-0"
-            src="/logo-humas.svg"
+            src="/logo-humas.png"
           />
           {!isCollapsed && (
             <div className="truncate">

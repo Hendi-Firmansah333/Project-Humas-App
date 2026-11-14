@@ -5,6 +5,7 @@ import 'package:poli_humas/services/api_client.dart';
 import 'package:poli_humas/services/api_service.dart';
 import 'package:poli_humas/services/location_service.dart';
 import 'package:poli_humas/services/local_storage.dart';
+import 'package:poli_humas/theme/app_colors.dart';
 
 /// Mengirim koordinat GPS anggota humas ke backend agar web admin dapat memantau.
 /// Sesuai dengan UU PDP No. 27/2022 Pasal 20: Mewajibkan persetujuan eksplisit (consent) pengguna.
@@ -18,6 +19,9 @@ class LiveLocationSyncService {
 
   Timer? _timer;
   bool _syncing = false;
+  double? _lastLatitude;
+  double? _lastLongitude;
+  String? _lastAddress;
 
   bool get isRunning => _timer != null;
 
@@ -49,7 +53,7 @@ class LiveLocationSyncService {
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
         title: const Row(
           children: [
-            Icon(Icons.security, color: Color(0xFF006876)),
+            Icon(Icons.security, color: AppColors.primary),
             SizedBox(width: 8),
             Expanded(
               child: Text(
@@ -69,7 +73,7 @@ class LiveLocationSyncService {
             ),
             SizedBox(height: 8),
             Text(
-              'Aplikasi HUMASS Polinela membutuhkan izin Anda untuk memantau koordinat lokasi tim secara berkala (tiap 30 detik) secara real-time.\n\n'
+              'Aplikasi HUMAS POLINELA membutuhkan izin Anda untuk memantau koordinat lokasi tim secara berkala (tiap 30 detik) secara real-time.\n\n'
               'Tujuan Pemrosesan:\n'
               '• Monitoring keamanan & koordinasi tugas liputan aktif.\n'
               '• Validasi kehadiran saat penugasan lapangan di lingkungan kampus.\n\n'
@@ -85,7 +89,7 @@ class LiveLocationSyncService {
           ),
           ElevatedButton(
             style: ElevatedButton.styleFrom(
-              backgroundColor: const Color(0xFF006876),
+              backgroundColor: AppColors.primary,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
             ),
             onPressed: () => Navigator.pop(ctx, true),
@@ -118,12 +122,16 @@ class LiveLocationSyncService {
   Future<void> stop({bool markOffline = true}) async {
     _timer?.cancel();
     _timer = null;
-    if (markOffline && ApiConfig.enabled && ApiClient.instance.hasToken) {
+    if (markOffline &&
+        ApiConfig.enabled &&
+        ApiClient.instance.hasToken &&
+        _lastLatitude != null &&
+        _lastLongitude != null) {
       try {
         await ApiService.instance.syncLocation(
-          latitude: -5.3585,
-          longitude: 105.2345,
-          address: 'Tidak aktif',
+          latitude: _lastLatitude!,
+          longitude: _lastLongitude!,
+          address: _lastAddress ?? 'Tidak aktif',
           isOnline: false,
         );
       } catch (_) {}
@@ -144,14 +152,20 @@ class LiveLocationSyncService {
     _syncing = true;
     try {
       final position = await LocationService.instance.getCurrentPosition();
+      final address =
+          'Lokasi lapangan (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})';
+      _lastLatitude = position.latitude;
+      _lastLongitude = position.longitude;
+      _lastAddress = address;
+
       await ApiService.instance.syncLocation(
         latitude: position.latitude,
         longitude: position.longitude,
-        address: 'Lokasi lapangan (${position.latitude.toStringAsFixed(4)}, ${position.longitude.toStringAsFixed(4)})',
+        address: address,
         isOnline: true,
       );
     } catch (_) {
-      // GPS tidak tersedia — tetap tandai online dengan koordinat terakhir dari seed/backend.
+      // GPS tidak tersedia — biarkan lokasi terakhir tetap tersimpan.
     } finally {
       _syncing = false;
     }

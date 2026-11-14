@@ -1,28 +1,28 @@
 import 'package:flutter/material.dart';
-import 'package:poli_humas/services/app_settings_service.dart';
 
 class AppColors {
-  static bool get isDark => AppSettingsService.instance.darkModeEnabled;
+  // Mode gelap dinonaktifkan sepenuhnya pada aplikasi (selalu light mode)
+  static bool get isDark => false;
 
-  // Brand Teal Palette
-  static const brand50 = Color(0xFFF0FDFA);
-  static const brand100 = Color(0xFFCCFBF1);
-  static const brand200 = Color(0xFF99F6E4);
-  static const brand300 = Color(0xFF5EEAD4);
-  static const brand400 = Color(0xFF2DD4BF);
-  static const brand500 = Color(0xFF14B8A6);
-  static const brand600 = Color(0xFF0D9488);
-  static const brand700 = Color(0xFF0F766E);
-  static const brand800 = Color(0xFF115E59);
-  static const brand900 = Color(0xFF134E4A);
+  // Brand Palette (#003D58 Deep Polinela Blue)
+  static const brand50 = Color(0xFFE8F2F6);
+  static const brand100 = Color(0xFFC7DEE9);
+  static const brand200 = Color(0xFF94BDD2);
+  static const brand300 = Color(0xFF5C9BBB);
+  static const brand400 = Color(0xFF2E7CA4);
+  static const brand500 = Color(0xFF005E87);
+  static const brand600 = Color(0xFF003D58);
+  static const brand700 = Color(0xFF003248);
+  static const brand800 = Color(0xFF002738);
+  static const brand900 = Color(0xFF001B28);
 
   // Polinela Brand Colors
   static const polinelaCyan = Color(0xFF06B6D4);
   static const polinelaSky = Color(0xFF0284C7);
-  static const polinelaNavy = Color(0xFF0F172A);
+  static const polinelaNavy = Color(0xFF003D58);
 
   // Main UI Colors
-  static const primary = brand600;
+  static const primary = Color(0xFF003D58);
   static const primaryDark = brand800;
   static const primaryLight = brand100;
   static const accent = polinelaCyan;
@@ -66,7 +66,7 @@ class AppColors {
   // Standard BoxShadows
   static List<BoxShadow> get shadowSoft => [
         BoxShadow(
-          color: const Color(0xFF0D9488).withValues(alpha: 0.08),
+          color: const Color(0xFF003D58).withValues(alpha: 0.08),
           blurRadius: 30,
           offset: const Offset(0, 8),
         ),
@@ -92,7 +92,7 @@ class AppColors {
 
   static List<BoxShadow> get shadowFloating => [
         BoxShadow(
-          color: const Color(0xFF0D9488).withValues(alpha: 0.25),
+          color: const Color(0xFF003D58).withValues(alpha: 0.25),
           blurRadius: 35,
           offset: const Offset(0, 20),
         ),

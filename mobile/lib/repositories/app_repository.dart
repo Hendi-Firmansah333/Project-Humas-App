@@ -107,10 +107,12 @@ class AppRepository {
   static final AppRepository instance = AppRepository._();
 
   static const _cacheKey = 'app_data_cache';
-  static const pageSize = 5;
+  static const pageSize = 20;
   static const simulatedNetworkDelay = Duration(milliseconds: 400);
 
   AppDataSnapshot? _data;
+
+  bool get isUsingApi => _useApi;
 
   AppDataSnapshot get data {
     _data ??= _buildInitial();
@@ -135,26 +137,46 @@ class AppRepository {
 
   bool get _useApi => ApiService.instance.isAvailable;
 
-  Future<void> init() async {
+  Future<void> initCacheOnly() async {
     final raw = await LocalStorage.getString(_cacheKey);
-    if (raw != null) {
+    if (raw != null && raw.isNotEmpty) {
       try {
         _data = AppDataSnapshot.fromJson(jsonDecode(raw) as Map<String, dynamic>);
       } catch (_) {
-        _data = _buildInitial();
+        _data = _useApi
+            ? const AppDataSnapshot(
+                activities: [],
+                activityHistory: [],
+                contentPlans: [],
+                notifications: [],
+                teamMembers: [],
+                dutySchedules: [],
+              )
+            : _buildInitial();
       }
     } else {
-      _data = _buildInitial();
+      _data = _useApi
+          ? const AppDataSnapshot(
+              activities: [],
+              activityHistory: [],
+              contentPlans: [],
+              notifications: [],
+              teamMembers: [],
+              dutySchedules: [],
+            )
+          : _buildInitial();
     }
+  }
 
+  Future<void> init() async {
+    await initCacheOnly();
     if (_useApi) {
       try {
         _data = await ApiService.instance.fetchSnapshot();
       } catch (_) {
-        _data = _buildInitial();
+        _data ??= _buildInitial();
       }
     }
-
     await _persist();
   }
 
@@ -177,6 +199,61 @@ class AppRepository {
     _jitterTeamLocations();
     await _persist();
     return data;
+  }
+
+  Future<void> refreshScopes(Set<String> scopes) async {
+    if (!_useApi || scopes.isEmpty) return;
+    if (scopes.contains('all')) {
+      await refresh(simulateNetwork: false);
+      return;
+    }
+
+    var current = data;
+    final tasks = <Future<void>>[];
+
+    if (scopes.contains('activities')) {
+      tasks.add(
+        ApiService.instance.fetchActivitiesSnapshotPair().then((res) {
+          current = current.copyWith(
+            activities: res.active,
+            activityHistory: res.history,
+          );
+        }),
+      );
+    }
+    if (scopes.contains('contentPlans')) {
+      tasks.add(
+        ApiService.instance.fetchContentPlansSnapshotList().then((items) {
+          current = current.copyWith(contentPlans: items);
+        }),
+      );
+    }
+    if (scopes.contains('notifications')) {
+      tasks.add(
+        ApiService.instance.fetchNotificationsSnapshotList().then((items) {
+          current = current.copyWith(notifications: items);
+        }),
+      );
+    }
+    if (scopes.contains('teamLocations')) {
+      tasks.add(
+        ApiService.instance.fetchTeamLocationsSnapshotList().then((items) {
+          current = current.copyWith(teamMembers: items);
+        }),
+      );
+    }
+    if (scopes.contains('schedules')) {
+      tasks.add(
+        ApiService.instance.fetchSchedulesSnapshotList().then((items) {
+          current = current.copyWith(dutySchedules: items);
+        }),
+      );
+    }
+
+    if (tasks.isEmpty) return;
+    await Future.wait(tasks);
+    _data = current;
+    await _persist();
   }
 
   void _jitterTeamLocations() {

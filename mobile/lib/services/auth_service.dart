@@ -4,6 +4,7 @@ import 'package:poli_humas/services/api_client.dart';
 import 'package:poli_humas/services/api_service.dart';
 import 'package:poli_humas/services/live_location_sync_service.dart';
 import 'package:poli_humas/services/local_storage.dart';
+import 'package:poli_humas/services/realtime_sync_service.dart';
 import 'package:poli_humas/services/user_profile_service.dart';
 
 class PasswordValidationResult {
@@ -91,6 +92,7 @@ class AuthService {
   }
 
   Future<void> logoutRemote() async {
+    RealtimeSyncService.instance.stop();
     await LiveLocationSyncService.instance.stop(markOffline: true);
     if (ApiClient.instance.hasToken) {
       try {

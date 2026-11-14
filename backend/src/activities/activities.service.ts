@@ -7,10 +7,18 @@ import { DocumentationDto } from './dto/documentation.dto';
 import { ActivityStatus, CheckInStatus } from '@prisma/client';
 import { buildPaginatedResult, parsePagination } from '../common/utils/pagination.util';
 import { mapActivityForMobile } from '../common/mappers/mobile.mapper';
+import { RealtimeEventsService } from '../events/realtime-events.service';
 
 @Injectable()
 export class ActivitiesService {
-  constructor(private prisma: PrismaService) {}
+  private lastSyncAt = 0;
+  private syncPromise: Promise<void> | null = null;
+  private static readonly SYNC_TTL_MS = 15000;
+
+  constructor(
+    private prisma: PrismaService,
+    private eventsService: RealtimeEventsService,
+  ) {}
 
   private activityInclude = {
     pic: { select: { id: true, fullName: true, username: true, roleLabel: true, avatar: true } },
@@ -68,20 +76,46 @@ export class ActivitiesService {
   };
 
   private async syncStatus() {
+    const nowMs = Date.now();
+    if (nowMs - this.lastSyncAt < ActivitiesService.SYNC_TTL_MS) {
+      return;
+    }
+    if (this.syncPromise) {
+      return this.syncPromise;
+    }
+
+    this.syncPromise = this.runSyncStatus().finally(() => {
+      this.syncPromise = null;
+      this.lastSyncAt = Date.now();
+    });
+    return this.syncPromise;
+  }
+
+  private async runSyncStatus() {
     const activities = await this.prisma.activity.findMany({
       where: {
-        status: { in: [ActivityStatus.AKAN_DATANG, ActivityStatus.DITUGASKAN, ActivityStatus.SEDANG_BERLANGSUNG, ActivityStatus.MENUNGGU_VERIFIKASI] },
+        status: {
+          in: [
+            ActivityStatus.AKAN_DATANG,
+            ActivityStatus.DITUGASKAN,
+            ActivityStatus.SEDANG_BERLANGSUNG,
+            ActivityStatus.MENUNGGU_VERIFIKASI,
+          ],
+        },
         deletedAt: null,
       },
-      include: {
-        members: true,
-        media: {
-          where: { deletedAt: null, fileType: 'application/link' },
-        },
+      select: {
+        id: true,
+        title: true,
+        status: true,
+        date: true,
+        startTime: true,
+        endTime: true,
       },
     });
 
     const now = new Date();
+    const updates: Array<{ id: number; title: string; status: ActivityStatus }> = [];
 
     for (const activity of activities) {
       let currentStatus = activity.status;
@@ -105,18 +139,27 @@ export class ActivitiesService {
       }
 
       if (currentStatus !== activity.status) {
-        const updated = await this.prisma.activity.update({
-          where: { id: activity.id },
-          data: { status: currentStatus },
-        });
-        await this.prisma.notification.create({
-          data: {
-            title: 'Status Kegiatan Berubah',
-            message: `Status kegiatan "${updated.title}" kini berubah menjadi ${updated.status}.`,
-            type: 'INFO',
-          },
-        });
+        updates.push({ id: activity.id, title: activity.title, status: currentStatus });
       }
+    }
+
+    if (updates.length > 0) {
+      await Promise.all([
+        ...updates.map((u) =>
+          this.prisma.activity.update({
+            where: { id: u.id },
+            data: { status: u.status },
+          }),
+        ),
+        this.prisma.notification.createMany({
+          data: updates.map((u) => ({
+            title: 'Status Kegiatan Berubah',
+            message: `Status kegiatan "${u.title}" kini berubah menjadi ${u.status}.`,
+            type: 'INFO',
+          })),
+        }),
+      ]);
+      this.eventsService.emitMultiple(['activities', 'notifications'], 'status_synced');
     }
   }
 
@@ -317,25 +360,32 @@ export class ActivitiesService {
       }
     }
 
-    if (userId) {
-      await this.prisma.auditLog.create({
+    const sideEffects: Promise<unknown>[] = [
+      this.prisma.notification.create({
         data: {
-          userId,
-          action: 'CREATE_KEGIATAN_MANUAL',
-          entity: 'Activity',
-          entityId: String(activity.id),
-          newValue: JSON.stringify({ title: activity.title, isManual: true }),
+          title: 'Penugasan Kegiatan Baru',
+          message: `Kegiatan "${activity.title}" (Kegiatan Manual / Tanpa Surat) telah dijadwalkan untuk tanggal ${date.split('T')[0]}.`,
+          type: 'INFO',
         },
-      });
+      }),
+    ];
+
+    if (userId) {
+      sideEffects.push(
+        this.prisma.auditLog.create({
+          data: {
+            userId,
+            action: 'CREATE_KEGIATAN_MANUAL',
+            entity: 'Activity',
+            entityId: String(activity.id),
+            newValue: JSON.stringify({ title: activity.title, isManual: true }),
+          },
+        }),
+      );
     }
 
-    await this.prisma.notification.create({
-      data: {
-        title: 'Penugasan Kegiatan Baru',
-        message: `Kegiatan "${activity.title}" (Kegiatan Manual / Tanpa Surat) telah dijadwalkan untuk tanggal ${date.split('T')[0]}.`,
-        type: 'INFO',
-      },
-    });
+    await Promise.all(sideEffects);
+    this.eventsService.emitMultiple(['activities', 'notifications'], 'created', activity.id);
 
     return activity;
   }
@@ -572,14 +622,14 @@ export class ActivitiesService {
         ...(updated.members as any[]).map((m: any) => m.userId),
       ].filter((uid, idx, arr) => arr.indexOf(uid) === idx);
 
-      for (const uid of allMemberIds) {
-        await this.prisma.notification.create({
-          data: {
+      if (allMemberIds.length > 0) {
+        await this.prisma.notification.createMany({
+          data: allMemberIds.map((uid) => ({
             userId: uid,
             title: 'Kegiatan Selesai',
             message: `Kegiatan "${updated.title}" telah ditandai selesai oleh Admin. Terima kasih atas partisipasi Anda!`,
             type: 'SUCCESS',
-          },
+          })),
         });
       }
     }
@@ -588,10 +638,16 @@ export class ActivitiesService {
       await this.syncPicMember(id, updated.picId);
     }
 
-    return this.prisma.activity.findFirst({
+    const refreshed = await this.prisma.activity.findFirst({
       where: { id, deletedAt: null },
       include: this.activityInclude,
     });
+    if (cleanData.status === ActivityStatus.SELESAI) {
+      this.eventsService.emitMultiple(['activities', 'notifications'], 'updated', id);
+    } else {
+      this.eventsService.emit('activities', 'updated', id);
+    }
+    return refreshed;
   }
 
   async remove(id: number) {
@@ -600,6 +656,7 @@ export class ActivitiesService {
       where: { id },
       data: { deletedAt: new Date() },
     });
+    this.eventsService.emit('activities', 'deleted', id);
     return { message: `Kegiatan ID #${id} berhasil dihapus.` };
   }
 
@@ -626,21 +683,23 @@ export class ActivitiesService {
     });
     if (!activity) throw new NotFoundException('Kegiatan tidak ditemukan.');
 
-    // 1. Time Validation
+    // 1. Time Validation (presensi dibuka 15 menit sebelum kegiatan dimulai)
     const actDate = new Date(activity.date);
     const startParts = (activity.startTime || '08:00').split(':');
     const startDateTime = new Date(actDate);
     startDateTime.setHours(parseInt(startParts[0] || '0', 10), parseInt(startParts[1] || '0', 10), 0, 0);
 
+    const checkInOpenTime = new Date(startDateTime.getTime() - 15 * 60 * 1000);
     const now = new Date();
-    if (now < startDateTime) {
+    if (now < checkInOpenTime) {
       throw new BadRequestException(
-        `Absensi belum tersedia. Kegiatan baru dimulai pada pukul ${activity.startTime} WIB.`,
+        `Absensi belum tersedia. Presensi dibuka 15 menit sebelum kegiatan dimulai (${activity.startTime} WIB).`,
       );
     }
 
-    // Determine if late
-    const isLate = dto.isLate ?? (now > startDateTime);
+    // Determine if late purely on server clock (toleransi keterlambatan 15 menit dari startTime)
+    const lateThreshold = new Date(startDateTime.getTime() + 15 * 60 * 1000);
+    const isLate = now > lateThreshold;
     const checkInStatus = isLate ? CheckInStatus.TERLAMBAT : CheckInStatus.SUCCESS;
 
     // 2. GPS Location Validation
@@ -715,6 +774,7 @@ export class ActivitiesService {
       include: this.activityInclude,
     });
 
+    this.eventsService.emit('activities', 'checked_in', activityId);
     return { item: mapActivityForMobile(refreshed!, false, userId) };
   }
 
@@ -755,6 +815,7 @@ export class ActivitiesService {
           where: { id: existingDoc.id },
           data: { fileUrl: dto.driveUrl },
         });
+        this.eventsService.emit('activities', 'documentation_updated', activityId);
         return {
           item: {
             ...mapActivityForMobile(activity, false, userId),
@@ -778,6 +839,7 @@ export class ActivitiesService {
       },
     });
 
+    this.eventsService.emit('activities', 'documentation_created', activityId);
     return {
       item: {
         ...mapActivityForMobile(activity, false, userId),
@@ -790,11 +852,13 @@ export class ActivitiesService {
 
   async restore(id: number) {
     await this.findOne(id);
-    return this.prisma.activity.update({
+    const restored = await this.prisma.activity.update({
       where: { id },
       data: { status: ActivityStatus.AKAN_DATANG },
       include: this.activityInclude,
     });
+    this.eventsService.emit('activities', 'restored', id);
+    return restored;
   }
 
   private async appendApprovalHistory(activityId: number, userId: number, stage: string, status: string, notes?: string) {
@@ -843,10 +907,12 @@ export class ActivitiesService {
       'Kegiatan disetujui untuk dilaksanakan.'
     );
 
-    return this.prisma.activity.findUnique({
+    const refreshed = await this.prisma.activity.findUnique({
       where: { id },
       include: this.activityInclude,
     });
+    this.eventsService.emit('activities', 'approved_execution', id);
+    return refreshed;
   }
 
   async rejectExecution(id: number, userId: number, notes: string) {
@@ -872,10 +938,12 @@ export class ActivitiesService {
       notes
     );
 
-    return this.prisma.activity.findUnique({
+    const refreshed = await this.prisma.activity.findUnique({
       where: { id },
       include: this.activityInclude,
     });
+    this.eventsService.emit('activities', 'rejected_execution', id);
+    return refreshed;
   }
 
   async assignTeam(
@@ -1026,29 +1094,25 @@ export class ActivitiesService {
       include: this.activityInclude,
     });
 
-    // Notify PIC
-    await this.prisma.notification.create({
-      data: {
+    const assignNotifications = [
+      {
         userId: picId,
         title: 'Penugasan Sebagai PIC Kegiatan',
         message: `Kamu ditugaskan sebagai PIC pada kegiatan "${updated.title}".`,
-        type: 'INFO',
+        type: 'INFO' as const,
         link: `/kegiatan/${id}`,
       },
-    });
+      ...memberIds.map((mId) => ({
+        userId: mId,
+        title: 'Penugasan Anggota Kegiatan',
+        message: `Kamu ditugaskan sebagai anggota pada kegiatan "${updated.title}".`,
+        type: 'INFO' as const,
+        link: `/kegiatan/${id}`,
+      })),
+    ];
 
-    // Notify Members
-    for (const mId of memberIds) {
-      await this.prisma.notification.create({
-        data: {
-          userId: mId,
-          title: 'Penugasan Anggota Kegiatan',
-          message: `Kamu ditugaskan sebagai anggota pada kegiatan "${updated.title}".`,
-          type: 'INFO',
-          link: `/kegiatan/${id}`,
-        },
-      });
-    }
+    await this.prisma.notification.createMany({ data: assignNotifications });
+    this.eventsService.emitMultiple(['activities', 'notifications'], 'assigned_team', id);
 
     return updated;
   }
@@ -1097,10 +1161,12 @@ export class ActivitiesService {
       notes || 'Semua persyaratan kegiatan telah lengkap.'
     );
 
-    return this.prisma.activity.findUnique({
+    const refreshed = await this.prisma.activity.findUnique({
       where: { id },
       include: this.activityInclude,
     });
+    this.eventsService.emit('activities', 'submitted_verification', id);
+    return refreshed;
   }
 
   async approveFinish(id: number, userId: number, notes?: string) {
@@ -1128,27 +1194,29 @@ export class ActivitiesService {
       notes || 'Kegiatan selesai disetujui oleh Kepala Humas.'
     );
 
-    // Notify all members
+    // Notify all members in one batch query
     const allMemberIds = [
       updated.picId,
       ...(updated.members as any[]).map((m: any) => m.userId),
     ].filter((uid, idx, arr) => arr.indexOf(uid) === idx);
 
-    for (const uid of allMemberIds) {
-      await this.prisma.notification.create({
-        data: {
+    if (allMemberIds.length > 0) {
+      await this.prisma.notification.createMany({
+        data: allMemberIds.map((uid) => ({
           userId: uid,
           title: 'Kegiatan Selesai & Terverifikasi',
           message: `Kegiatan "${updated.title}" telah disetujui selesai oleh Kepala Humas.`,
           type: 'SUCCESS',
-        },
+        })),
       });
     }
 
-    return this.prisma.activity.findUnique({
+    const refreshed = await this.prisma.activity.findUnique({
       where: { id },
       include: this.activityInclude,
     });
+    this.eventsService.emitMultiple(['activities', 'notifications'], 'approved_finish', id);
+    return refreshed;
   }
 
   async returnRevision(id: number, userId: number, notes: string) {
@@ -1186,10 +1254,12 @@ export class ActivitiesService {
       },
     });
 
-    return this.prisma.activity.findUnique({
+    const refreshed = await this.prisma.activity.findUnique({
       where: { id },
       include: this.activityInclude,
     });
+    this.eventsService.emitMultiple(['activities', 'notifications'], 'returned_revision', id);
+    return refreshed;
   }
 
   async getCategories() {

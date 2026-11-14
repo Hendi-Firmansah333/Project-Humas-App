@@ -15,6 +15,7 @@ import { ReportsModule } from './reports/reports.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { DashboardModule } from './dashboard/dashboard.module';
 import { IncomingLettersModule } from './incoming-letters/incoming-letters.module';
+import { EventsModule } from './events/events.module';
 import { AuditLoggerMiddleware } from './common/middleware/audit-logger.middleware';
 
 @Module({
@@ -22,9 +23,10 @@ import { AuditLoggerMiddleware } from './common/middleware/audit-logger.middlewa
     ThrottlerModule.forRoot([
       {
         ttl: 60000, // 60 detik
-        limit: 100, // Maksimal 100 request per menit
+        limit: 400, // Longgar untuk concurrent web + mobile real-time sync di 1 IP/NAT
       },
     ]),
+    EventsModule,
     PrismaModule,
     AuthModule,
     UsersModule,

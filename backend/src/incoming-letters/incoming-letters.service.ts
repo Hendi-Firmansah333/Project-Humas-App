@@ -4,6 +4,7 @@ import { CreateLetterDto } from './dto/create-letter.dto';
 import { UpdateLetterDto } from './dto/update-letter.dto';
 import { CreateActivityFromLetterDto } from './dto/create-activity-from-letter.dto';
 import { ActivityStatus, CheckInStatus } from '@prisma/client';
+import { RealtimeEventsService } from '../events/realtime-events.service';
 
 const letterInclude = {
   createdBy: {
@@ -17,7 +18,10 @@ const letterInclude = {
 
 @Injectable()
 export class IncomingLettersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    private eventsService: RealtimeEventsService,
+  ) {}
 
   async create(userId: number, dto: CreateLetterDto) {
     const letter = await this.prisma.incomingLetter.create({
@@ -187,27 +191,28 @@ export class IncomingLettersService {
       include: letterInclude,
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        userId,
-        action: 'APPROVE_SURAT_MASUK',
-        entity: 'IncomingLetter',
-        entityId: String(id),
-        newValue: JSON.stringify({ status: 'DISETUJUI' }),
-      },
-    });
+    await Promise.all([
+      this.prisma.auditLog.create({
+        data: {
+          userId,
+          action: 'APPROVE_SURAT_MASUK',
+          entity: 'IncomingLetter',
+          entityId: String(id),
+          newValue: JSON.stringify({ status: 'DISETUJUI' }),
+        },
+      }),
+      this.prisma.notification.create({
+        data: {
+          userId: letter.createdById,
+          title: 'Surat Disetujui Kepala Humas',
+          message: `Surat No. ${letter.letterNumber} telah disetujui oleh Kepala Humas.`,
+          type: 'SUCCESS',
+          link: `/surat-masuk`,
+        },
+      }),
+    ]);
 
-    // Notify creator/Admin
-    await this.prisma.notification.create({
-      data: {
-        userId: letter.createdById,
-        title: 'Surat Disetujui Kepala Humas',
-        message: `Surat No. ${letter.letterNumber} telah disetujui oleh Kepala Humas.`,
-        type: 'SUCCESS',
-        link: `/surat-masuk`,
-      },
-    });
-
+    this.eventsService.emit('notifications', 'letter_approved', id);
     return updated;
   }
 
@@ -229,27 +234,28 @@ export class IncomingLettersService {
       include: letterInclude,
     });
 
-    await this.prisma.auditLog.create({
-      data: {
-        userId,
-        action: 'REJECT_SURAT_MASUK',
-        entity: 'IncomingLetter',
-        entityId: String(id),
-        newValue: JSON.stringify({ status: 'DITOLAK', notes: rejectNotes }),
-      },
-    });
+    await Promise.all([
+      this.prisma.auditLog.create({
+        data: {
+          userId,
+          action: 'REJECT_SURAT_MASUK',
+          entity: 'IncomingLetter',
+          entityId: String(id),
+          newValue: JSON.stringify({ status: 'DITOLAK', notes: rejectNotes }),
+        },
+      }),
+      this.prisma.notification.create({
+        data: {
+          userId: letter.createdById,
+          title: 'Surat Ditolak Kepala Humas',
+          message: `Surat No. ${letter.letterNumber} ditolak oleh Kepala Humas dengan alasan: ${rejectNotes}`,
+          type: 'ALERT',
+          link: `/surat-masuk`,
+        },
+      }),
+    ]);
 
-    // Notify creator/Admin
-    await this.prisma.notification.create({
-      data: {
-        userId: letter.createdById,
-        title: 'Surat Ditolak Kepala Humas',
-        message: `Surat No. ${letter.letterNumber} ditolak oleh Kepala Humas dengan alasan: ${rejectNotes}`,
-        type: 'ALERT',
-        link: `/surat-masuk`,
-      },
-    });
-
+    this.eventsService.emit('notifications', 'letter_rejected', id);
     return updated;
   }
 
@@ -429,43 +435,40 @@ export class IncomingLettersService {
       }
     }
 
-    // Audit Log
-    await this.prisma.auditLog.create({
-      data: {
-        userId,
-        action: 'CREATE_KEGIATAN_FROM_SURAT',
-        entity: 'Activity',
-        entityId: String(activity.id),
-        newValue: JSON.stringify({ activityId: activity.id, suratId: letterId, title: activity.title }),
-      },
-    });
-
-    // Notify PIC
-    await this.prisma.notification.create({
-      data: {
+    // Audit Log + Notifikasi PIC & Anggota secara paralel
+    const notifData = [
+      {
         userId: picId,
         title: 'Penugasan Sebagai PIC Kegiatan',
         message: `Kamu ditugaskan sebagai PIC pada kegiatan "${activity.title}" dari Surat No. ${letter.letterNumber}.`,
-        type: 'INFO',
+        type: 'INFO' as const,
         link: `/kegiatan/${activity.id}`,
       },
-    });
+      ...memberIds
+        .filter((mId) => mId !== picId)
+        .map((mId) => ({
+          userId: mId,
+          title: 'Penugasan Anggota Kegiatan',
+          message: `Kamu ditugaskan sebagai anggota pada kegiatan "${activity.title}" dari Surat No. ${letter.letterNumber}.`,
+          type: 'INFO' as const,
+          link: `/kegiatan/${activity.id}`,
+        })),
+    ];
 
-    // Notify Members
-    for (const mId of memberIds) {
-      if (mId !== picId) {
-        await this.prisma.notification.create({
-          data: {
-            userId: mId,
-            title: 'Penugasan Anggota Kegiatan',
-            message: `Kamu ditugaskan sebagai anggota pada kegiatan "${activity.title}" dari Surat No. ${letter.letterNumber}.`,
-            type: 'INFO',
-            link: `/kegiatan/${activity.id}`,
-          },
-        });
-      }
-    }
+    await Promise.all([
+      this.prisma.auditLog.create({
+        data: {
+          userId,
+          action: 'CREATE_KEGIATAN_FROM_SURAT',
+          entity: 'Activity',
+          entityId: String(activity.id),
+          newValue: JSON.stringify({ activityId: activity.id, suratId: letterId, title: activity.title }),
+        },
+      }),
+      this.prisma.notification.createMany({ data: notifData }),
+    ]);
 
+    this.eventsService.emitMultiple(['activities', 'notifications'], 'created_from_letter', activity.id);
     return activity;
   }
 
