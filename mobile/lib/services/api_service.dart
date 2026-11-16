@@ -129,6 +129,32 @@ class ApiService {
     return ApiClient.instance.get('/auth/me');
   }
 
+  Future<Map<String, dynamic>> updateMyProfile({
+    String? fullName,
+    String? phone,
+    String? avatar,
+    bool includeAvatar = false,
+  }) async {
+    final body = <String, dynamic>{
+      if (fullName != null) 'fullName': fullName.trim(),
+      if (phone != null) 'phone': phone.trim(),
+      if (includeAvatar) 'avatar': avatar,
+    };
+    return ApiClient.instance.patch('/users/me', body: body);
+  }
+
+  Future<Map<String, dynamic>> changeMyPassword({
+    required String currentPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    return ApiClient.instance.patch('/users/me/password', body: {
+      'currentPassword': currentPassword,
+      'password': newPassword,
+      'confirmPassword': confirmPassword,
+    });
+  }
+
   Future<PagedResult<ActivityItem>> fetchActivities({
     int page = 1,
     String search = '',

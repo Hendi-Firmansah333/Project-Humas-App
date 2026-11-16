@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Controller, Get, Query, Request, UseGuards } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { LiveLocationService } from './live-location.service';
@@ -13,7 +13,10 @@ export class TeamLocationsController {
   @Get()
   @ApiOperation({ summary: 'Alias live location untuk mobile' })
   @ApiQuery({ name: 'mobile', required: false })
-  findAll(@Query('mobile') mobile?: string) {
-    return this.liveLocationService.findAll(mobile === 'true' || mobile === '1');
+  findAll(@Request() req: any, @Query('mobile') mobile?: string) {
+    return this.liveLocationService.findAll(
+      { id: req.user.id, role: req.user.role },
+      mobile === 'true' || mobile === '1',
+    );
   }
 }

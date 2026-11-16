@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:poli_humas/config/api_config.dart';
 import 'package:poli_humas/providers/app_data_provider.dart';
 import 'package:poli_humas/services/app_navigation_service.dart';
+import 'package:poli_humas/services/app_settings_service.dart';
 import 'package:poli_humas/services/auth_service.dart';
 import 'package:poli_humas/services/live_location_sync_service.dart';
 import 'package:poli_humas/services/realtime_sync_service.dart';
@@ -27,6 +28,7 @@ class MainShell extends StatefulWidget {
 
 class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   late int _currentIndex;
+  AppDataProvider? _appData;
 
   @override
   void initState() {
@@ -35,6 +37,23 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     WidgetsBinding.instance.addObserver(this);
     AppNavigationService.instance.goHome = () => switchTab(0);
     final appData = context.read<AppDataProvider>();
+    _appData = appData;
+    appData.onNewNotification = (notification) {
+      if (!mounted || !AppSettingsService.instance.notificationsEnabled) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(notification.title),
+            behavior: SnackBarBehavior.floating,
+            action: SnackBarAction(
+              label: 'Lihat',
+              textColor: Colors.white,
+              onPressed: () => switchTab(3),
+            ),
+          ),
+        );
+    };
     RealtimeSyncService.instance.bindProvider(appData);
     RealtimeSyncService.instance.start();
     if (appData.lastFullSyncAt == null &&
@@ -61,8 +80,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   Future<void> _initLocationConsent() async {
     if (!mounted) return;
     if (!ApiConfig.enabled || !AuthService.instance.isLoggedInWithApi) return;
+    if (!AppSettingsService.instance.locationEnabled) return;
     final agreed = await LiveLocationSyncService.instance.ensureConsent(context);
-    if (agreed) {
+    if (agreed && AppSettingsService.instance.locationEnabled) {
       await LiveLocationSyncService.instance.start();
     }
   }
@@ -71,6 +91,9 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     AppNavigationService.instance.goHome = null;
+    if (_appData != null) {
+      _appData!.onNewNotification = null;
+    }
     super.dispose();
   }
 

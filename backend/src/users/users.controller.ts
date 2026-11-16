@@ -9,12 +9,15 @@ import {
   Query,
   UseGuards,
   ParseIntPipe,
+  Request,
 } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { UsersService } from './users.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
+import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
+import { ChangeMyPasswordDto } from './dto/change-my-password.dto';
 import { AuthGuard } from '@nestjs/passport';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { Roles } from '../common/decorators/roles.decorator';
@@ -45,6 +48,27 @@ export class UsersController {
     @Query('search') search?: string,
   ) {
     return this.usersService.findAll(role, status, search);
+  }
+
+  @Get('me')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.USER)
+  @ApiOperation({ summary: 'Profil dan ringkasan statistik akun yang sedang login' })
+  getMe(@Request() req: any) {
+    return this.usersService.getMyProfile(req.user.id);
+  }
+
+  @Patch('me')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.USER)
+  @ApiOperation({ summary: 'Perbarui profil akun sendiri (termasuk foto avatar)' })
+  updateMe(@Request() req: any, @Body() dto: UpdateMyProfileDto) {
+    return this.usersService.updateMyProfile(req.user.id, req.user.role, dto);
+  }
+
+  @Patch('me/password')
+  @Roles(Role.SUPER_ADMIN, Role.ADMIN, Role.USER)
+  @ApiOperation({ summary: 'Ubah kata sandi akun sendiri dengan verifikasi password lama' })
+  changeMyPassword(@Request() req: any, @Body() dto: ChangeMyPasswordDto) {
+    return this.usersService.changeMyPassword(req.user.id, dto);
   }
 
   @Get(':id')

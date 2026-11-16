@@ -65,6 +65,21 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     Future.delayed(const Duration(milliseconds: 250), () {
       if (mounted) _staggeredController.forward();
     });
+
+    _loadRememberedCredentials();
+  }
+
+  Future<void> _loadRememberedCredentials() async {
+    final remembered = await AuthService.instance.getRememberedCredentials();
+    if (!mounted) return;
+    if (remembered.rememberMe) {
+      setState(() {
+        _ingatSaya = true;
+        if (_usernameController.text.isEmpty && remembered.username.isNotEmpty) {
+          _usernameController.text = remembered.username;
+        }
+      });
+    }
   }
 
   @override
@@ -111,6 +126,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         return;
       }
 
+      await AuthService.instance.saveRememberedCredentials(
+        rememberMe: _ingatSaya,
+        username: _usernameController.text.trim(),
+      );
       await AuthService.instance.setLoggedIn(true);
 
       if (!mounted) return;
@@ -289,30 +308,46 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                           ),
                           const SizedBox(height: 12),
 
-                          // Row Actions (Remember Me & Forgot Pass) Staggered
+                          // Row Actions (Remember Me) Staggered
                           _buildStaggeredItem(
                             animation: _actionsAnim,
-                            child: Row(
-                              children: [
-                                SizedBox(
-                                  width: 24,
-                                  height: 24,
-                                  child: Checkbox(
-                                    value: _ingatSaya,
-                                    onChanged: _isLoading ? null : (val) => setState(() => _ingatSaya = val ?? false),
-                                    activeColor: AppColors.brand600,
-                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(6)),
-                                  ),
+                            child: InkWell(
+                              onTap: _isLoading
+                                  ? null
+                                  : () => setState(() => _ingatSaya = !_ingatSaya),
+                              borderRadius: BorderRadius.circular(8),
+                              child: Padding(
+                                padding: const EdgeInsets.symmetric(vertical: 2),
+                                child: Row(
+                                  mainAxisSize: MainAxisSize.min,
+                                  children: [
+                                    SizedBox(
+                                      width: 24,
+                                      height: 24,
+                                      child: Checkbox(
+                                        value: _ingatSaya,
+                                        onChanged: _isLoading
+                                            ? null
+                                            : (val) => setState(() => _ingatSaya = val ?? false),
+                                        activeColor: AppColors.brand600,
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(6),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Text(
+                                      T.t('remember_me'),
+                                      style: TextStyle(
+                                        fontSize: 13,
+                                        color: isDark
+                                            ? const Color(0xFF9CA3AF)
+                                            : const Color(0xFF4B5563),
+                                      ),
+                                    ),
+                                  ],
                                 ),
-                                const SizedBox(width: 8),
-                                Text(
-                                  T.t('remember_me'),
-                                  style: TextStyle(
-                                    fontSize: 13,
-                                    color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF4B5563),
-                                  ),
-                                ),
-                              ],
+                              ),
                             ),
                           ),
                           const SizedBox(height: 28),

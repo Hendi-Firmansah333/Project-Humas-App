@@ -562,3 +562,13 @@ model AuditLog {
   @@index([entity, entityId])
   @@index([action, createdAt])
 }
+
+// ==========================================
+// MODELS: Realtime Sync Versions (Serverless)
+// ==========================================
+
+model RealtimeVersion {
+  scope     String   @id
+  versionTs BigInt
+  updatedAt DateTime @updatedAt
+}

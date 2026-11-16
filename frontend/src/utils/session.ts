@@ -14,9 +14,12 @@ export function getStoredUser(): User | null {
   }
 }
 
+export const SESSION_UPDATED_EVENT = 'humass:session-updated';
+
 export function syncUserSession(user: User) {
   if (typeof window === 'undefined') return;
   localStorage.setItem(USER_KEY, JSON.stringify(user));
+  window.dispatchEvent(new CustomEvent(SESSION_UPDATED_EVENT, { detail: user }));
 }
 
 export function clearUserSession() {

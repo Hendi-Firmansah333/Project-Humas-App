@@ -19,6 +19,7 @@ class RealtimeSyncService {
   static const _streamReconnectBase = Duration(seconds: 2);
   static const _streamReconnectMax = Duration(seconds: 15);
   static const _fallbackPollInterval = Duration(seconds: 18);
+  static const _serverlessPollInterval = Duration(seconds: 8);
   static const _webPollInterval = Duration(seconds: 6);
   static const _tabSyncCooldown = Duration(seconds: 3);
 
@@ -40,8 +41,10 @@ class RealtimeSyncService {
   bool _isForeground = true;
   bool _sseConnected = false;
   bool _connectingSse = false;
+  bool _usePollingOnly = false;
   bool _versionCheckInFlight = false;
   int _reconnectAttempts = 0;
+  Duration _pollInterval = _fallbackPollInterval;
 
   DateTime? _lastTabCheckAt;
   final Map<String, int> _lastVersions = {};
@@ -57,7 +60,9 @@ class RealtimeSyncService {
 
     _running = true;
     _isForeground = true;
+    _usePollingOnly = false;
     _reconnectAttempts = 0;
+    _pollInterval = kIsWeb ? _webPollInterval : _fallbackPollInterval;
 
     // 1. Cek versi perubahan terbaru langsung saat mulai
     unawaited(_checkVersionsAndSync());
@@ -71,12 +76,12 @@ class RealtimeSyncService {
     _startPollTimer();
   }
 
-  void _startPollTimer() {
+  void _startPollTimer([Duration? overrideInterval]) {
     _pollTimer?.cancel();
-    final interval = kIsWeb ? _webPollInterval : _fallbackPollInterval;
+    final interval = overrideInterval ?? (kIsWeb ? _webPollInterval : _pollInterval);
     _pollTimer = Timer.periodic(interval, (_) {
       if (!_running || !_isForeground) return;
-      if (!kIsWeb && _sseConnected) return;
+      if (!kIsWeb && _sseConnected && !_usePollingOnly) return;
       unawaited(_checkVersionsAndSync());
     });
   }
@@ -96,7 +101,7 @@ class RealtimeSyncService {
       return;
     }
     unawaited(_checkVersionsAndSync());
-    if (!kIsWeb && !_sseConnected && !_connectingSse) {
+    if (!kIsWeb && !_usePollingOnly && !_sseConnected && !_connectingSse) {
       _reconnectAttempts = 0;
       unawaited(_connectSse());
     }
@@ -110,8 +115,8 @@ class RealtimeSyncService {
     }
     _lastTabCheckAt = now;
 
-    // Jika SSE terputus atau belum tersambung, cek versi ringan saat berpindah tab
-    if (kIsWeb || !_sseConnected) {
+    // Jika SSE terputus atau server dalam mode polling serverless, cek versi ringan saat berpindah tab
+    if (kIsWeb || _usePollingOnly || !_sseConnected) {
       unawaited(_checkVersionsAndSync());
     }
   }
@@ -184,7 +189,7 @@ class RealtimeSyncService {
       }
       _sseConnected = false;
       _connectingSse = false;
-      if (_running && _isForeground && !cancelToken.isCancelled) {
+      if (_running && _isForeground && !cancelToken.isCancelled && !_usePollingOnly) {
         _scheduleReconnect();
       }
     }
@@ -192,7 +197,7 @@ class RealtimeSyncService {
 
   void _scheduleReconnect() {
     _reconnectTimer?.cancel();
-    if (!_running || !_isForeground) return;
+    if (!_running || !_isForeground || _usePollingOnly) return;
     final factor = 1 << _reconnectAttempts.clamp(0, 3);
     final delaySecs = (_streamReconnectBase.inSeconds * factor).clamp(
       _streamReconnectBase.inSeconds,
@@ -215,6 +220,16 @@ class RealtimeSyncService {
       if (scope == 'ping') return;
 
       if (scope == 'connected') {
+        final action = decoded['action'] as String?;
+        if (action == 'use_polling') {
+          final ms = ((decoded['pollIntervalMs'] as num?)?.toInt() ??
+                  _serverlessPollInterval.inMilliseconds)
+              .clamp(5000, 30000);
+          _usePollingOnly = true;
+          _pollInterval = Duration(milliseconds: ms);
+          _reconnectTimer?.cancel();
+          _startPollTimer(_pollInterval);
+        }
         final versions = decoded['versions'];
         if (versions is Map<String, dynamic>) {
           _applyVersionsMap(versions);
@@ -298,6 +313,8 @@ class RealtimeSyncService {
 
   void stop() {
     _running = false;
+    _usePollingOnly = false;
+    _pollInterval = _fallbackPollInterval;
     _reconnectTimer?.cancel();
     _reconnectTimer = null;
     _pollTimer?.cancel();

@@ -24,11 +24,6 @@ export class LiveLocationService {
 
     const where: any = { deletedAt: null };
 
-    // Role Enforcement: Tim Humas (USER role) can only view their own location
-    if (user && user.role === Role.USER) {
-      where.userId = user.id;
-    }
-
     const locations = await this.prisma.location.findMany({
       where,
       include: {
@@ -103,11 +98,17 @@ export class LiveLocationService {
       };
     });
 
+    // Role Enforcement (Opsi A): USER melihat lokasinya sendiri + rekan yang sedang aktif/online (15 menit terakhir)
+    const visibleLocations =
+      user?.role === Role.USER
+        ? enhancedLocations.filter((loc) => (loc.userId ?? loc.user?.id) === user.id || loc.isOnline)
+        : enhancedLocations;
+
     if (isMobileRequest) {
-      return { items: enhancedLocations.map(mapTeamMemberFromLocation) };
+      return { items: visibleLocations.map(mapTeamMemberFromLocation) };
     }
 
-    return enhancedLocations;
+    return visibleLocations;
   }
 
   async updateLocation(userId: number, dto: UpdateLocationDto) {

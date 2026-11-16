@@ -42,10 +42,8 @@ export class AuthService implements OnModuleInit {
     }
 
     const isPasswordValid = await bcrypt.compare(loginDto.password, user.password);
-    // Allow direct fallback for initial testing or seeded passwords
-    const isDirectMatch = loginDto.password === user.password || loginDto.password === 'admin123';
 
-    if (!isPasswordValid && !isDirectMatch) {
+    if (!isPasswordValid) {
       throw new UnauthorizedException('Username atau password salah.');
     }
 

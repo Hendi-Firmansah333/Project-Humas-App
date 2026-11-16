@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:poli_humas/services/api_service.dart';
 import 'package:poli_humas/services/auth_service.dart';
 import 'package:poli_humas/theme/app_colors.dart';
 
@@ -30,7 +31,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
 
   String? _validateOld(String? value) {
     if (value == null || value.isEmpty) return 'Password lama wajib diisi.';
-    if (!AuthService.instance.verifyPassword(value)) {
+    if (!ApiService.instance.isAvailable && !AuthService.instance.verifyPassword(value)) {
       return 'Password lama tidak sesuai.';
     }
     return null;
@@ -58,7 +59,7 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSaving = true);
-    final success = await AuthService.instance.changePassword(
+    final error = await AuthService.instance.changePasswordRemote(
       oldPassword: _oldController.text,
       newPassword: _newController.text,
       confirmPassword: _confirmController.text,
@@ -66,14 +67,21 @@ class _ChangePasswordScreenState extends State<ChangePasswordScreen> {
     if (!mounted) return;
     setState(() => _isSaving = false);
 
-    if (success) {
+    if (error == null) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Password berhasil diubah.'),
+          content: Text('Password berhasil diperbarui di server.'),
           backgroundColor: AppColors.success,
         ),
       );
       Navigator.pop(context);
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(error),
+          backgroundColor: AppColors.danger,
+        ),
+      );
     }
   }
 

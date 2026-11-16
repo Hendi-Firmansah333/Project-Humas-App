@@ -261,6 +261,28 @@ export const userService = {
     const res = await api.get<User[]>('/users', { params });
     return res.data;
   },
+  getMe: async () => {
+    const res = await api.get<User & { stats?: { activities: number; contentPlans: number; loans: number } }>('/users/me');
+    return res.data;
+  },
+  updateMe: async (data: {
+    fullName?: string;
+    username?: string;
+    email?: string;
+    phone?: string;
+    avatar?: string | null;
+  }) => {
+    const res = await api.patch<User>('/users/me', data);
+    return res.data;
+  },
+  changeMyPassword: async (data: {
+    currentPassword: string;
+    password: string;
+    confirmPassword: string;
+  }) => {
+    const res = await api.patch<{ message: string }>('/users/me/password', data);
+    return res.data;
+  },
   getById: async (id: number) => {
     const res = await api.get<User>(`/users/${id}`);
     return res.data;

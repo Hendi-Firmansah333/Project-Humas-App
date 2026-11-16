@@ -16,13 +16,17 @@ export class EventsController {
   @Sse('stream')
   @ApiOperation({ summary: 'Stream SSE real-time pembaruan data untuk mobile & web' })
   stream(): Observable<MessageEvent> {
+    const isServerless =
+      process.env['VERCEL'] === '1' || process.env['DISABLE_SSE'] === 'true';
+    if (isServerless) {
+      return this.eventsService.getServerlessPollingHandshakeStream(8000);
+    }
     return this.eventsService.getStream();
   }
 
   @Get('version')
-  @ApiOperation({ summary: 'Cek versi timestamp perubahan terbaru per modul (ringan, in-memory)' })
+  @ApiOperation({ summary: 'Cek versi timestamp perubahan terbaru per modul (terintegrasi DB saat serverless)' })
   getVersions() {
-    return this.eventsService.getVersions();
+    return this.eventsService.getSyncedVersions();
   }
 }
-

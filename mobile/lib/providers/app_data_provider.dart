@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:poli_humas/models/activity.dart';
 import 'package:poli_humas/models/content_plan.dart';
@@ -5,7 +7,9 @@ import 'package:poli_humas/models/notification_item.dart';
 import 'package:poli_humas/models/team_member.dart';
 import 'package:poli_humas/models/duty_schedule.dart';
 import 'package:poli_humas/repositories/app_repository.dart';
+import 'package:poli_humas/services/app_settings_service.dart';
 import 'package:poli_humas/services/connectivity_service.dart';
+import 'package:poli_humas/services/user_profile_service.dart';
 
 class ListLoadState<T> {
   const ListLoadState({
@@ -67,9 +71,12 @@ class AppDataProvider extends ChangeNotifier {
 
   bool _initialized = false;
   bool _isRefreshingAll = false;
+  bool _lastNotificationsEnabled = AppSettingsService.instance.notificationsEnabled;
   Future<void>? _refreshInFlight;
   DateTime? _lastFullSyncAt;
   String? _globalError;
+  final Set<String> _knownNotificationIds = <String>{};
+  void Function(AppNotification notification)? onNewNotification;
 
   ListLoadState<ActivityItem> activitiesState = const ListLoadState();
   ListLoadState<ActivityItem> historyState = const ListLoadState(filter: 'Semua');
@@ -89,7 +96,8 @@ class AppDataProvider extends ChangeNotifier {
   String get todayCheckInLabel => _repo.todayCheckInLabel;
   CheckInState get todayCheckInState => _repo.todayCheckInState;
   ProfileStats get profileStats => _repo.computeProfileStats();
-  int get unreadNotificationCount => _repo.unreadNotificationCount;
+  int get unreadNotificationCount =>
+      AppSettingsService.instance.notificationsEnabled ? _repo.unreadNotificationCount : 0;
   List<TeamMember> get teamMembers => _repo.data.teamMembers;
   List<DutyScheduleItem> get dutySchedules => _repo.data.dutySchedules;
 
@@ -97,9 +105,24 @@ class AppDataProvider extends ChangeNotifier {
     if (_initialized) return;
     await _repo.initCacheOnly();
     _connectivity.addListener(_onConnectivityChanged);
+    AppSettingsService.instance.addListener(_onSettingsChanged);
+    _lastNotificationsEnabled = AppSettingsService.instance.notificationsEnabled;
+    _knownNotificationIds
+      ..clear()
+      ..addAll(_repo.data.notifications.map((n) => n.id));
     _syncListStatesFromSnapshot();
     _initialized = true;
     notifyListeners();
+  }
+
+  void _onSettingsChanged() {
+    final enabled = AppSettingsService.instance.notificationsEnabled;
+    if (enabled == _lastNotificationsEnabled) return;
+    _lastNotificationsEnabled = enabled;
+    notifyListeners();
+    if (enabled && _repo.isUsingApi && _connectivity.isOnline) {
+      unawaited(syncScopesSilent({'notifications'}));
+    }
   }
 
   Future<void> init() async {
@@ -223,8 +246,12 @@ class AppDataProvider extends ChangeNotifier {
         await _repo.refresh(simulateNetwork: simulateNetwork);
         if (_repo.isUsingApi) {
           _lastFullSyncAt = DateTime.now();
+          unawaited(UserProfileService.instance.refreshFromApi());
         }
       }
+      _knownNotificationIds
+        ..clear()
+        ..addAll(_repo.data.notifications.map((n) => n.id));
       _syncListStatesFromSnapshot();
     } catch (e) {
       _globalError = e.toString();
@@ -235,16 +262,31 @@ class AppDataProvider extends ChangeNotifier {
   }
 
   Future<void> syncScopesSilent(Set<String> scopes) async {
-    if (!_repo.isUsingApi || !_connectivity.isOnline || scopes.isEmpty) return;
+    final effectiveScopes = Set<String>.from(scopes);
+    if (!AppSettingsService.instance.notificationsEnabled) {
+      effectiveScopes.remove('notifications');
+    }
+    if (!_repo.isUsingApi || !_connectivity.isOnline || effectiveScopes.isEmpty) return;
     try {
-      await _repo.refreshScopes(scopes);
-      if (scopes.contains('all')) {
+      await _repo.refreshScopes(effectiveScopes);
+      if (effectiveScopes.contains('all')) {
         _lastFullSyncAt = DateTime.now();
       }
-      _syncListStatesFromSnapshot(scopes: scopes);
+      if (effectiveScopes.contains('notifications') || effectiveScopes.contains('all')) {
+        final newUnread = _repo.data.notifications
+            .where((n) => n.isUnread && !_knownNotificationIds.contains(n.id))
+            .toList();
+        _knownNotificationIds
+          ..clear()
+          ..addAll(_repo.data.notifications.map((n) => n.id));
+        if (AppSettingsService.instance.notificationsEnabled && newUnread.isNotEmpty) {
+          onNewNotification?.call(newUnread.first);
+        }
+      }
+      _syncListStatesFromSnapshot(scopes: effectiveScopes);
       notifyListeners();
     } catch (e) {
-      debugPrint('Silent realtime sync error ($scopes): $e');
+      debugPrint('Silent realtime sync error ($effectiveScopes): $e');
     }
   }
 
@@ -520,6 +562,7 @@ class AppDataProvider extends ChangeNotifier {
   @override
   void dispose() {
     _connectivity.removeListener(_onConnectivityChanged);
+    AppSettingsService.instance.removeListener(_onSettingsChanged);
     super.dispose();
   }
 }

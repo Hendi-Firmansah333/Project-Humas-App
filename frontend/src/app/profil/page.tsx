@@ -1,14 +1,12 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/layout/AdminLayout';
 import { CustomButton, StatusBadge } from '@/components/common';
 import DashboardSkeleton from '@/components/common/DashboardSkeleton';
 import {
   User,
-  Mail,
-  Phone,
   ShieldCheck,
   KeyRound,
   LogOut,
@@ -18,24 +16,45 @@ import {
   Calendar,
   Save,
   Lock,
+  Loader2,
+  Trash2,
 } from 'lucide-react';
 import { toast } from 'sonner';
-import { authService } from '@/services';
+import { userService } from '@/services';
 import { formatDateID, isValidImageSrc } from '@/utils/formatters';
+import { uploadImageToCloudinary } from '@/utils/cloudinary';
 import { syncUserSession } from '@/utils/session';
 
 const DEFAULT_UNIT = 'Unit Kehumasan & Publikasi Politeknik Negeri Lampung';
 
+function getApiErrorMessage(err: unknown, fallback: string): string {
+  const responseData = (err as { response?: { data?: { message?: string | string[] } } })?.response
+    ?.data;
+  if (responseData?.message) {
+    return Array.isArray(responseData.message)
+      ? responseData.message.join(', ')
+      : responseData.message;
+  }
+  if (err instanceof Error && err.message) {
+    return err.message;
+  }
+  return fallback;
+}
+
 export default function ProfilePage() {
   const router = useRouter();
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const [loading, setLoading] = useState(true);
+  const [savingProfile, setSavingProfile] = useState(false);
+  const [savingPassword, setSavingPassword] = useState(false);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const [accountStatus, setAccountStatus] = useState('AKTIF');
+  const [stats, setStats] = useState({ activities: 0, contentPlans: 0, loans: 0 });
 
   // Profile State
   const [profileData, setProfileData] = useState({
     fullName: '',
     username: '',
-    nip: '',
     email: '',
     phone: '',
     roleLabel: '',
@@ -55,12 +74,11 @@ export default function ProfilePage() {
     const loadProfile = async () => {
       setLoading(true);
       try {
-        const user = await authService.profile();
+        const user = await userService.getMe();
         syncUserSession(user);
         setProfileData({
           fullName: user.fullName,
           username: user.username,
-          nip: '',
           email: user.email,
           phone: user.phone || '',
           roleLabel: user.roleLabel,
@@ -69,8 +87,11 @@ export default function ProfilePage() {
           avatar: user.avatar || '',
         });
         setAccountStatus(user.status);
-      } catch {
-        toast.error('Gagal memuat profil dari server.');
+        if (user.stats) {
+          setStats(user.stats);
+        }
+      } catch (err) {
+        toast.error(getApiErrorMessage(err, 'Gagal memuat profil dari server.'));
       } finally {
         setLoading(false);
       }
@@ -78,36 +99,114 @@ export default function ProfilePage() {
     loadProfile();
   }, []);
 
-  const handleProfileSubmit = (e: React.FormEvent) => {
+  const handleProfileSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!profileData.fullName || !profileData.email) {
-      toast.error('Harap lengkapi Nama Lengkap dan Email!');
+    if (!profileData.fullName.trim() || !profileData.username.trim() || !profileData.email.trim()) {
+      toast.error('Harap lengkapi Nama Lengkap, Username, dan Email!');
       return;
     }
-    toast.success('Informasi profil pribadi dan kontak berhasil diperbarui!');
+    if (profileData.fullName.trim().length < 3 || profileData.username.trim().length < 3) {
+      toast.error('Nama Lengkap dan Username minimal 3 karakter!');
+      return;
+    }
+
+    setSavingProfile(true);
+    try {
+      const updated = await userService.updateMe({
+        fullName: profileData.fullName.trim(),
+        username: profileData.username.trim(),
+        email: profileData.email.trim(),
+        phone: profileData.phone.trim(),
+      });
+      syncUserSession(updated);
+      setProfileData((prev) => ({
+        ...prev,
+        fullName: updated.fullName,
+        username: updated.username,
+        email: updated.email,
+        phone: updated.phone || '',
+        avatar: updated.avatar || prev.avatar,
+      }));
+      toast.success('Informasi profil pribadi dan kontak berhasil disimpan ke server!');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Gagal memperbarui informasi profil.'));
+    } finally {
+      setSavingProfile(false);
+    }
   };
 
-  const handlePasswordSubmit = (e: React.FormEvent) => {
+  const handlePasswordSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!passwordForm.currentPassword || !passwordForm.newPassword) {
       toast.error('Harap lengkapi kata sandi saat ini dan kata sandi baru!');
+      return;
+    }
+    if (passwordForm.newPassword.length < 8) {
+      toast.error('Kata sandi baru minimal 8 karakter!');
       return;
     }
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       toast.error('Konfirmasi kata sandi baru tidak cocok!');
       return;
     }
-    if (passwordForm.newPassword.length < 6) {
-      toast.error('Kata sandi baru minimal 6 karakter!');
+    if (passwordForm.newPassword === passwordForm.currentPassword) {
+      toast.error('Kata sandi baru harus berbeda dari kata sandi saat ini!');
       return;
     }
 
-    setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
-    toast.success('Kata sandi keamanan akun berhasil diperbarui!');
+    setSavingPassword(true);
+    try {
+      const res = await userService.changeMyPassword({
+        currentPassword: passwordForm.currentPassword,
+        password: passwordForm.newPassword,
+        confirmPassword: passwordForm.confirmPassword,
+      });
+      setPasswordForm({ currentPassword: '', newPassword: '', confirmPassword: '' });
+      toast.success(res.message || 'Kata sandi keamanan akun berhasil diperbarui!');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Gagal memperbarui kata sandi.'));
+    } finally {
+      setSavingPassword(false);
+    }
   };
 
   const handleAvatarClick = () => {
-    toast.info('Pilih foto profil baru dari perangkat Anda...');
+    if (uploadingAvatar) return;
+    fileInputRef.current?.click();
+  };
+
+  const handleAvatarFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = '';
+    if (!file) return;
+
+    setUploadingAvatar(true);
+    try {
+      const avatarUrl = await uploadImageToCloudinary(file);
+      const updated = await userService.updateMe({ avatar: avatarUrl });
+      syncUserSession(updated);
+      setProfileData((prev) => ({ ...prev, avatar: updated.avatar || avatarUrl }));
+      toast.success('Foto profil berhasil diunggah dan disimpan!');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Gagal mengunggah foto profil.'));
+    } finally {
+      setUploadingAvatar(false);
+    }
+  };
+
+  const handleRemoveAvatar = async () => {
+    if (uploadingAvatar || !profileData.avatar) return;
+    setUploadingAvatar(true);
+    try {
+      const updated = await userService.updateMe({ avatar: null });
+      syncUserSession(updated);
+      setProfileData((prev) => ({ ...prev, avatar: '' }));
+      toast.success('Foto profil berhasil dihapus.');
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Gagal menghapus foto profil.'));
+    } finally {
+      setUploadingAvatar(false);
+    }
   };
 
   const handleLogout = () => {
@@ -146,6 +245,13 @@ export default function ProfilePage() {
         {/* Left Column (Span 1): Profile Identity Card */}
         <div className="lg:col-span-1 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col items-center text-center space-y-5">
           {/* Avatar Area */}
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            onChange={handleAvatarFileChange}
+            className="hidden"
+          />
           <div className="relative group cursor-pointer" onClick={handleAvatarClick} title="Ganti Foto Profil">
             <div className="w-28 h-28 rounded-full overflow-hidden border-4 border-teal-500/20 shadow-md">
               {isValidImageSrc(profileData.avatar) ? (
@@ -156,13 +262,32 @@ export default function ProfilePage() {
                 </div>
               )}
             </div>
-            <div className="absolute inset-0 bg-slate-900/40 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-              <Camera className="w-6 h-6 text-white" />
+            <div
+              className={`absolute inset-0 bg-slate-900/45 rounded-full flex items-center justify-center transition-opacity ${
+                uploadingAvatar ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'
+              }`}
+            >
+              {uploadingAvatar ? (
+                <Loader2 className="w-6 h-6 text-white animate-spin" />
+              ) : (
+                <Camera className="w-6 h-6 text-white" />
+              )}
             </div>
             <div className="absolute bottom-1 right-1 w-7 h-7 rounded-full bg-teal-600 text-white flex items-center justify-center border-2 border-white shadow-sm">
               <CheckCircle2 className="w-4 h-4" />
             </div>
           </div>
+          {isValidImageSrc(profileData.avatar) && (
+            <button
+              type="button"
+              disabled={uploadingAvatar}
+              onClick={handleRemoveAvatar}
+              className="inline-flex items-center gap-1 text-[11px] font-medium text-rose-600 hover:text-rose-700 disabled:opacity-50 cursor-pointer"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              Hapus Foto Profil
+            </button>
+          )}
 
           {/* Name & Title */}
           <div className="space-y-1">
@@ -179,15 +304,15 @@ export default function ProfilePage() {
           {/* Quick Stats Grid */}
           <div className="w-full grid grid-cols-3 gap-2 pt-4 border-t border-slate-100">
             <div className="p-2.5 rounded-xl bg-slate-50 text-center">
-              <p className="text-sm font-extrabold text-slate-800">42</p>
+              <p className="text-sm font-extrabold text-slate-800">{stats.activities}</p>
               <p className="text-[10px] font-medium text-slate-400 mt-0.5">Liputan</p>
             </div>
             <div className="p-2.5 rounded-xl bg-slate-50 text-center">
-              <p className="text-sm font-extrabold text-teal-600">128</p>
+              <p className="text-sm font-extrabold text-teal-600">{stats.contentPlans}</p>
               <p className="text-[10px] font-medium text-slate-400 mt-0.5">Publikasi</p>
             </div>
             <div className="p-2.5 rounded-xl bg-slate-50 text-center">
-              <p className="text-sm font-extrabold text-slate-800">15</p>
+              <p className="text-sm font-extrabold text-slate-800">{stats.loans}</p>
               <p className="text-[10px] font-medium text-slate-400 mt-0.5">Peminjaman</p>
             </div>
           </div>
@@ -226,7 +351,7 @@ export default function ProfilePage() {
                 <User className="w-5 h-5 text-teal-600" />
                 <h3 className="text-base font-bold text-slate-800">Informasi Pribadi & Kontak</h3>
               </div>
-              <span className="text-xs text-slate-400 italic">Perubahan memerlukan otorisasi admin</span>
+              <span className="text-xs text-slate-400 italic">Data tersimpan langsung ke akun server</span>
             </div>
 
             <form onSubmit={handleProfileSubmit} className="space-y-4 text-[12px]">
@@ -255,11 +380,12 @@ export default function ProfilePage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Nomor Induk Pegawai (NIP)</label>
+                  <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Email Institusi Polinela *</label>
                   <input
-                    type="text"
-                    value={profileData.nip}
-                    onChange={(e) => setProfileData({ ...profileData, nip: e.target.value })}
+                    type="email"
+                    required
+                    value={profileData.email}
+                    onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
                     className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
                   />
                 </div>
@@ -276,13 +402,12 @@ export default function ProfilePage() {
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Email Institusi Polinela *</label>
+                  <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Jabatan / Peran Sistem</label>
                   <input
-                    type="email"
-                    required
-                    value={profileData.email}
-                    onChange={(e) => setProfileData({ ...profileData, email: e.target.value })}
-                    className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
+                    type="text"
+                    disabled
+                    value={profileData.roleLabel}
+                    className="w-full h-[36px] bg-slate-100 border border-[#E2E8F0] rounded-[8px] px-3.5 text-[12px] text-slate-500 shadow-[0_1px_2px_rgba(0,0,0,0.05)] cursor-not-allowed"
                   />
                 </div>
                 <div>
@@ -299,10 +424,11 @@ export default function ProfilePage() {
               <div className="flex justify-end pt-3 border-t border-slate-100">
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-gradient-to-r from-[#0D9488] to-[#14B8A6] hover:from-[#0F766E] hover:to-[#0D9488] text-white text-[12px] font-semibold rounded-[8px] shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  disabled={savingProfile}
+                  className="px-5 py-2 bg-gradient-to-r from-[#0D9488] to-[#14B8A6] hover:from-[#0F766E] hover:to-[#0D9488] disabled:opacity-60 text-white text-[12px] font-semibold rounded-[8px] shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
                 >
-                  <Save className="w-3.5 h-3.5" />
-                  Simpan Perubahan Profil
+                  {savingProfile ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
+                  {savingProfile ? 'Menyimpan...' : 'Simpan Perubahan Profil'}
                 </button>
               </div>
             </form>
@@ -338,7 +464,7 @@ export default function ProfilePage() {
                       type="password"
                       value={passwordForm.newPassword}
                       onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
-                      placeholder="Minimal 6 karakter"
+                      placeholder="Minimal 8 karakter"
                       className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] pl-9 pr-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
                     />
                     <Lock className="w-4 h-4 text-slate-400 absolute left-3 top-2.5 pointer-events-none" />
@@ -362,10 +488,15 @@ export default function ProfilePage() {
               <div className="flex justify-end pt-3 border-t border-slate-100">
                 <button
                   type="submit"
-                  className="px-5 py-2 bg-gradient-to-r from-[#0D9488] to-[#14B8A6] hover:from-[#0F766E] hover:to-[#0D9488] text-white text-[12px] font-semibold rounded-[8px] shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  disabled={savingPassword}
+                  className="px-5 py-2 bg-gradient-to-r from-[#0D9488] to-[#14B8A6] hover:from-[#0F766E] hover:to-[#0D9488] disabled:opacity-60 text-white text-[12px] font-semibold rounded-[8px] shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
                 >
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  Perbarui Kata Sandi
+                  {savingPassword ? (
+                    <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                  ) : (
+                    <ShieldCheck className="w-3.5 h-3.5" />
+                  )}
+                  {savingPassword ? 'Memperbarui...' : 'Perbarui Kata Sandi'}
                 </button>
               </div>
             </form>

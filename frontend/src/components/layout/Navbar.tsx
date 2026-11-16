@@ -25,8 +25,8 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 import UserAvatar from '@/components/common/UserAvatar';
 import { authService, notificationService, activityService, incomingLetterService, userService } from '@/services';
-import { syncUserSession } from '@/utils/session';
-import { Notification } from '@/types';
+import { SESSION_UPDATED_EVENT, syncUserSession } from '@/utils/session';
+import { Notification, User } from '@/types';
 import { formatDateID } from '@/utils/formatters';
 
 interface NavbarProps {
@@ -294,9 +294,21 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
         setShowSearchResults(false);
       }
     };
+    const handleSessionUpdated = (event: Event) => {
+      const updatedUser = (event as CustomEvent<User>).detail;
+      if (!updatedUser) return;
+      setUser({
+        fullName: updatedUser.fullName || '',
+        roleLabel: updatedUser.roleLabel || '',
+        avatar: updatedUser.avatar || '',
+      });
+    };
+
     document.addEventListener('mousedown', handleClickOutside);
+    window.addEventListener(SESSION_UPDATED_EVENT, handleSessionUpdated);
     return () => {
       document.removeEventListener('mousedown', handleClickOutside);
+      window.removeEventListener(SESSION_UPDATED_EVENT, handleSessionUpdated);
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
     };
   }, [pathname, loadNotifications]);

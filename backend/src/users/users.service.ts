@@ -1,14 +1,27 @@
-import { Injectable, NotFoundException, ConflictException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  ConflictException,
+  BadRequestException,
+  ForbiddenException,
+  Optional,
+} from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { UpdatePasswordDto } from './dto/update-password.dto';
+import { UpdateMyProfileDto } from './dto/update-my-profile.dto';
+import { ChangeMyPasswordDto } from './dto/change-my-password.dto';
+import { RealtimeEventsService } from '../events/realtime-events.service';
 import * as bcrypt from 'bcrypt';
 import { Role, UserStatus } from '@prisma/client';
 
 @Injectable()
 export class UsersService {
-  constructor(private prisma: PrismaService) {}
+  constructor(
+    private prisma: PrismaService,
+    @Optional() private eventsService?: RealtimeEventsService,
+  ) {}
 
   async create(createUserDto: CreateUserDto) {
     const existing = await this.prisma.user.findFirst({
@@ -145,5 +158,154 @@ export class UsersService {
       data: { password: hashedPassword },
     });
     return { message: 'Password berhasil diperbarui.' };
+  }
+
+  async getMyProfile(userId: number) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.deletedAt !== null) {
+      throw new NotFoundException('Profil pengguna tidak ditemukan.');
+    }
+
+    const isMember = user.role === Role.USER;
+    const [activities, contentPlans, loans] = await Promise.all([
+      this.prisma.activity.count({
+        where: {
+          deletedAt: null,
+          ...(isMember ? { OR: [{ picId: userId }, { members: { some: { userId } } }] } : {}),
+        },
+      }),
+      this.prisma.contentPlan.count({
+        where: {
+          deletedAt: null,
+          ...(isMember ? { picId: userId } : {}),
+        },
+      }),
+      this.prisma.equipmentLoan.count({
+        where: {
+          deletedAt: null,
+          ...(isMember ? { userId } : {}),
+        },
+      }),
+    ]);
+
+    const { password, ...result } = user;
+    return {
+      ...result,
+      stats: { activities, contentPlans, loans },
+    };
+  }
+
+  async updateMyProfile(userId: number, role: Role, dto: UpdateMyProfileDto) {
+    const existingUser = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!existingUser || existingUser.deletedAt !== null) {
+      throw new NotFoundException('Profil pengguna tidak ditemukan.');
+    }
+
+    const isAdmin = role === Role.ADMIN || role === Role.SUPER_ADMIN;
+    if (!isAdmin) {
+      if (dto.username !== undefined && dto.username.trim() !== existingUser.username) {
+        throw new ForbiddenException('Anggota tidak dapat mengubah username secara mandiri.');
+      }
+      if (
+        dto.email !== undefined &&
+        dto.email.trim().toLowerCase() !== existingUser.email.toLowerCase()
+      ) {
+        throw new ForbiddenException('Anggota tidak dapat mengubah email akun secara mandiri.');
+      }
+    }
+
+    const data: Record<string, string | null> = {};
+
+    if (dto.fullName !== undefined) {
+      const trimmedName = dto.fullName.trim();
+      if (trimmedName.length < 3) {
+        throw new BadRequestException('Nama lengkap minimal harus 3 karakter.');
+      }
+      data.fullName = trimmedName;
+    }
+
+    if (dto.phone !== undefined) {
+      const trimmedPhone = dto.phone.trim();
+      data.phone = trimmedPhone || null;
+    }
+
+    if (dto.avatar !== undefined) {
+      if (dto.avatar === null || dto.avatar.trim() === '') {
+        data.avatar = null;
+      } else {
+        const trimmedAvatar = dto.avatar.trim();
+        if (!trimmedAvatar.startsWith('https://') && !trimmedAvatar.startsWith('http://')) {
+          throw new BadRequestException('URL foto profil harus diawali http:// atau https://.');
+        }
+        data.avatar = trimmedAvatar;
+      }
+    }
+
+    if (isAdmin && dto.username !== undefined) {
+      const nextUsername = dto.username.trim();
+      if (nextUsername.length < 3) {
+        throw new BadRequestException('Username minimal harus 3 karakter.');
+      }
+      if (nextUsername !== existingUser.username) {
+        const usernameConflict = await this.prisma.user.findFirst({
+          where: { id: { not: userId }, username: nextUsername },
+        });
+        if (usernameConflict) {
+          throw new ConflictException('Username sudah digunakan oleh pengguna lain.');
+        }
+        data.username = nextUsername;
+      }
+    }
+
+    if (isAdmin && dto.email !== undefined) {
+      const nextEmail = dto.email.trim().toLowerCase();
+      if (nextEmail !== existingUser.email.toLowerCase()) {
+        const emailConflict = await this.prisma.user.findFirst({
+          where: { id: { not: userId }, email: { equals: nextEmail, mode: 'insensitive' } },
+        });
+        if (emailConflict) {
+          throw new ConflictException('Email sudah digunakan oleh pengguna lain.');
+        }
+        data.email = nextEmail;
+      }
+    }
+
+    const updated =
+      Object.keys(data).length > 0
+        ? await this.prisma.user.update({ where: { id: userId }, data })
+        : existingUser;
+
+    this.eventsService?.emit('teamLocations', 'profile_updated', userId);
+
+    const { password, ...result } = updated;
+    return result;
+  }
+
+  async changeMyPassword(userId: number, dto: ChangeMyPasswordDto) {
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user || user.deletedAt !== null) {
+      throw new NotFoundException('Pengguna tidak ditemukan.');
+    }
+
+    const isCurrentValid = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!isCurrentValid) {
+      throw new BadRequestException('Kata sandi saat ini tidak sesuai.');
+    }
+
+    if (dto.password !== dto.confirmPassword) {
+      throw new BadRequestException('Password baru dan konfirmasi password tidak cocok.');
+    }
+
+    if (dto.password === dto.currentPassword) {
+      throw new BadRequestException('Password baru harus berbeda dari kata sandi saat ini.');
+    }
+
+    const hashedPassword = await bcrypt.hash(dto.password, 10);
+    await this.prisma.user.update({
+      where: { id: userId },
+      data: { password: hashedPassword },
+    });
+
+    return { message: 'Kata sandi berhasil diperbarui.' };
   }
 }

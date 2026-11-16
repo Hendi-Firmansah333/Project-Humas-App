@@ -1,4 +1,10 @@
-import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import {
+  Injectable,
+  NotFoundException,
+  BadRequestException,
+  ForbiddenException,
+} from '@nestjs/common';
+import { Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
@@ -250,7 +256,7 @@ export class SchedulesService {
     return schedules;
   }
 
-  async findOne(id: number) {
+  async findOne(id: number, user?: { id: number; role: Role }) {
     await this.syncStatus();
 
     const schedule = await this.prisma.dutySchedule.findUnique({
@@ -263,6 +269,11 @@ export class SchedulesService {
     if (!schedule) {
       throw new NotFoundException(`Jadwal piket dengan ID #${id} tidak ditemukan.`);
     }
+
+    if (user?.role === Role.USER && schedule.userId !== user.id) {
+      throw new ForbiddenException('Anda hanya dapat mengakses jadwal piket milik sendiri.');
+    }
+
     return schedule;
   }
 

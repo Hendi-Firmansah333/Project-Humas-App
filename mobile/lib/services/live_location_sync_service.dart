@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:poli_humas/config/api_config.dart';
 import 'package:poli_humas/services/api_client.dart';
 import 'package:poli_humas/services/api_service.dart';
+import 'package:poli_humas/services/app_settings_service.dart';
 import 'package:poli_humas/services/location_service.dart';
 import 'package:poli_humas/services/local_storage.dart';
 import 'package:poli_humas/theme/app_colors.dart';
@@ -10,7 +11,10 @@ import 'package:poli_humas/theme/app_colors.dart';
 /// Mengirim koordinat GPS anggota humas ke backend agar web admin dapat memantau.
 /// Sesuai dengan UU PDP No. 27/2022 Pasal 20: Mewajibkan persetujuan eksplisit (consent) pengguna.
 class LiveLocationSyncService {
-  LiveLocationSyncService._();
+  LiveLocationSyncService._() {
+    _lastLocationEnabled = AppSettingsService.instance.locationEnabled;
+    AppSettingsService.instance.addListener(_onSettingsChanged);
+  }
 
   static final LiveLocationSyncService instance = LiveLocationSyncService._();
 
@@ -19,11 +23,23 @@ class LiveLocationSyncService {
 
   Timer? _timer;
   bool _syncing = false;
+  late bool _lastLocationEnabled;
   double? _lastLatitude;
   double? _lastLongitude;
   String? _lastAddress;
 
   bool get isRunning => _timer != null;
+
+  void _onSettingsChanged() {
+    final enabled = AppSettingsService.instance.locationEnabled;
+    if (enabled == _lastLocationEnabled) return;
+    _lastLocationEnabled = enabled;
+    if (!enabled) {
+      unawaited(stop(markOffline: true));
+    } else {
+      unawaited(start());
+    }
+  }
 
   /// Memeriksa status persetujuan pelacakan lokasi (UU PDP)
   Future<bool> hasConsent() async {
@@ -40,9 +56,10 @@ class LiveLocationSyncService {
   }
 
   /// Menampilkan dialog persetujuan (Consent) resmi UU PDP jika belum pernah disetujui
-  Future<bool> ensureConsent(BuildContext context) async {
+  Future<bool> ensureConsent(BuildContext context, {bool forcePromptIfDenied = false}) async {
     final existing = await LocalStorage.getBool(_consentKey);
-    if (existing != null) return existing;
+    if (existing == true) return true;
+    if (existing == false && !forcePromptIfDenied) return false;
 
     if (!context.mounted) return false;
 
@@ -101,12 +118,16 @@ class LiveLocationSyncService {
 
     final result = agreed ?? false;
     await setConsent(result);
+    if (!result) {
+      await AppSettingsService.instance.setLocation(false);
+    }
     return result;
   }
 
-  /// Memulai sinkronisasi lokasi dengan validasi consent
+  /// Memulai sinkronisasi lokasi dengan validasi consent dan preferensi pengaturan
   Future<void> start() async {
     if (!ApiConfig.enabled || !ApiClient.instance.hasToken) return;
+    if (!AppSettingsService.instance.locationEnabled) return;
 
     final consent = await hasConsent();
     if (!consent) {
@@ -114,7 +135,7 @@ class LiveLocationSyncService {
       return;
     }
 
-    stop();
+    stop(markOffline: false);
     _pushLocation();
     _timer = Timer.periodic(_syncInterval, (_) => _pushLocation());
   }
@@ -139,6 +160,7 @@ class LiveLocationSyncService {
   }
 
   Future<void> pushNow() async {
+    if (!AppSettingsService.instance.locationEnabled) return;
     final consent = await hasConsent();
     if (!consent) return;
     await _pushLocation();
@@ -146,6 +168,7 @@ class LiveLocationSyncService {
 
   Future<void> _pushLocation() async {
     if (!ApiConfig.enabled || !ApiClient.instance.hasToken || _syncing) return;
+    if (!AppSettingsService.instance.locationEnabled) return;
     final consent = await hasConsent();
     if (!consent) return;
 

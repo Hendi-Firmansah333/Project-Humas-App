@@ -3,9 +3,11 @@ import {
   NestInterceptor,
   ExecutionContext,
   CallHandler,
+  Optional,
 } from '@nestjs/common';
 import { Observable } from 'rxjs';
-import { map } from 'rxjs/operators';
+import { switchMap } from 'rxjs/operators';
+import { RealtimeEventsService } from '../../events/realtime-events.service';
 
 export interface StandardResponse<T> {
   success: boolean;
@@ -18,6 +20,10 @@ export interface StandardResponse<T> {
 export class TransformInterceptor<T>
   implements NestInterceptor<T, StandardResponse<T> | T>
 {
+  constructor(
+    @Optional() private readonly eventsService?: RealtimeEventsService,
+  ) {}
+
   intercept(
     context: ExecutionContext,
     next: CallHandler,
@@ -31,12 +37,15 @@ export class TransformInterceptor<T>
     const statusCode = http.getResponse().statusCode;
 
     return next.handle().pipe(
-      map((data) => ({
-        success: true,
-        statusCode,
-        data: data !== undefined ? data : null,
-        timestamp: new Date().toISOString(),
-      })),
+      switchMap(async (data) => {
+        await this.eventsService?.flushPendingWrites();
+        return {
+          success: true,
+          statusCode,
+          data: data !== undefined ? data : null,
+          timestamp: new Date().toISOString(),
+        };
+      }),
     );
   }
 }
