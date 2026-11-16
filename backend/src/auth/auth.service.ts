@@ -12,23 +12,35 @@ export class AuthService implements OnModuleInit {
   ) {}
 
   async onModuleInit() {
-    // Seed default Admin Humas user if not exists
-    const adminCount = await this.prisma.user.count({ where: { username: 'komang.ari' } });
-    if (adminCount === 0) {
-      const hashedPassword = await bcrypt.hash('admin123', 10);
-      await this.prisma.user.create({
-        data: {
-          fullName: 'Komang Ari',
-          username: 'komang.ari',
-          email: 'komang.ari@polinela.ac.id',
-          phone: '0812-3456-7890',
-          password: hashedPassword,
-          role: 'ADMIN',
-          roleLabel: 'Admin Humas',
-          avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
-          status: 'AKTIF',
-        },
-      });
+    if (
+      process.env['VERCEL'] === '1' ||
+      process.env['NODE_ENV'] === 'production' ||
+      process.env['SKIP_AUTH_SEED'] === 'true'
+    ) {
+      return;
+    }
+
+    try {
+      // Seed default Admin Humas user if not exists (hanya development lokal)
+      const adminCount = await this.prisma.user.count({ where: { username: 'komang.ari' } });
+      if (adminCount === 0) {
+        const hashedPassword = await bcrypt.hash('admin123', 10);
+        await this.prisma.user.create({
+          data: {
+            fullName: 'Komang Ari',
+            username: 'komang.ari',
+            email: 'komang.ari@polinela.ac.id',
+            phone: '0812-3456-7890',
+            password: hashedPassword,
+            role: 'ADMIN',
+            roleLabel: 'Admin Humas',
+            avatar: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?w=150&auto=format&fit=crop&q=80',
+            status: 'AKTIF',
+          },
+        });
+      }
+    } catch {
+      // Abaikan error DB saat boot awal agar endpoint health tetap bisa merespons
     }
   }
 
