@@ -8,6 +8,7 @@ import 'package:poli_humas/screens/content/content_plan_detail_screen.dart';
 import 'package:poli_humas/screens/global_search_screen.dart';
 import 'package:poli_humas/theme/app_colors.dart';
 import 'package:poli_humas/utils/app_navigator.dart';
+import 'package:poli_humas/widgets/common_widgets.dart';
 import 'package:poli_humas/widgets/paginated_refresh_list.dart';
 
 TextStyle _pj(
@@ -42,6 +43,86 @@ class _ContentPlanScreenState extends State<ContentPlanScreen> {
 
   void _onFilterSelected(String filter) {
     context.read<AppDataProvider>().loadContentPlans(filter: filter, refresh: true);
+  }
+
+  void _showFilterModal(String currentFilter) {
+    HapticFeedback.lightImpact();
+    showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (context) => Container(
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Center(
+              child: Container(
+                width: 40,
+                height: 4,
+                decoration: BoxDecoration(
+                  color: AppColors.slate300,
+                  borderRadius: BorderRadius.circular(2),
+                ),
+              ),
+            ),
+            const SizedBox(height: 16),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                Text(
+                  'Filter Content Plan',
+                  style: _pj(17, FontWeight.w800, AppColors.slate900),
+                ),
+                if (currentFilter != 'Semua')
+                  TextButton(
+                    onPressed: () {
+                      _onFilterSelected('Semua');
+                      Navigator.pop(context);
+                    },
+                    child: Text('Reset', style: _pj(12.5, FontWeight.w700, AppColors.primary)),
+                  ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            Wrap(
+              spacing: 8,
+              runSpacing: 10,
+              children: _filters.map((f) {
+                final selected = f == currentFilter;
+                return ChoiceChip(
+                  label: Text(
+                    f,
+                    style: _pj(
+                      12.5,
+                      selected ? FontWeight.w700 : FontWeight.w500,
+                      selected ? Colors.white : AppColors.slate700,
+                    ),
+                  ),
+                  selected: selected,
+                  selectedColor: AppColors.primary,
+                  backgroundColor: AppColors.slate50,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20),
+                    side: BorderSide(
+                      color: selected ? AppColors.primary : AppColors.slate200,
+                    ),
+                  ),
+                  onSelected: (_) {
+                    _onFilterSelected(f);
+                    Navigator.pop(context);
+                  },
+                );
+              }).toList(),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   void _showNewContentModal() {
@@ -154,26 +235,7 @@ class _ContentPlanScreenState extends State<ContentPlanScreen> {
                         children: [
                           Row(
                             children: [
-                              Container(
-                                width: 38,
-                                height: 38,
-                                decoration: BoxDecoration(
-                                  color: AppColors.brand600,
-                                  borderRadius: BorderRadius.circular(12),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: AppColors.brand600.withValues(alpha: 0.3),
-                                      blurRadius: 8,
-                                      offset: const Offset(0, 3),
-                                    ),
-                                  ],
-                                ),
-                                child: const Icon(
-                                  Icons.campaign_rounded,
-                                  color: Colors.white,
-                                  size: 20,
-                                ),
-                              ),
+                              const AppLogo(size: 36),
                               const SizedBox(width: 10),
                               Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -237,7 +299,7 @@ class _ContentPlanScreenState extends State<ContentPlanScreen> {
                               ),
                               const SizedBox(width: 8),
                               InkWell(
-                                onTap: () => _onFilterSelected('Semua'),
+                                onTap: () => _showFilterModal(state.filter),
                                 borderRadius: BorderRadius.circular(20),
                                 child: Container(
                                   width: 36,

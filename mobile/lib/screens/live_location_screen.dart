@@ -4,12 +4,12 @@ import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:latlong2/latlong.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:poli_humas/models/team_member.dart';
 import 'package:poli_humas/providers/app_data_provider.dart';
 import 'package:poli_humas/screens/live_location_map_screen.dart';
 import 'package:poli_humas/theme/app_colors.dart';
 import 'package:poli_humas/widgets/app_map_view.dart';
-import 'package:poli_humas/widgets/common_widgets.dart';
 import 'package:poli_humas/widgets/live_location_detail_sheet.dart';
 
 TextStyle _pj(
@@ -37,156 +37,113 @@ class LiveLocationScreen extends StatefulWidget {
 class _LiveLocationScreenState extends State<LiveLocationScreen> {
   static const _divisionFilters = ['Semua', 'Liputan', 'Konten Digital', 'Media Sosial'];
 
+  final TextEditingController _searchController = TextEditingController();
   Timer? _refreshTimer;
+  String _searchQuery = '';
+  String _quickFilter = 'Semua'; // 'Semua', 'Siaga', 'Standby', 'GSG', 'Rektorat'
   String _divisionFilter = 'Semua';
   bool _onDutyOnly = false;
   TeamMember? _selectedMember;
+  bool _isRefreshing = false;
 
   @override
   void initState() {
     super.initState();
-    _refreshTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-      context.read<AppDataProvider>().refreshTeamLocations();
+    _refreshTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+      if (mounted) {
+        context.read<AppDataProvider>().refreshTeamLocations();
+      }
     });
   }
 
   @override
   void dispose() {
     _refreshTimer?.cancel();
+    _searchController.dispose();
     super.dispose();
   }
 
-  List<TeamMember> _filteredMembers(List<TeamMember> members) {
-    return members.where((member) {
-      final matchesDivision = _divisionFilter == 'Semua' ||
-          member.division.toLowerCase().contains(_divisionFilter.toLowerCase());
-      final matchesDuty = !_onDutyOnly || member.isOnDuty;
-      return matchesDivision && matchesDuty;
-    }).toList();
+  Future<void> _handleRefresh() async {
+    HapticFeedback.lightImpact();
+    setState(() => _isRefreshing = true);
+    await context.read<AppDataProvider>().refreshTeamLocations();
+    if (mounted) {
+      setState(() => _isRefreshing = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Lokasi tim berhasil diperbarui',
+            style: _pj(12, FontWeight.w600, Colors.white),
+          ),
+          backgroundColor: const Color(0xFF003D58),
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+          duration: const Duration(seconds: 2),
+        ),
+      );
+    }
   }
 
-  Future<void> _showFilterDialog() async {
-    var division = _divisionFilter;
-    var onDutyOnly = _onDutyOnly;
+  List<TeamMember> _filterMembers(List<TeamMember> members) {
+    return members.where((m) {
+      // 1. Text Search query
+      if (_searchQuery.isNotEmpty) {
+        final query = _searchQuery.toLowerCase();
+        final matchesName = m.name.toLowerCase().contains(query);
+        final matchesDivision = m.division.toLowerCase().contains(query);
+        final matchesLocation = m.location.toLowerCase().contains(query);
+        if (!matchesName && !matchesDivision && !matchesLocation) return false;
+      }
 
-    await showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) => StatefulBuilder(
-        builder: (context, setDialogState) {
-          final isDark = AppColors.isDark;
-          return Container(
-            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-            decoration: BoxDecoration(
-              color: isDark ? const Color(0xFF1E293B) : Colors.white,
-              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-            ),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white24 : AppColors.slate300,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                Text(
-                  'Filter Anggota Tim',
-                  style: _pj(16, FontWeight.w800, isDark ? Colors.white : AppColors.slate900),
-                ),
-                const SizedBox(height: 14),
-                Text(
-                  'Divisi',
-                  style: _pj(12, FontWeight.w700, isDark ? Colors.white70 : AppColors.slate600),
-                ),
-                const SizedBox(height: 8),
-                Wrap(
-                  spacing: 8,
-                  runSpacing: 8,
-                  children: _divisionFilters.map((filter) {
-                    final selected = filter == division;
-                    return GestureDetector(
-                      onTap: () => setDialogState(() => division = filter),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-                        decoration: BoxDecoration(
-                          color: selected ? AppColors.brand600 : (isDark ? Colors.white10 : AppColors.slate100),
-                          borderRadius: BorderRadius.circular(20),
-                        ),
-                        child: Text(
-                          filter,
-                          style: _pj(
-                            12,
-                            FontWeight.w700,
-                            selected ? Colors.white : (isDark ? Colors.white70 : AppColors.slate700),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-                const SizedBox(height: 16),
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  activeThumbColor: AppColors.brand600,
-                  title: Text(
-                    'Hanya yang sedang bertugas',
-                    style: _pj(13, FontWeight.w600, isDark ? Colors.white : AppColors.slate800),
-                  ),
-                  value: onDutyOnly,
-                  onChanged: (value) => setDialogState(() => onDutyOnly = value),
-                ),
-                const SizedBox(height: 16),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: () {
-                      setState(() {
-                        _divisionFilter = division;
-                        _onDutyOnly = onDutyOnly;
-                      });
-                      Navigator.pop(context);
-                    },
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.brand600,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-                      elevation: 0,
-                    ),
-                    child: Text('Terapkan Filter', style: _pj(13, FontWeight.w800, Colors.white)),
-                  ),
-                ),
-              ],
-            ),
-          );
-        },
-      ),
-    );
+      // 2. Division modal filter
+      if (_divisionFilter != 'Semua') {
+        if (!m.division.toLowerCase().contains(_divisionFilter.toLowerCase())) {
+          return false;
+        }
+      }
+
+      // 3. Modal duty filter
+      if (_onDutyOnly && !m.isOnDuty) return false;
+
+      // 4. Quick horizontal chip filter
+      switch (_quickFilter) {
+        case 'Siaga':
+          return m.isOnDuty;
+        case 'Standby':
+          return !m.isOnDuty;
+        case 'GSG':
+          return m.location.toLowerCase().contains('gsg');
+        case 'Rektorat':
+          return m.location.toLowerCase().contains('rektorat') ||
+              m.location.toLowerCase().contains('direktorat');
+        case 'Liputan':
+          return m.division.toLowerCase().contains('liputan') ||
+              m.division.toLowerCase().contains('dokumentasi');
+        case 'Konten':
+          return m.division.toLowerCase().contains('konten');
+        case 'Semua':
+        default:
+          return true;
+      }
+    }).toList();
   }
 
   String _formatLastUpdated(TeamMember member) {
     final updated = member.lastUpdated;
-    if (updated == null) return 'Belum ada update';
+    if (updated == null) return 'Baru saja';
     final diff = DateTime.now().difference(updated);
     if (diff.inMinutes < 1) return 'Baru saja';
     if (diff.inMinutes < 60) return '${diff.inMinutes} mnt lalu';
     return '${diff.inHours} jam lalu';
   }
 
-  LatLng _mapCenter(List<TeamMember> members) {
+  LatLng _getMapCenter(List<TeamMember> members) {
     if (_selectedMember != null) {
       return LatLng(_selectedMember!.latitude, _selectedMember!.longitude);
     }
     final onDuty = members.where((m) => m.isOnDuty).toList();
     final source = onDuty.isNotEmpty ? onDuty : members;
-    if (source.isEmpty) return const LatLng(-5.3582, 105.2435);
+    if (source.isEmpty) return const LatLng(-5.3582, 105.2318);
     final lat = source.map((m) => m.latitude).reduce((a, b) => a + b) / source.length;
     final lng = source.map((m) => m.longitude).reduce((a, b) => a + b) / source.length;
     return LatLng(lat, lng);
@@ -201,6 +158,7 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
   }
 
   void _openFullscreenMap(List<TeamMember> members, {TeamMember? focusMember}) {
+    HapticFeedback.lightImpact();
     Navigator.push(
       context,
       MaterialPageRoute(
@@ -212,6 +170,182 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
     );
   }
 
+  Future<void> _openWhatsApp(TeamMember member) async {
+    HapticFeedback.lightImpact();
+    final phone = member.phone?.replaceAll(RegExp(r'[^0-9]'), '') ?? '';
+    if (phone.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Nomor WhatsApp ${member.name} belum tersedia.',
+            style: _pj(12, FontWeight.w600, Colors.white),
+          ),
+          backgroundColor: Colors.redAccent,
+          behavior: SnackBarBehavior.floating,
+          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+        ),
+      );
+      return;
+    }
+    final uri = Uri.parse('https://wa.me/$phone');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
+
+  Future<void> _showFilterDialog() async {
+    HapticFeedback.lightImpact();
+    var division = _divisionFilter;
+    var onDutyOnly = _onDutyOnly;
+
+    await showModalBottomSheet<void>(
+      context: context,
+      backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      builder: (context) => StatefulBuilder(
+        builder: (context, setDialogState) {
+          final isDark = AppColors.isDark;
+          return Container(
+            padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+            decoration: BoxDecoration(
+              color: isDark ? const Color(0xFF1E293B) : Colors.white,
+              borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+              boxShadow: [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.15),
+                  blurRadius: 20,
+                  offset: const Offset(0, -4),
+                ),
+              ],
+            ),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Center(
+                  child: Container(
+                    width: 44,
+                    height: 5,
+                    decoration: BoxDecoration(
+                      color: isDark ? Colors.white24 : AppColors.slate300,
+                      borderRadius: BorderRadius.circular(2.5),
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 18),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Text(
+                      'Filter Anggota Tim',
+                      style: _pj(17, FontWeight.w800, isDark ? Colors.white : AppColors.slate900),
+                    ),
+                    TextButton(
+                      onPressed: () {
+                        setDialogState(() {
+                          division = 'Semua';
+                          onDutyOnly = false;
+                        });
+                      },
+                      child: Text(
+                        'Reset',
+                        style: _pj(12, FontWeight.w700, const Color(0xFF003D58)),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Divisi Humas',
+                  style: _pj(12, FontWeight.w700, isDark ? Colors.white70 : AppColors.slate600),
+                ),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: _divisionFilters.map((filter) {
+                    final selected = filter == division;
+                    return GestureDetector(
+                      onTap: () => setDialogState(() => division = filter),
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                        decoration: BoxDecoration(
+                          color: selected
+                              ? const Color(0xFF003D58)
+                              : (isDark ? Colors.white10 : const Color(0xFFF1F5F9)),
+                          borderRadius: BorderRadius.circular(12),
+                          border: Border.all(
+                            color: selected
+                                ? const Color(0xFF003D58)
+                                : (isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
+                          ),
+                        ),
+                        child: Text(
+                          filter,
+                          style: _pj(
+                            12,
+                            FontWeight.w700,
+                            selected ? Colors.white : (isDark ? Colors.white70 : AppColors.slate700),
+                          ),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                ),
+                const SizedBox(height: 18),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                  decoration: BoxDecoration(
+                    color: isDark ? Colors.white.withValues(alpha: 0.05) : const Color(0xFFF8FAFC),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(
+                      color: isDark ? Colors.white12 : const Color(0xFFE2E8F0),
+                    ),
+                  ),
+                  child: SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    activeThumbColor: const Color(0xFF003D58),
+                    title: Text(
+                      'Hanya yang sedang siaga / bertugas',
+                      style: _pj(13, FontWeight.w700, isDark ? Colors.white : AppColors.slate800),
+                    ),
+                    subtitle: Text(
+                      'Saring personil yang sedang aktif di lokasi',
+                      style: _pj(11, FontWeight.w500, AppColors.slate400),
+                    ),
+                    value: onDutyOnly,
+                    onChanged: (value) => setDialogState(() => onDutyOnly = value),
+                  ),
+                ),
+                const SizedBox(height: 20),
+                SizedBox(
+                  width: double.infinity,
+                  height: 48,
+                  child: ElevatedButton(
+                    onPressed: () {
+                      setState(() {
+                        _divisionFilter = division;
+                        _onDutyOnly = onDutyOnly;
+                      });
+                      Navigator.pop(context);
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF003D58),
+                      foregroundColor: Colors.white,
+                      elevation: 0,
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+                    ),
+                    child: Text('Terapkan Filter', style: _pj(14, FontWeight.w800, Colors.white)),
+                  ),
+                ),
+              ],
+            ),
+          );
+        },
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final isDark = AppColors.isDark;
@@ -219,11 +353,16 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
     return Consumer<AppDataProvider>(
       builder: (context, provider, _) {
         final allMembers = provider.teamMembers;
-        final filtered = _filteredMembers(allMembers);
-        final activeMember = _selectedMember ??
+        final filtered = _filterMembers(allMembers);
+        final activeCount = allMembers.where((m) => m.isOnDuty).length;
+        final totalCount = allMembers.length;
+        final standbyCount = totalCount - activeCount;
+
+        final targetFocusMember = _selectedMember ??
             filtered.where((m) => m.isOnDuty).firstOrNull ??
             filtered.firstOrNull;
-        final mapCenter = _mapCenter(filtered);
+
+        final mapCenter = _getMapCenter(filtered);
 
         final markers = filtered
             .map(
@@ -233,345 +372,185 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
                 label: m.name.split(' ').first,
                 initials: m.initials,
                 isActive: m.isOnDuty,
+                isSelected: targetFocusMember?.id == m.id,
               ),
             )
             .toList();
 
-        final activeCount = filtered.where((m) => m.isOnDuty).length;
-
         return Scaffold(
           backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-          appBar: AppHeader(
+          appBar: AppBar(
+            backgroundColor: isDark ? const Color(0xFF1E293B) : Colors.white,
+            elevation: 0,
             leading: IconButton(
               icon: Icon(
                 Icons.arrow_back_ios_new_rounded,
-                size: 20,
+                size: 19,
                 color: isDark ? Colors.white : AppColors.slate800,
               ),
               onPressed: () => Navigator.pop(context),
             ),
-          ),
-          body: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ── Section Live Title & Status ──
-              Padding(
-                padding: const EdgeInsets.fromLTRB(20, 8, 20, 10),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            title: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Pantau Lokasi Tim',
+                  style: _pj(
+                    17,
+                    FontWeight.w900,
+                    isDark ? Colors.white : const Color(0xFF003D58),
+                    ls: -0.3,
+                  ),
+                ),
+                Row(
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Live Location Tim',
-                          style: _pj(
-                            17,
-                            FontWeight.w900,
-                            isDark ? Colors.white : AppColors.slate900,
-                            ls: -0.3,
-                          ),
-                        ),
-                        const SizedBox(height: 3),
-                        Row(
-                          children: [
-                            Container(
-                              width: 7,
-                              height: 7,
-                              decoration: BoxDecoration(
-                                color: provider.isOffline ? AppColors.warning : AppColors.emerald,
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: (provider.isOffline ? AppColors.warning : AppColors.emerald)
-                                        .withValues(alpha: 0.5),
-                                    blurRadius: 4,
-                                    spreadRadius: 1,
-                                  ),
-                                ],
-                              ),
-                            ),
-                            const SizedBox(width: 6),
-                            Text(
-                              provider.isOffline ? 'Offline' : 'Monitoring Aktif',
-                              style: _pj(
-                                11,
-                                FontWeight.w600,
-                                isDark ? Colors.white60 : AppColors.slate500,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
-                    ),
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      width: 7,
+                      height: 7,
                       decoration: BoxDecoration(
-                        color: isDark
-                            ? AppColors.brand600.withValues(alpha: 0.2)
-                            : const Color(0xFFF0FDFA),
-                        borderRadius: BorderRadius.circular(20),
-                        border: Border.all(
-                          color: isDark
-                              ? AppColors.brand600.withValues(alpha: 0.4)
-                              : const Color(0xFFCCFBF1),
-                        ),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.location_on_rounded,
-                            size: 12,
-                            color: isDark ? AppColors.brand300 : AppColors.brand600,
-                          ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'AREA KAMPUS',
-                            style: _pj(
-                              10,
-                              FontWeight.w800,
-                              isDark ? AppColors.brand300 : AppColors.brand700,
-                              ls: 0.5,
-                            ),
+                        color: provider.isOffline ? AppColors.warning : AppColors.emerald,
+                        shape: BoxShape.circle,
+                        boxShadow: [
+                          BoxShadow(
+                            color: (provider.isOffline ? AppColors.warning : AppColors.emerald)
+                                .withValues(alpha: 0.5),
+                            blurRadius: 4,
+                            spreadRadius: 1,
                           ),
                         ],
                       ),
                     ),
+                    const SizedBox(width: 5),
+                    Text(
+                      provider.isOffline ? 'Mode Offline' : 'Real-time GPS Aktif',
+                      style: _pj(
+                        11,
+                        FontWeight.w600,
+                        isDark ? Colors.white60 : AppColors.slate500,
+                      ),
+                    ),
                   ],
                 ),
+              ],
+            ),
+            actions: [
+              IconButton(
+                tooltip: 'Perbarui Lokasi',
+                icon: _isRefreshing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2, color: Color(0xFF003D58)),
+                      )
+                    : Icon(
+                        Icons.sync_rounded,
+                        size: 22,
+                        color: isDark ? Colors.white70 : const Color(0xFF003D58),
+                      ),
+                onPressed: _isRefreshing ? null : _handleRefresh,
               ),
-
-              // ── Interactive Map Area ──
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: Container(
-                  height: 270,
-                  decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(24),
-                    boxShadow: AppColors.shadowCard,
-                    border: Border.all(
-                      color: const Color(0xFF2DD4BF).withValues(alpha: 0.2),
-                    ),
-                  ),
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(24),
-                    child: Stack(
+              IconButton(
+                tooltip: 'Peta Layar Penuh',
+                icon: Icon(
+                  Icons.fullscreen_rounded,
+                  size: 26,
+                  color: isDark ? Colors.white70 : const Color(0xFF003D58),
+                ),
+                onPressed: () => _openFullscreenMap(allMembers, focusMember: targetFocusMember),
+              ),
+              const SizedBox(width: 4),
+            ],
+            bottom: PreferredSize(
+              preferredSize: const Size.fromHeight(1),
+              child: Container(
+                height: 1,
+                color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
+              ),
+            ),
+          ),
+          body: Column(
+            children: [
+              // ── Search & Filter Row ──
+              Container(
+                color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 10),
+                child: Column(
+                  children: [
+                    // Search Bar
+                    Row(
                       children: [
-                        AppMapView(
-                          center: mapCenter,
-                          zoom: 16,
-                          height: 270,
-                          markers: markers,
-                          interactive: true,
-                          onMarkerTap: (marker) {
-                            final member = filtered.firstWhere((m) => m.id == marker.id);
-                            setState(() => _selectedMember = member);
-                          },
-                        ),
-
-                        // Center Location Button (crosshair)
-                        Positioned(
-                          top: 12,
-                          right: 12,
-                          child: GestureDetector(
-                            onTap: () {
-                              HapticFeedback.lightImpact();
-                              setState(() => _selectedMember = null);
-                            },
-                            child: Container(
-                              width: 38,
-                              height: 38,
-                              decoration: BoxDecoration(
-                                color: isDark ? const Color(0xFF1E293B) : Colors.white.withValues(alpha: 0.95),
-                                shape: BoxShape.circle,
-                                boxShadow: [
-                                  BoxShadow(
-                                    color: Colors.black.withValues(alpha: 0.15),
-                                    blurRadius: 10,
-                                    offset: const Offset(0, 4),
-                                  ),
-                                ],
-                              ),
-                              child: const Icon(
-                                Icons.my_location_rounded,
-                                size: 18,
-                                color: AppColors.brand600,
-                              ),
-                            ),
-                          ),
-                        ),
-
-                        // Floating Hero Detail Card
-                        if (activeMember != null)
-                          Positioned(
-                            top: 12,
-                            left: 12,
-                            right: 58,
-                            child: GestureDetector(
-                              onTap: () => _showMemberDetail(activeMember),
-                              child: Container(
-                                padding: const EdgeInsets.all(12),
-                                decoration: BoxDecoration(
-                                  color: isDark ? const Color(0xFF1E293B) : Colors.white.withValues(alpha: 0.96),
-                                  borderRadius: BorderRadius.circular(16),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: Colors.black.withValues(alpha: 0.15),
-                                      blurRadius: 12,
-                                      offset: const Offset(0, 4),
-                                    ),
-                                  ],
-                                  border: Border.all(
-                                    color: isDark ? Colors.white12 : Colors.white,
-                                  ),
-                                ),
-                                child: Column(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    Row(
-                                      children: [
-                                        Stack(
-                                          children: [
-                                            Container(
-                                              width: 38,
-                                              height: 38,
-                                              decoration: BoxDecoration(
-                                                color: isDark
-                                                    ? AppColors.brand600.withValues(alpha: 0.2)
-                                                    : const Color(0xFFCCFBF1),
-                                                shape: BoxShape.circle,
-                                                border: Border.all(color: AppColors.brand500, width: 1.5),
-                                              ),
-                                              alignment: Alignment.center,
-                                              child: Text(
-                                                activeMember.initials,
-                                                style: _pj(12, FontWeight.w800, AppColors.brand700),
-                                              ),
-                                            ),
-                                            Positioned(
-                                              bottom: 0,
-                                              right: 0,
-                                              child: Container(
-                                                width: 10,
-                                                height: 10,
-                                                decoration: BoxDecoration(
-                                                  color: activeMember.isOnDuty ? AppColors.emerald : AppColors.amber,
-                                                  shape: BoxShape.circle,
-                                                  border: Border.all(color: Colors.white, width: 1.5),
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Column(
-                                            crossAxisAlignment: CrossAxisAlignment.start,
-                                            children: [
-                                              Text(
-                                                activeMember.name,
-                                                style: _pj(
-                                                  13,
-                                                  FontWeight.w800,
-                                                  isDark ? Colors.white : AppColors.slate900,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                              Text(
-                                                activeMember.division,
-                                                style: _pj(
-                                                  10,
-                                                  FontWeight.w500,
-                                                  isDark ? Colors.white60 : AppColors.slate500,
-                                                ),
-                                                maxLines: 1,
-                                                overflow: TextOverflow.ellipsis,
-                                              ),
-                                            ],
-                                          ),
-                                        ),
-                                      ],
-                                    ),
-                                    const SizedBox(height: 8),
-                                    Container(
-                                      padding: const EdgeInsets.only(top: 8),
-                                      decoration: BoxDecoration(
-                                        border: Border(
-                                          top: BorderSide(
-                                            color: isDark ? Colors.white10 : const Color(0xFFF1F5F9),
-                                          ),
-                                        ),
-                                      ),
-                                      child: Row(
-                                        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                                        children: [
-                                          Row(
-                                            children: [
-                                              Text(
-                                                'Status: ',
-                                                style: _pj(10, FontWeight.w500, AppColors.slate400),
-                                              ),
-                                              Container(
-                                                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                                decoration: BoxDecoration(
-                                                  color: activeMember.isOnDuty
-                                                      ? const Color(0xFFECFDF5)
-                                                      : const Color(0xFFFFFBEB),
-                                                  borderRadius: BorderRadius.circular(10),
-                                                ),
-                                                child: Text(
-                                                  activeMember.isOnDuty ? 'Sedang Bertugas' : 'Standby',
-                                                  style: _pj(
-                                                    9,
-                                                    FontWeight.w700,
-                                                    activeMember.isOnDuty
-                                                        ? const Color(0xFF059669)
-                                                        : const Color(0xFFD97706),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                          Text(
-                                            'Update: ${_formatLastUpdated(activeMember)}',
-                                            style: _pj(10, FontWeight.w500, isDark ? Colors.white60 : AppColors.slate500),
-                                          ),
-                                        ],
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-
-                        // Coordinates Badge at Bottom Left
-                        Positioned(
-                          bottom: 10,
-                          left: 12,
+                        Expanded(
                           child: Container(
-                            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                            height: 42,
                             decoration: BoxDecoration(
-                              color: const Color(0xFF0F172A).withValues(alpha: 0.8),
-                              borderRadius: BorderRadius.circular(8),
+                              color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
+                              ),
+                            ),
+                            child: TextField(
+                              controller: _searchController,
+                              onChanged: (val) => setState(() => _searchQuery = val.trim()),
+                              style: _pj(13, FontWeight.w600, isDark ? Colors.white : AppColors.slate900),
+                              decoration: InputDecoration(
+                                hintText: 'Cari personil atau lokasi (GSG, Rektorat)...',
+                                hintStyle: _pj(12, FontWeight.w500, AppColors.slate400),
+                                prefixIcon: const Icon(
+                                  Icons.search_rounded,
+                                  size: 20,
+                                  color: Color(0xFF64748B),
+                                ),
+                                suffixIcon: _searchQuery.isNotEmpty
+                                    ? GestureDetector(
+                                        onTap: () {
+                                          _searchController.clear();
+                                          setState(() => _searchQuery = '');
+                                        },
+                                        child: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF64748B)),
+                                      )
+                                    : null,
+                                border: InputBorder.none,
+                                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        GestureDetector(
+                          onTap: _showFilterDialog,
+                          child: Container(
+                            height: 42,
+                            padding: const EdgeInsets.symmetric(horizontal: 12),
+                            decoration: BoxDecoration(
+                              color: (_divisionFilter != 'Semua' || _onDutyOnly)
+                                  ? const Color(0xFF003D58)
+                                  : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
+                              borderRadius: BorderRadius.circular(12),
+                              border: Border.all(
+                                color: (_divisionFilter != 'Semua' || _onDutyOnly)
+                                    ? const Color(0xFF003D58)
+                                    : (isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
+                              ),
                             ),
                             child: Row(
-                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                const Icon(
-                                  Icons.explore_outlined,
-                                  size: 11,
-                                  color: Color(0xFF5EEAD4),
+                                Icon(
+                                  Icons.tune_rounded,
+                                  size: 18,
+                                  color: (_divisionFilter != 'Semua' || _onDutyOnly)
+                                      ? Colors.white
+                                      : (isDark ? Colors.white70 : const Color(0xFF003D58)),
                                 ),
                                 const SizedBox(width: 4),
                                 Text(
-                                  '${activeMember?.latitude.toStringAsFixed(4) ?? "-5.3582"}° S, ${activeMember?.longitude.toStringAsFixed(4) ?? "105.2435"}° E',
-                                  style: GoogleFonts.jetBrainsMono(
-                                    fontSize: 9,
-                                    fontWeight: FontWeight.w600,
-                                    color: const Color(0xFF5EEAD4),
+                                  'Filter',
+                                  style: _pj(
+                                    12,
+                                    FontWeight.w700,
+                                    (_divisionFilter != 'Semua' || _onDutyOnly)
+                                        ? Colors.white
+                                        : (isDark ? Colors.white70 : const Color(0xFF003D58)),
                                   ),
                                 ),
                               ],
@@ -580,65 +559,44 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
                         ),
                       ],
                     ),
-                  ),
-                ),
-              ),
 
-              const SizedBox(height: 16),
+                    const SizedBox(height: 10),
 
-              // ── Team List Section ──
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 20),
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Row(
-                      children: [
-                        Text(
-                          'Anggota Tim',
-                          style: _pj(
-                            14,
-                            FontWeight.w800,
-                            isDark ? Colors.white : AppColors.slate900,
-                          ),
-                        ),
-                        const SizedBox(width: 8),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: isDark
-                                ? AppColors.brand600.withValues(alpha: 0.2)
-                                : const Color(0xFFCCFBF1),
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            '$activeCount Aktif',
-                            style: _pj(
-                              10,
-                              FontWeight.w800,
-                              isDark ? AppColors.brand300 : AppColors.brand700,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    GestureDetector(
-                      onTap: _showFilterDialog,
+                    // Quick Chips
+                    SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      physics: const BouncingScrollPhysics(),
                       child: Row(
                         children: [
-                          Icon(
-                            Icons.tune_rounded,
-                            size: 15,
-                            color: isDark ? Colors.white60 : AppColors.slate500,
+                          _buildQuickChip(
+                            label: 'Semua',
+                            count: totalCount,
+                            isSelected: _quickFilter == 'Semua',
+                            onTap: () => setState(() => _quickFilter = 'Semua'),
                           ),
-                          const SizedBox(width: 4),
-                          Text(
-                            'Filter',
-                            style: _pj(
-                              11,
-                              FontWeight.w700,
-                              isDark ? Colors.white60 : AppColors.slate500,
-                            ),
+                          _buildQuickChip(
+                            label: 'Siaga Bertugas',
+                            count: activeCount,
+                            dotColor: AppColors.emerald,
+                            isSelected: _quickFilter == 'Siaga',
+                            onTap: () => setState(() => _quickFilter = 'Siaga'),
+                          ),
+                          _buildQuickChip(
+                            label: 'Standby',
+                            count: standbyCount,
+                            dotColor: AppColors.amber,
+                            isSelected: _quickFilter == 'Standby',
+                            onTap: () => setState(() => _quickFilter = 'Standby'),
+                          ),
+                          _buildQuickChip(
+                            label: 'GSG Polinela',
+                            isSelected: _quickFilter == 'GSG',
+                            onTap: () => setState(() => _quickFilter = 'GSG'),
+                          ),
+                          _buildQuickChip(
+                            label: 'Rektorat',
+                            isSelected: _quickFilter == 'Rektorat',
+                            onTap: () => setState(() => _quickFilter = 'Rektorat'),
                           ),
                         ],
                       ),
@@ -647,29 +605,382 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
                 ),
               ),
 
-              const SizedBox(height: 10),
+              // ── Map Container Preview (Figma Node #4383:5462) ──
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 6),
+                child: Container(
+                  height: 250,
+                  decoration: BoxDecoration(
+                    borderRadius: BorderRadius.circular(22),
+                    boxShadow: [
+                      BoxShadow(
+                        color: const Color(0xFF003D58).withValues(alpha: 0.12),
+                        blurRadius: 18,
+                        offset: const Offset(0, 6),
+                      ),
+                    ],
+                    border: Border.all(
+                      color: const Color(0xFF00B4D8).withValues(alpha: 0.25),
+                      width: 1.5,
+                    ),
+                  ),
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(22),
+                    child: Stack(
+                      children: [
+                        AppMapView(
+                          center: mapCenter,
+                          zoom: 16.5,
+                          height: 250,
+                          markers: markers,
+                          interactive: true,
+                          onMarkerTap: (marker) {
+                            final member = filtered.firstWhere((m) => m.id == marker.id);
+                            setState(() => _selectedMember = member);
+                          },
+                        ),
 
+                        // Top-Left Badge: Area Kampus
+                        Positioned(
+                          top: 12,
+                          left: 12,
+                          child: Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: const Color(0xFF003D58).withValues(alpha: 0.92),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: const Color(0xFF38BDF8).withValues(alpha: 0.4)),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.25),
+                                  blurRadius: 8,
+                                  offset: const Offset(0, 3),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(
+                                  Icons.near_me_rounded,
+                                  size: 12,
+                                  color: Color(0xFF38BDF8),
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  'AREA KAMPUS POLINELA',
+                                  style: _pj(9.5, FontWeight.w800, Colors.white, ls: 0.5),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+
+                        // Top-Right Control Buttons
+                        Positioned(
+                          top: 12,
+                          right: 12,
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              // Recenter button
+                              GestureDetector(
+                                onTap: () {
+                                  HapticFeedback.lightImpact();
+                                  setState(() => _selectedMember = null);
+                                },
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.95),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.2),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.my_location_rounded,
+                                    size: 18,
+                                    color: Color(0xFF003D58),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              // Fullscreen button
+                              GestureDetector(
+                                onTap: () => _openFullscreenMap(allMembers, focusMember: targetFocusMember),
+                                child: Container(
+                                  width: 36,
+                                  height: 36,
+                                  decoration: BoxDecoration(
+                                    color: const Color(0xFF003D58),
+                                    shape: BoxShape.circle,
+                                    boxShadow: [
+                                      BoxShadow(
+                                        color: Colors.black.withValues(alpha: 0.2),
+                                        blurRadius: 8,
+                                        offset: const Offset(0, 2),
+                                      ),
+                                    ],
+                                  ),
+                                  child: const Icon(
+                                    Icons.open_in_full_rounded,
+                                    size: 16,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+
+                        // Floating Card for selected or primary active member
+                        if (targetFocusMember != null)
+                          Positioned(
+                            bottom: 10,
+                            left: 10,
+                            right: 10,
+                            child: Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? const Color(0xFF1E293B).withValues(alpha: 0.96)
+                                    : Colors.white.withValues(alpha: 0.96),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: const Color(0xFF00B4D8).withValues(alpha: 0.3),
+                                  width: 1.2,
+                                ),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: Colors.black.withValues(alpha: 0.2),
+                                    blurRadius: 14,
+                                    offset: const Offset(0, 4),
+                                  ),
+                                ],
+                              ),
+                              child: Row(
+                                children: [
+                                  // Avatar
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE0F2FE),
+                                      shape: BoxShape.circle,
+                                      border: Border.all(color: const Color(0xFF003D58), width: 1.5),
+                                    ),
+                                    alignment: Alignment.center,
+                                    child: Text(
+                                      targetFocusMember.initials,
+                                      style: _pj(13, FontWeight.w900, const Color(0xFF003D58)),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  // Member Info
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Row(
+                                          children: [
+                                            Flexible(
+                                              child: Text(
+                                                targetFocusMember.name,
+                                                style: _pj(
+                                                  13,
+                                                  FontWeight.w800,
+                                                  isDark ? Colors.white : AppColors.slate900,
+                                                ),
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                              ),
+                                            ),
+                                            const SizedBox(width: 6),
+                                            Container(
+                                              padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1.5),
+                                              decoration: BoxDecoration(
+                                                color: targetFocusMember.isOnDuty
+                                                    ? const Color(0xFFECFDF5)
+                                                    : const Color(0xFFFFFBEB),
+                                                borderRadius: BorderRadius.circular(6),
+                                              ),
+                                              child: Text(
+                                                targetFocusMember.isOnDuty ? 'Siaga' : 'Standby',
+                                                style: _pj(
+                                                  9,
+                                                  FontWeight.w800,
+                                                  targetFocusMember.isOnDuty
+                                                      ? const Color(0xFF059669)
+                                                      : const Color(0xFFD97706),
+                                                ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          '${targetFocusMember.distance} • ${targetFocusMember.location}',
+                                          style: _pj(
+                                            10.5,
+                                            FontWeight.w600,
+                                            isDark ? Colors.white70 : AppColors.slate600,
+                                          ),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  // WhatsApp Shortcut Button
+                                  GestureDetector(
+                                    onTap: () => _openWhatsApp(targetFocusMember),
+                                    child: Container(
+                                      width: 34,
+                                      height: 34,
+                                      decoration: BoxDecoration(
+                                        color: const Color(0xFF25D366).withValues(alpha: 0.15),
+                                        shape: BoxShape.circle,
+                                        border: Border.all(
+                                          color: const Color(0xFF25D366).withValues(alpha: 0.5),
+                                        ),
+                                      ),
+                                      child: const Icon(
+                                        Icons.chat_bubble_rounded,
+                                        size: 16,
+                                        color: Color(0xFF16A34A),
+                                      ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 6),
+                                  // Detail Button
+                                  ElevatedButton(
+                                    onPressed: () => _showMemberDetail(targetFocusMember),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: const Color(0xFF003D58),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                                      elevation: 0,
+                                    ),
+                                    child: Text('Detail', style: _pj(10.5, FontWeight.w800, Colors.white)),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+
+              // ── Personnel List Section Header ──
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 10, 20, 8),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Text(
+                          'Personil di Lapangan',
+                          style: _pj(
+                            14.5,
+                            FontWeight.w800,
+                            isDark ? Colors.white : const Color(0xFF003D58),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFE0F2FE),
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: const Color(0xFFBAE6FD)),
+                          ),
+                          child: Text(
+                            '$activeCount/$totalCount Siaga',
+                            style: _pj(
+                              10,
+                              FontWeight.w800,
+                              const Color(0xFF0369A1),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                    Text(
+                      'Pilih untuk fokus peta',
+                      style: _pj(10.5, FontWeight.w500, AppColors.slate400),
+                    ),
+                  ],
+                ),
+              ),
+
+              // ── Personnel List ──
               Expanded(
                 child: filtered.isEmpty
                     ? Center(
-                        child: Text(
-                          'Tidak ada anggota tim pada filter ini.',
-                          style: _pj(12, FontWeight.w500, AppColors.slate400),
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          children: [
+                            Icon(
+                              Icons.location_off_rounded,
+                              size: 40,
+                              color: AppColors.slate300,
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              'Tidak ada personil yang cocok dengan filter.',
+                              style: _pj(12, FontWeight.w600, AppColors.slate500),
+                            ),
+                            const SizedBox(height: 6),
+                            TextButton(
+                              onPressed: () {
+                                setState(() {
+                                  _searchController.clear();
+                                  _searchQuery = '';
+                                  _quickFilter = 'Semua';
+                                  _divisionFilter = 'Semua';
+                                  _onDutyOnly = false;
+                                });
+                              },
+                              child: Text(
+                                'Reset Semua Filter',
+                                style: _pj(12, FontWeight.w700, const Color(0xFF003D58)),
+                              ),
+                            ),
+                          ],
                         ),
                       )
                     : ListView.builder(
-                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 20),
+                        padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                        physics: const BouncingScrollPhysics(),
                         itemCount: filtered.length,
                         itemBuilder: (context, index) {
                           final member = filtered[index];
+                          final isSelected = targetFocusMember?.id == member.id;
                           return _TeamMemberCard(
                             member: member,
+                            isSelected: isSelected,
                             lastUpdatedLabel: _formatLastUpdated(member),
                             onTap: () {
+                              HapticFeedback.lightImpact();
                               setState(() => _selectedMember = member);
-                              _showMemberDetail(member);
                             },
-                            onViewMap: () => _openFullscreenMap(filtered, focusMember: member),
+                            onDetailTap: () => _showMemberDetail(member),
+                            onWhatsAppTap: () => _openWhatsApp(member),
+                            onViewMap: () => _openFullscreenMap(allMembers, focusMember: member),
                           );
                         },
                       ),
@@ -680,19 +991,100 @@ class _LiveLocationScreenState extends State<LiveLocationScreen> {
       },
     );
   }
+
+  Widget _buildQuickChip({
+    required String label,
+    int? count,
+    Color? dotColor,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    final isDark = AppColors.isDark;
+    return Padding(
+      padding: const EdgeInsets.only(right: 8),
+      child: GestureDetector(
+        onTap: () {
+          HapticFeedback.selectionClick();
+          onTap();
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 180),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: isSelected
+                ? const Color(0xFF003D58)
+                : (isDark ? const Color(0xFF0F172A) : const Color(0xFFF1F5F9)),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(
+              color: isSelected
+                  ? const Color(0xFF003D58)
+                  : (isDark ? Colors.white12 : const Color(0xFFE2E8F0)),
+            ),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (dotColor != null) ...[
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(color: dotColor, shape: BoxShape.circle),
+                ),
+                const SizedBox(width: 5),
+              ],
+              Text(
+                label,
+                style: _pj(
+                  11.5,
+                  FontWeight.w700,
+                  isSelected ? Colors.white : (isDark ? Colors.white70 : const Color(0xFF475569)),
+                ),
+              ),
+              if (count != null) ...[
+                const SizedBox(width: 5),
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
+                  decoration: BoxDecoration(
+                    color: isSelected
+                        ? Colors.white.withValues(alpha: 0.2)
+                        : (isDark ? Colors.white10 : const Color(0xFFE2E8F0)),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Text(
+                    '$count',
+                    style: _pj(
+                      9.5,
+                      FontWeight.w800,
+                      isSelected ? Colors.white : const Color(0xFF64748B),
+                    ),
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _TeamMemberCard extends StatelessWidget {
   const _TeamMemberCard({
     required this.member,
+    required this.isSelected,
     required this.lastUpdatedLabel,
     required this.onTap,
+    required this.onDetailTap,
+    required this.onWhatsAppTap,
     required this.onViewMap,
   });
 
   final TeamMember member;
+  final bool isSelected;
   final String lastUpdatedLabel;
   final VoidCallback onTap;
+  final VoidCallback onDetailTap;
+  final VoidCallback onWhatsAppTap;
   final VoidCallback onViewMap;
 
   @override
@@ -706,86 +1098,144 @@ class _TeamMemberCard extends StatelessWidget {
         child: InkWell(
           onTap: onTap,
           borderRadius: BorderRadius.circular(18),
-          child: Container(
-            padding: const EdgeInsets.all(12),
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 200),
+            padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
               color: isDark ? const Color(0xFF1E293B) : Colors.white,
               borderRadius: BorderRadius.circular(18),
               border: Border.all(
-                color: isDark ? Colors.white10 : const Color(0xFFF1F5F9),
+                color: isSelected
+                    ? const Color(0xFF00B4D8)
+                    : (isDark ? Colors.white10 : const Color(0xFFF1F5F9)),
+                width: isSelected ? 1.8 : 1,
               ),
-              boxShadow: AppColors.shadowSoft,
+              boxShadow: isSelected
+                  ? [
+                      BoxShadow(
+                        color: const Color(0xFF00B4D8).withValues(alpha: 0.2),
+                        blurRadius: 12,
+                        offset: const Offset(0, 4),
+                      ),
+                    ]
+                  : AppColors.shadowSoft,
             ),
             child: Row(
+              crossAxisAlignment: CrossAxisAlignment.center,
               children: [
+                // Avatar with online status
                 Stack(
                   children: [
                     Container(
-                      width: 42,
-                      height: 42,
+                      width: 44,
+                      height: 44,
                       decoration: BoxDecoration(
                         color: isDark
-                            ? AppColors.brand600.withValues(alpha: 0.15)
-                            : const Color(0xFFF0FDFA),
+                            ? const Color(0xFF003D58).withValues(alpha: 0.4)
+                            : const Color(0xFFE0F2FE),
                         border: Border.all(
-                          color: isDark
-                              ? AppColors.brand600.withValues(alpha: 0.3)
-                              : const Color(0xFFCCFBF1),
+                          color: isSelected
+                              ? const Color(0xFF00B4D8)
+                              : const Color(0xFF003D58).withValues(alpha: 0.3),
+                          width: 1.5,
                         ),
                         shape: BoxShape.circle,
                       ),
                       alignment: Alignment.center,
                       child: Text(
                         member.initials,
-                        style: _pj(13, FontWeight.w800, AppColors.brand700),
+                        style: _pj(13, FontWeight.w900, const Color(0xFF003D58)),
                       ),
                     ),
                     Positioned(
                       bottom: 0,
                       right: 0,
                       child: Container(
-                        width: 10,
-                        height: 10,
+                        width: 12,
+                        height: 12,
                         decoration: BoxDecoration(
                           color: member.isOnDuty ? AppColors.emerald : AppColors.amber,
                           shape: BoxShape.circle,
-                          border: Border.all(color: Colors.white, width: 2),
+                          border: Border.all(
+                            color: isDark ? const Color(0xFF1E293B) : Colors.white,
+                            width: 2,
+                          ),
                         ),
                       ),
                     ),
                   ],
                 ),
                 const SizedBox(width: 12),
+
+                // Content
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
+                      // Name & Status Pill
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              member.name,
+                              style: _pj(
+                                13.5,
+                                FontWeight.w800,
+                                isDark ? Colors.white : AppColors.slate900,
+                              ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          Container(
+                            padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                            decoration: BoxDecoration(
+                              color: member.isOnDuty
+                                  ? const Color(0xFFECFDF5)
+                                  : const Color(0xFFFFFBEB),
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              member.isOnDuty ? 'Siaga' : 'Standby',
+                              style: _pj(
+                                9,
+                                FontWeight.w800,
+                                member.isOnDuty
+                                    ? const Color(0xFF059669)
+                                    : const Color(0xFFD97706),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      // Division
                       Text(
-                        member.name,
+                        member.division,
                         style: _pj(
-                          13,
-                          FontWeight.w800,
-                          isDark ? Colors.white : AppColors.slate900,
+                          10.5,
+                          FontWeight.w700,
+                          const Color(0xFF003D58),
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 2),
+                      const SizedBox(height: 3),
+                      // Location & Distance
                       Row(
                         children: [
-                          Icon(
-                            member.isOnDuty ? Icons.navigation_rounded : Icons.schedule_rounded,
-                            size: 11,
-                            color: member.isOnDuty ? AppColors.brand600 : AppColors.slate400,
+                          const Icon(
+                            Icons.location_on_rounded,
+                            size: 12,
+                            color: Color(0xFF00B4D8),
                           ),
-                          const SizedBox(width: 4),
+                          const SizedBox(width: 3),
                           Expanded(
                             child: Text(
-                              member.isOnDuty
-                                  ? '${member.distance} dari saya • ${member.location}'
-                                  : 'Aktif $lastUpdatedLabel • ${member.location}',
+                              '${member.distance} • ${member.location}',
                               style: _pj(
-                                11,
+                                10.5,
                                 FontWeight.w500,
                                 isDark ? Colors.white60 : AppColors.slate500,
                               ),
@@ -799,34 +1249,57 @@ class _TeamMemberCard extends StatelessWidget {
                   ),
                 ),
                 const SizedBox(width: 8),
-                if (member.isOnDuty)
-                  ElevatedButton(
-                    onPressed: onViewMap,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.brand600,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                      minimumSize: Size.zero,
-                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-                      elevation: 0,
+
+                // Actions: WhatsApp & Detail/Map
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    // WhatsApp button
+                    IconButton(
+                      onPressed: onWhatsAppTap,
+                      tooltip: 'Chat WhatsApp',
+                      padding: EdgeInsets.zero,
+                      constraints: const BoxConstraints(minWidth: 32, minHeight: 32),
+                      icon: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF25D366).withValues(alpha: 0.12),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(
+                          Icons.chat_bubble_rounded,
+                          size: 15,
+                          color: Color(0xFF16A34A),
+                        ),
+                      ),
                     ),
-                    child: Text('Lihat Maps', style: _pj(11, FontWeight.w700, Colors.white)),
-                  )
-                else
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      color: isDark ? Colors.white10 : AppColors.slate100,
-                      shape: BoxShape.circle,
+                    const SizedBox(width: 4),
+                    // Detail / Map button
+                    GestureDetector(
+                      onTap: onDetailTap,
+                      child: Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                        decoration: BoxDecoration(
+                          color: isSelected
+                              ? const Color(0xFF003D58)
+                              : (isDark ? Colors.white10 : const Color(0xFFF1F5F9)),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Text(
+                          'Detail',
+                          style: _pj(
+                            11,
+                            FontWeight.w700,
+                            isSelected
+                                ? Colors.white
+                                : (isDark ? Colors.white70 : const Color(0xFF003D58)),
+                          ),
+                        ),
+                      ),
                     ),
-                    child: Icon(
-                      Icons.chevron_right_rounded,
-                      size: 18,
-                      color: isDark ? Colors.white60 : AppColors.slate400,
-                    ),
-                  ),
+                  ],
+                ),
               ],
             ),
           ),

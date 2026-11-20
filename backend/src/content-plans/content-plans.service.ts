@@ -3,7 +3,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateContentPlanDto } from './dto/create-content-plan.dto';
 import { UpdateContentPlanDto } from './dto/update-content-plan.dto';
 import { SubmitProofDto } from './dto/submit-proof.dto';
-import { ContentStatus, Platform, Role } from '@prisma/client';
+import { ContentStatus, NotificationType, Platform, Role, UserStatus } from '@prisma/client';
 import { buildPaginatedResult, parsePagination } from '../common/utils/pagination.util';
 import { mapContentPlanForMobile } from '../common/mappers/mobile.mapper';
 
@@ -28,11 +28,59 @@ export class ContentPlansService {
     },
   };
 
+  private normalizePlatform(raw?: string): string {
+    if (!raw || !raw.trim()) return 'INSTAGRAM';
+    const trimmed = raw.trim();
+    const upper = trimmed.toUpperCase();
+    if (['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'WEBSITE', 'FACEBOOK'].includes(upper)) {
+      return upper;
+    }
+    return trimmed;
+  }
+
+  private async notifySuperAdmins(
+    title: string,
+    message: string,
+    link: string,
+    type: NotificationType = NotificationType.INFO,
+  ) {
+    const superAdmins = await this.prisma.user.findMany({
+      where: { role: Role.SUPER_ADMIN, status: UserStatus.AKTIF, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (superAdmins.length === 0) return;
+
+    await this.prisma.notification.createMany({
+      data: superAdmins.map((u) => ({
+        userId: u.id,
+        title,
+        message,
+        type,
+        link,
+      })),
+    });
+  }
+
   async create(dto: CreateContentPlanDto, userId?: number) {
     const { deadline, category: _ignoredCategory, ...data } = dto as any;
+
+    if (data.picId) {
+      const pic = await this.prisma.user.findUnique({ where: { id: data.picId } });
+      if (!pic) throw new NotFoundException('PIC tidak ditemukan.');
+      if (pic.role !== 'USER') {
+        throw new BadRequestException('Admin Humas dan Kepala Humas tidak dapat ditugaskan sebagai PIC Content Plan.');
+      }
+      if (pic.status !== 'AKTIF') {
+        throw new BadRequestException('Akun nonaktif tidak dapat ditugaskan sebagai PIC Content Plan.');
+      }
+    }
+
     const plan = await this.prisma.contentPlan.create({
       data: {
         ...data,
+        rawMaterialUrl: data.rawMaterialUrl?.trim() || null,
+        platform: this.normalizePlatform(data.platform),
         deadline: new Date(deadline),
         status: data.status || ContentStatus.DITUGASKAN,
       },
@@ -68,7 +116,7 @@ export class ContentPlansService {
   async findAllPaginated(query: {
     page?: number;
     pageSize?: number;
-    platform?: Platform;
+    platform?: string;
     status?: ContentStatus;
     search?: string;
     startDate?: string;
@@ -189,8 +237,23 @@ export class ContentPlansService {
 
     const { deadline, revisionNote, adminNotes, category: _ignoredCategory, ...data } = dto as any;
 
+    if (data.picId) {
+      const pic = await this.prisma.user.findUnique({ where: { id: data.picId } });
+      if (!pic) throw new NotFoundException('PIC tidak ditemukan.');
+      if (pic.role !== 'USER') {
+        throw new BadRequestException('Admin Humas dan Kepala Humas tidak dapat ditugaskan sebagai PIC Content Plan.');
+      }
+      if (pic.status !== 'AKTIF') {
+        throw new BadRequestException('Akun nonaktif tidak dapat ditugaskan sebagai PIC Content Plan.');
+      }
+    }
+
     const updateData: Record<string, unknown> = {
       ...data,
+      ...(data.platform !== undefined ? { platform: this.normalizePlatform(data.platform) } : {}),
+      ...(data.rawMaterialUrl !== undefined
+        ? { rawMaterialUrl: data.rawMaterialUrl?.trim() || null }
+        : {}),
       deadline: deadline ? new Date(deadline) : undefined,
     };
 
@@ -253,7 +316,7 @@ export class ContentPlansService {
     }
 
     const nextStatus = isSendingReview
-      ? ContentStatus.MENUNGGU_VERIFIKASI_ADMIN
+      ? ContentStatus.MENUNGGU_PERSETUJUAN_KEPALA_HUMAS
       : (plan.status === ContentStatus.REVISI ? ContentStatus.REVISI : ContentStatus.DALAM_PENGERJAAN);
 
     const updateData: Record<string, unknown> = {
@@ -287,13 +350,11 @@ export class ContentPlansService {
     }
 
     if (isSendingReview) {
-      await this.prisma.notification.create({
-        data: {
-          title: 'Hasil Konten Siap Diverifikasi Admin',
-          message: `PIC ${plan.pic?.fullName || 'Kreator'} telah mengirimkan hasil konten "${plan.title}" untuk diverifikasi oleh Admin Humas.`,
-          type: 'INFO',
-        },
-      });
+      await this.notifySuperAdmins(
+        'Persetujuan Content Plan Diperlukan',
+        `PIC ${plan.pic?.fullName || 'Kreator'} telah mengirimkan hasil konten "${plan.title}" dan menunggu persetujuan Kepala Humas.`,
+        '/persetujuan?tab=konten',
+      );
     }
 
     return updated;
@@ -482,7 +543,7 @@ export class ContentPlansService {
     }
 
     const nextStatus = isSendingReview
-      ? ContentStatus.MENUNGGU_VERIFIKASI_ADMIN
+      ? ContentStatus.MENUNGGU_PERSETUJUAN_KEPALA_HUMAS
       : (plan.status === ContentStatus.REVISI ? ContentStatus.REVISI : ContentStatus.DALAM_PENGERJAAN);
 
     const updateData: Record<string, unknown> = {
@@ -509,6 +570,14 @@ export class ContentPlansService {
           contentPlanId: id,
         },
       });
+    }
+
+    if (isSendingReview) {
+      await this.notifySuperAdmins(
+        'Persetujuan Content Plan Diperlukan',
+        `PIC ${updated.pic?.fullName || 'Kreator'} telah mengirimkan hasil konten "${updated.title}" dan menunggu persetujuan Kepala Humas.`,
+        '/persetujuan?tab=konten',
+      );
     }
 
     return { item: mapContentPlanForMobile(updated) };

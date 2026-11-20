@@ -1,5 +1,7 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
+import 'package:poli_humas/services/api_client.dart';
 import 'package:poli_humas/services/user_profile_service.dart';
 import 'package:poli_humas/theme/app_colors.dart';
 import 'package:poli_humas/widgets/profile_avatar.dart';
@@ -79,7 +81,7 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
                   _pickPhoto(ImageSource.camera);
                 },
               ),
-              if (_photoPath != null)
+              if (_photoPath != null && _photoPath!.trim().isNotEmpty)
                 ListTile(
                   leading: const Icon(Icons.delete_outline, color: AppColors.danger),
                   title: const Text('Hapus Foto', style: TextStyle(color: AppColors.danger)),
@@ -95,27 +97,57 @@ class _EditProfileScreenState extends State<EditProfileScreen> {
     );
   }
 
+  String _extractErrorMessage(Object error) {
+    if (error is DioException) {
+      if (error.error is ApiException) {
+        return (error.error as ApiException).message;
+      }
+      final data = error.response?.data;
+      if (data is Map && data['message'] != null) {
+        final msg = data['message'];
+        return msg is List ? msg.join(', ') : msg.toString();
+      }
+      if (error.message != null && error.message!.trim().isNotEmpty) {
+        return error.message!;
+      }
+    }
+    return error.toString().replaceFirst('Exception: ', '').trim();
+  }
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isSaving = true);
-    await UserProfileService.instance.saveProfile(
-      name: _nameController.text,
-      phone: _phoneController.text,
-      email: _emailController.text,
-      photoPath: _photoPath,
-      clearPhoto: _photoPath == null,
-    );
+    try {
+      await UserProfileService.instance.saveProfile(
+        name: _nameController.text,
+        phone: _phoneController.text,
+        email: _emailController.text,
+        photoPath: _photoPath,
+        clearPhoto: _photoPath == null || _photoPath!.trim().isEmpty,
+      );
 
-    if (!mounted) return;
-    setState(() => _isSaving = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(
-        content: Text('Profil berhasil diperbarui.'),
-        backgroundColor: AppColors.success,
-      ),
-    );
-    Navigator.pop(context);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Profil berhasil diperbarui dan tersimpan ke server.'),
+          backgroundColor: AppColors.success,
+        ),
+      );
+      Navigator.pop(context);
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(_extractErrorMessage(e)),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    } finally {
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
+    }
   }
 
   @override

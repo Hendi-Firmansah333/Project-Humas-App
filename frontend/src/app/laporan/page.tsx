@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import AdminLayout from '@/components/layout/AdminLayout';
 import {
   StatCard,
@@ -11,9 +11,10 @@ import {
   CustomButton,
   PaginationBar,
   UserAvatar,
+  CustomDatePicker,
+  TableSkeleton,
 } from '@/components/common';
 import ActivityChart from '@/components/common/ActivityChart';
-import DashboardSkeleton from '@/components/common/DashboardSkeleton';
 import {
   FileText,
   FileSpreadsheet,
@@ -41,6 +42,7 @@ import {
   Crown,
   User,
   Info,
+  Printer,
 } from 'lucide-react';
 import {
   ResponsiveContainer,
@@ -95,6 +97,57 @@ const getLoanItemNames = (item: LoanItem) => {
     return item.items.map((i: any) => `${i.equipment?.name || 'Alat'} x${i.quantity}`).join(', ');
   }
   return item.equipmentName || '-';
+};
+
+const formatReportStatus = (raw?: string): string => {
+  if (!raw) return '-';
+  const map: Record<string, string> = {
+    AKAN_DATANG: 'Akan Datang',
+    DITUGASKAN: 'Ditugaskan',
+    SEDANG_BERLANGSUNG: 'Sedang Berlangsung',
+    MENUNGGU_VERIFIKASI: 'Menunggu Persetujuan Kepala Humas',
+    MENUNGGU_PERSETUJUAN_AKHIR: 'Menunggu Persetujuan Kepala Humas',
+    PERLU_PERBAIKAN: 'Perlu Perbaikan / Revisi',
+    DIKEMBALIKAN: 'Dikembalikan / Revisi',
+    SELESAI: 'Selesai',
+    DIBATALKAN: 'Dibatalkan',
+    DITOLAK: 'Ditolak',
+    DISETUJUI: 'Disetujui',
+    SEDANG_DIPINJAM: 'Sedang Dipinjam',
+    DIKEMBALIKAN_LENGKAP: 'Telah Dikembalikan',
+    TERLAMBAT: 'Terlambat',
+    DIPUBLIKASIKAN: 'Dipublikasikan',
+    PUBLISHED: 'Dipublikasikan',
+    DALAM_PROSES: 'Dalam Proses Produksi',
+    MENUNGGU_VERIFIKASI_ADMIN: 'Menunggu Persetujuan Kepala Humas',
+    MENUNGGU_PERSETUJUAN_KEPALA_HUMAS: 'Menunggu Persetujuan Kepala Humas',
+    REVISI: 'Perlu Revisi',
+    AKTIF: 'Aktif',
+    NONAKTIF: 'Nonaktif',
+  };
+  return (
+    map[raw] ||
+    raw
+      .replace(/_/g, ' ')
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase())
+  );
+};
+
+const loadImageAsDataUrl = async (src: string): Promise<string | null> => {
+  try {
+    const res = await fetch(src, { cache: 'force-cache' });
+    if (!res.ok) return null;
+    const blob = await res.blob();
+    return await new Promise<string | null>((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
 };
 
 interface UserItem {
@@ -157,8 +210,19 @@ export default function ReportPage() {
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 8;
 
-  // Export state
+  // Export state & outside click ref
   const [isExportOpen, setIsExportOpen] = useState(false);
+  const exportMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+        setIsExportOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const fetchTabDataset = async () => {
     if (startDate && endDate && new Date(startDate) > new Date(endDate)) {
@@ -169,37 +233,36 @@ export default function ReportPage() {
     try {
       const dateRange = { startDate, endDate };
 
-      // Load generic dashboard statistics for summary stats cards
-      const summary = await dashboardService.summary();
-      setStats(summary.statistics ?? {
-        totalActivities: 0,
-        totalContentPlans: 0,
-        activeLoans: 0,
-        totalUsers: 0,
-      });
-      setMonthlyStats(summary.monthlyStats ?? []);
+      const [summary, actResult, contentResult, loanResult, userResult, evalResult] = await Promise.all([
+        dashboardService.summary().catch(() => ({ statistics: null, monthlyStats: [] })),
+        reportService.getActivities(dateRange).catch(() => []),
+        reportService.getContentPlans(dateRange).catch(() => []),
+        reportService.getLoans(dateRange).catch(() => []),
+        reportService.getUsers(dateRange).catch(() => []),
+        reportService.getUserEvaluation(dateRange).catch(() => []),
+      ]);
 
-      // Fetch dynamic records based on filters
-      if (activeTab === 'kegiatan' || activeTab === 'summary') {
-        const actResult = await reportService.getActivities(dateRange);
-        setActivities(Array.isArray(actResult) ? actResult : []);
-      }
-      if (activeTab === 'content-plans' || activeTab === 'summary') {
-        const contentResult = await reportService.getContentPlans(dateRange);
-        setContentPlans(Array.isArray(contentResult) ? contentResult : []);
-      }
-      if (activeTab === 'loans' || activeTab === 'summary') {
-        const loanResult = await reportService.getLoans(dateRange);
-        setLoans(Array.isArray(loanResult) ? loanResult : []);
-      }
-      if (activeTab === 'users' || activeTab === 'summary') {
-        const userResult = await reportService.getUsers(dateRange);
-        setUsersData(Array.isArray(userResult) ? userResult : []);
-      }
-      if (activeTab === 'evaluasi' || activeTab === 'summary') {
-        const evalResult = await reportService.getUserEvaluation(dateRange);
-        setEvaluationData(Array.isArray(evalResult) ? evalResult : []);
-      }
+      const actList = Array.isArray(actResult) ? actResult : [];
+      const contentList = Array.isArray(contentResult) ? contentResult : [];
+      const loanList = Array.isArray(loanResult) ? loanResult : [];
+      const userList = Array.isArray(userResult) ? userResult : [];
+      const evalList = Array.isArray(evalResult) ? evalResult : [];
+
+      setActivities(actList);
+      setContentPlans(contentList);
+      setLoans(loanList);
+      setUsersData(userList);
+      setEvaluationData(evalList);
+
+      setStats(
+        summary?.statistics ?? {
+          totalActivities: actList.length,
+          totalContentPlans: contentList.length,
+          activeLoans: loanList.length,
+          totalUsers: userList.length,
+        }
+      );
+      setMonthlyStats(summary?.monthlyStats ?? []);
     } catch {
       toast.error('Gagal memuat data rekapitulasi laporan.');
     } finally {
@@ -210,7 +273,12 @@ export default function ReportPage() {
   useEffect(() => {
     fetchTabDataset();
     setCurrentPage(1);
-  }, [activeTab, startDate, endDate]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [startDate, endDate]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [activeTab]);
 
   const applyShortcut = (shortcut: 'hari' | 'minggu' | 'bulan' | 'tahun') => {
     const now = new Date();
@@ -218,7 +286,7 @@ export default function ReportPage() {
     const fmt = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 
     let start = '';
-    let end = fmt(now);
+    const end = fmt(now);
 
     if (shortcut === 'hari') {
       start = fmt(now);
@@ -241,187 +309,759 @@ export default function ReportPage() {
     toast.success(`Filter periode disetel ke: ${shortcut === 'hari' ? 'Hari Ini' : shortcut === 'minggu' ? 'Minggu Ini' : shortcut === 'bulan' ? 'Bulan Ini' : 'Tahun Ini'}`);
   };
 
+  const handlePrintReport = () => {
+    setIsExportOpen(false);
+    setTimeout(() => {
+      window.print();
+    }, 150);
+  };
+
   const handleExportPDF = async () => {
     try {
-      toast.info('Membuat file PDF...', { duration: 2000 });
-      const { default: jsPDF } = await import('jspdf');
-      const { default: autoTable } = await import('jspdf-autotable');
+      toast.info('Menyiapkan dokumen laporan PDF resmi...', { duration: 2500 });
+      const [{ default: jsPDF }, { default: autoTable }, polinelaLogo, primaLogo] = await Promise.all([
+        import('jspdf'),
+        import('jspdf-autotable'),
+        loadImageAsDataUrl('/logo-polinela.png'),
+        loadImageAsDataUrl('/logo-prima.png'),
+      ]);
 
       const doc = new jsPDF({ orientation: 'landscape', format: 'a4' });
+      const pageWidth = doc.internal.pageSize.getWidth(); // 297 mm
+      const pageHeight = doc.internal.pageSize.getHeight(); // 210 mm
+      const marginX = 14;
       const now = new Date();
       const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
-      const periodStr = `Periode: ${startDate} s/d ${endDate}`;
-      const tabLabel = {
-        kegiatan: 'Rekap Kegiatan',
-        'content-plans': 'Rekap Content Plan',
-        loans: 'Rekap Peminjaman Alat',
-        users: 'Rekap Pengguna',
-        evaluasi: 'Evaluasi Kinerja Tim',
-        summary: 'Ringkasan Laporan',
-      }[activeTab] || 'Laporan Humas';
+      const timeStr = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+      const periodFormatted = `${formatDateID(startDate)} s.d. ${formatDateID(endDate)}`;
+      const docCode = `LAP-PRIMA/HUMAS-POLINELA/${now.getFullYear()}/${String(now.getMonth() + 1).padStart(2, '0')}`;
 
-      // ── Header ──
-      doc.setFillColor(13, 148, 136);
-      doc.rect(0, 0, 297, 22, 'F');
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(14);
+      const tabTitleMap: Record<string, string> = {
+        summary: 'LAPORAN REKAPITULASI EKSEKUTIF KEHUMASAN',
+        kegiatan: 'LAPORAN REKAPITULASI KEGIATAN PELIPUTAN HUMAS',
+        'content-plans': 'LAPORAN REKAPITULASI RENCANA KONTEN (CONTENT PLAN)',
+        loans: 'LAPORAN REKAPITULASI PEMINJAMAN INVENTARIS ALAT',
+        users: 'LAPORAN REKAPITULASI DATA PERSONEL & PENGGUNA SISTEM',
+        evaluasi: 'LAPORAN EVALUASI KINERJA ANGGOTA TIM KEHUMASAN',
+      };
+      const reportMainTitle = tabTitleMap[activeTab] || 'LAPORAN REKAPITULASI KEHUMASAN';
+
+      // Helper to draw official Kop Surat on top of the first page
+      const drawKopSurat = () => {
+        // Left Logo: Logo Resmi Polinela
+        if (polinelaLogo) {
+          doc.addImage(polinelaLogo, 'PNG', marginX + 2, 8, 22, 22);
+        }
+        // Right Logo: Logo Resmi PRIMA Humas
+        if (primaLogo) {
+          doc.addImage(primaLogo, 'PNG', pageWidth - marginX - 24, 8, 22, 22);
+        }
+
+        // Center Kop Surat Text
+        doc.setTextColor(15, 23, 42);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(9.5);
+        doc.text(
+          'KEMENTERIAN PENDIDIKAN TINGGI, SAINS, DAN TEKNOLOGI',
+          pageWidth / 2,
+          12,
+          { align: 'center' }
+        );
+
+        doc.setTextColor(0, 61, 88); // Polinela & PRIMA Navy #003D58
+        doc.setFontSize(14);
+        doc.text('POLITEKNIK NEGERI LAMPUNG', pageWidth / 2, 18, { align: 'center' });
+
+        doc.setTextColor(15, 23, 42);
+        doc.setFontSize(10);
+        doc.text(
+          'UPT HUBUNGAN MASYARAKAT DAN KERJASAMA — SISTEM INFORMASI PRIMA',
+          pageWidth / 2,
+          23,
+          { align: 'center' }
+        );
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(8);
+        doc.setTextColor(71, 85, 105);
+        doc.text(
+          'Jl. Soekarno Hatta No. 10, Rajabasa Raya, Kec. Rajabasa, Kota Bandar Lampung, Lampung 35144',
+          pageWidth / 2,
+          27.5,
+          { align: 'center' }
+        );
+        doc.text(
+          'Telepon: (0721) 703995 | Faksimile: (0721) 787309 | Laman: www.polinela.ac.id | Email: humas@polinela.ac.id',
+          pageWidth / 2,
+          31.2,
+          { align: 'center' }
+        );
+
+        // Garis Kop Surat Ganda (Thick + Thin Double Line)
+        doc.setDrawColor(0, 61, 88);
+        doc.setLineWidth(0.9);
+        doc.line(marginX, 34.5, pageWidth - marginX, 34.5);
+        doc.setLineWidth(0.25);
+        doc.line(marginX, 35.7, pageWidth - marginX, 35.7);
+      };
+
+      drawKopSurat();
+
+      // ── Judul Laporan & Metadata Box ──
+      doc.setTextColor(0, 61, 88);
       doc.setFont('helvetica', 'bold');
-      doc.text('POLITEKNIK NEGERI LAMPUNG', 148, 9, { align: 'center' });
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.text('BAGIAN HUBUNGAN MASYARAKAT (HUMAS)', 148, 15, { align: 'center' });
+      doc.setFontSize(12);
+      doc.text(reportMainTitle, pageWidth / 2, 42.5, { align: 'center' });
 
-      // ── Title ──
+      // Metadata Bar
+      doc.setFillColor(248, 250, 252);
+      doc.setDrawColor(203, 213, 225);
+      doc.setLineWidth(0.25);
+      doc.roundedRect(marginX, 45.5, pageWidth - marginX * 2, 9, 1.5, 1.5, 'FD');
+
+      doc.setFontSize(8);
+      doc.setFont('helvetica', 'bold');
       doc.setTextColor(30, 41, 59);
-      doc.setFontSize(13);
-      doc.setFont('helvetica', 'bold');
-      doc.text(tabLabel.toUpperCase(), 148, 32, { align: 'center' });
-      doc.setFontSize(9);
-      doc.setFont('helvetica', 'normal');
-      doc.setTextColor(100, 116, 139);
-      doc.text(periodStr, 148, 38, { align: 'center' });
-      doc.text(`Dibuat: ${dateStr}`, 148, 43, { align: 'center' });
+      doc.text(`Kode Dokumen: ${docCode}`, marginX + 4, 51);
+      doc.text(`Periode Laporan: ${periodFormatted}`, pageWidth / 2, 51, { align: 'center' });
+      doc.text(`Dicetak: ${dateStr} (${timeStr})`, pageWidth - marginX - 4, 51, { align: 'right' });
 
-      // ── Table ──
-      let head: string[][] = [];
-      let body: any[][] = [];
+      // ── 4 KPI Summary Cards Row ──
+      const kpiItems = [
+        { label: 'TOTAL KEGIATAN DILIPUT', val: `${stats.totalActivities} Agenda`, sub: `Periode terpilih: ${filteredActivities.length} kegiatan` },
+        { label: 'RENCANA KONTEN HUMAS', val: `${stats.totalContentPlans} Konten`, sub: `Periode terpilih: ${filteredContentPlans.length} konten` },
+        { label: 'PEMINJAMAN INVENTARIS', val: `${stats.activeLoans} Sesi Aktif`, sub: `Periode terpilih: ${filteredLoans.length} transaksi` },
+        { label: 'PERSONEL KRU HUMAS', val: `${stats.totalUsers} Personel`, sub: `Dievaluasi: ${evaluationData.length} anggota` },
+      ];
+      const boxGap = 4;
+      const totalWidth = pageWidth - marginX * 2;
+      const boxW = (totalWidth - boxGap * 3) / 4;
+      const boxY = 57;
+      const boxH = 15.5;
 
-      if (activeTab === 'kegiatan') {
-        head = [['No', 'Judul Kegiatan', 'Kategori', 'Tanggal', 'Waktu', 'PIC', 'Status']];
-        body = filteredActivities.map((item, idx) => [
-          idx + 1, item.title, item.category, formatDateID(item.date),
-          `${item.startTime} - ${item.endTime}`, item.pic?.fullName ?? '-', item.status,
-        ]);
-      } else if (activeTab === 'content-plans') {
-        head = [['No', 'Judul Konten', 'Jenis', 'Platform', 'PIC', 'Status']];
-        body = filteredContentPlans.map((item, idx) => [
-          idx + 1, item.title, item.contentType, item.platform, item.pic?.fullName ?? '-', item.status,
-        ]);
-      } else if (activeTab === 'loans') {
-        head = [['No', 'Peminjam', 'Inventaris', 'Tgl Pinjam', 'Tgl Kembali', 'Status']];
-        body = filteredLoans.map((item, idx) => [
-          idx + 1, item.borrowerName, getLoanItemNames(item), formatDateID(item.borrowDate),
-          item.returnDate ? formatDateID(item.returnDate) : '-', item.status,
-        ]);
-      } else if (activeTab === 'users') {
-        head = [['No', 'Nama Lengkap', 'Username', 'Email', 'Peran', 'Status']];
-        body = filteredUsers.map((item, idx) => [
-          idx + 1, item.fullName, item.username, item.email, item.roleLabel, item.isActive ? 'Aktif' : 'Nonaktif',
-        ]);
-      } else if (activeTab === 'evaluasi') {
-        head = [['No', 'Nama', 'Kegiatan', 'Hadir', '% Kehadiran', 'Dokumentasi', 'Content Plan', 'Nilai Kinerja']];
-        body = evaluationData.map((item, idx) => [
-          idx + 1, item.fullName, item.totalKegiatan, item.totalCheckin,
-          `${item.persenKehadiran}%`, item.totalDokumentasi, item.totalContentPlan, `${item.nilaiKinerja}/100`,
-        ]);
-      } else {
-        head = [['Metrik', 'Nilai']];
-        body = [
-          ['Total Kegiatan', stats.totalActivities],
-          ['Total Content Plan', stats.totalContentPlans],
-          ['Peminjaman Aktif', stats.activeLoans],
-          ['Total Pengguna', stats.totalUsers],
-        ];
-      }
+      kpiItems.forEach((kpi, i) => {
+        const bx = marginX + i * (boxW + boxGap);
+        doc.setFillColor(255, 255, 255);
+        doc.setDrawColor(203, 213, 225);
+        doc.setLineWidth(0.25);
+        doc.roundedRect(bx, boxY, boxW, boxH, 1.5, 1.5, 'FD');
 
-      autoTable(doc, {
-        head,
-        body,
-        startY: 50,
-        headStyles: { fillColor: [13, 148, 136], textColor: 255, fontStyle: 'bold', fontSize: 9 },
-        bodyStyles: { fontSize: 8, textColor: [30, 41, 59] },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
-        margin: { left: 14, right: 14 },
+        // Left accent strip
+        doc.setFillColor(0, 61, 88);
+        doc.rect(bx, boxY + 1.5, 1.4, boxH - 3, 'F');
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(6.8);
+        doc.setTextColor(100, 116, 139);
+        doc.text(kpi.label, bx + 4, boxY + 4.5);
+
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(10.5);
+        doc.setTextColor(0, 61, 88);
+        doc.text(kpi.val, bx + 4, boxY + 9.8);
+
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(6.8);
+        doc.setTextColor(100, 116, 139);
+        doc.text(kpi.sub, bx + 4, boxY + 13.7);
       });
 
-      // ── Footer signature ──
-      const pageCount = (doc as any).internal.getNumberOfPages();
-      const lastPage = pageCount;
-      doc.setPage(lastPage);
-      const footerY = (doc as any).internal.pageSize.height - 30;
-      doc.setFontSize(9);
-      doc.setTextColor(100, 116, 139);
-      doc.text('Bandar Lampung, ' + dateStr, 220, footerY, { align: 'center' });
-      doc.text('Kepala Bagian Humas POLINELA', 220, footerY + 5, { align: 'center' });
-      doc.text('(........................................)', 220, footerY + 20, { align: 'center' });
-      doc.text(`Laporan ini digenerate otomatis oleh Sistem Informasi Humas Polinela pada ${dateStr}`, 148, footerY + 28, { align: 'center' });
+      let currentY = boxY + boxH + 5;
 
-      doc.save(`laporan-humas-${activeTab}-${startDate}-${endDate}.pdf`);
-      toast.success('PDF berhasil diunduh!');
+      const commonTableOpts = {
+        headStyles: {
+          fillColor: [0, 61, 88] as [number, number, number],
+          textColor: [255, 255, 255] as [number, number, number],
+          fontStyle: 'bold' as const,
+          fontSize: 8.5,
+          halign: 'center' as const,
+          valign: 'middle' as const,
+          cellPadding: 2.5,
+        },
+        bodyStyles: {
+          fontSize: 8,
+          textColor: [30, 41, 59] as [number, number, number],
+          valign: 'middle' as const,
+          cellPadding: 2.2,
+          lineColor: [226, 232, 240] as [number, number, number],
+          lineWidth: 0.2,
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252] as [number, number, number],
+        },
+        margin: { left: marginX, right: marginX, bottom: 20 },
+      };
+
+      const drawSectionHeading = (title: string, yPos: number): number => {
+        if (yPos > pageHeight - 40) {
+          doc.addPage();
+          yPos = 18;
+        }
+        doc.setFillColor(240, 249, 255);
+        doc.setDrawColor(186, 230, 253);
+        doc.roundedRect(marginX, yPos, pageWidth - marginX * 2, 7, 1, 1, 'FD');
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(8.5);
+        doc.setTextColor(0, 61, 88);
+        doc.text(title, marginX + 3, yPos + 4.8);
+        return yPos + 8.5;
+      };
+
+      if (activeTab === 'summary') {
+        // 1. Tabel Ringkasan Eksekutif
+        currentY = drawSectionHeading('I. RINGKASAN INDIKATOR KINERJA UTAMA (KPI) KEHUMASAN', currentY);
+        autoTable(doc, {
+          ...commonTableOpts,
+          startY: currentY,
+          head: [['No', 'Indikator Kinerja Kehumasan', 'Total Kumulatif Sistem', 'Data Periode Laporan', 'Keterangan Operasional']],
+          body: [
+            ['1', 'Kegiatan Peliputan & Dokumentasi Humas', `${stats.totalActivities} Agenda`, `${filteredActivities.length} Agenda`, 'Agenda peliputan resmi surat masuk & kegiatan internal'],
+            ['2', 'Perencanaan & Publikasi Konten (Content Plan)', `${stats.totalContentPlans} Konten`, `${filteredContentPlans.length} Konten`, 'Publikasi media sosial resmi (Instagram, TikTok, YouTube, Website)'],
+            ['3', 'Sesi Peminjaman Inventaris Peralatan', `${stats.activeLoans} Sesi Aktif`, `${filteredLoans.length} Transaksi`, 'Peminjaman kamera, audio, dan perangkat liputan operasional'],
+            ['4', 'Personel & Kru Humas Terdaftar', `${stats.totalUsers} Personel`, `${evaluationData.length} Anggota Tim`, 'Kepala Humas, Admin Humas, serta Anggota Pelaksana Lapangan'],
+          ],
+          columnStyles: {
+            0: { halign: 'center', cellWidth: 12 },
+            1: { fontStyle: 'bold', cellWidth: 72 },
+            2: { halign: 'center', cellWidth: 38 },
+            3: { halign: 'center', cellWidth: 38 },
+          },
+        });
+        currentY = ((doc as any).lastAutoTable?.finalY || currentY) + 6;
+
+        // 2. Tabel Rekap Kegiatan
+        currentY = drawSectionHeading(`II. REKAPITULASI KEGIATAN PELIPUTAN (${filteredActivities.length} Data)`, currentY);
+        autoTable(doc, {
+          ...commonTableOpts,
+          startY: currentY,
+          head: [['No', 'Judul Kegiatan Peliputan', 'Kategori', 'Tanggal Pelaksanaan', 'Waktu (WIB)', 'PIC Lapangan', 'Status Kegiatan']],
+          body:
+            filteredActivities.length > 0
+              ? filteredActivities.map((item, idx) => [
+                  idx + 1,
+                  item.title,
+                  item.category || '-',
+                  formatDateID(item.date),
+                  `${item.startTime || '--:--'} - ${item.endTime || '--:--'}`,
+                  item.pic?.fullName ?? '-',
+                  formatReportStatus(item.status),
+                ])
+              : [['-', 'Tidak ada data kegiatan peliputan pada periode ini.', '-', '-', '-', '-', '-']],
+          columnStyles: {
+            0: { halign: 'center', cellWidth: 12 },
+            2: { halign: 'center', cellWidth: 36 },
+            3: { halign: 'center', cellWidth: 38 },
+            4: { halign: 'center', cellWidth: 28 },
+            5: { cellWidth: 42 },
+            6: { halign: 'center', cellWidth: 38 },
+          },
+        });
+        currentY = ((doc as any).lastAutoTable?.finalY || currentY) + 6;
+
+        // 3. Tabel Rekap Content Plan
+        currentY = drawSectionHeading(`III. REKAPITULASI CONTENT PLAN MEDIA SOSIAL (${filteredContentPlans.length} Data)`, currentY);
+        autoTable(doc, {
+          ...commonTableOpts,
+          startY: currentY,
+          head: [['No', 'Judul Rencana Konten', 'Jenis Format', 'Platform Publikasi', 'Deadline', 'PIC Kreator', 'Status Konten']],
+          body:
+            filteredContentPlans.length > 0
+              ? filteredContentPlans.map((item, idx) => [
+                  idx + 1,
+                  item.title,
+                  item.contentType || '-',
+                  item.platform || '-',
+                  item.deadline ? formatDateID(item.deadline) : '-',
+                  item.pic?.fullName ?? '-',
+                  formatReportStatus(item.status),
+                ])
+              : [['-', 'Tidak ada data rencana konten pada periode ini.', '-', '-', '-', '-', '-']],
+          columnStyles: {
+            0: { halign: 'center', cellWidth: 12 },
+            2: { halign: 'center', cellWidth: 32 },
+            3: { halign: 'center', cellWidth: 32 },
+            4: { halign: 'center', cellWidth: 36 },
+            5: { cellWidth: 42 },
+            6: { halign: 'center', cellWidth: 38 },
+          },
+        });
+        currentY = ((doc as any).lastAutoTable?.finalY || currentY) + 6;
+
+        // 4. Tabel Rekap Peminjaman Alat
+        currentY = drawSectionHeading(`IV. REKAPITULASI PEMINJAMAN INVENTARIS ALAT (${filteredLoans.length} Data)`, currentY);
+        autoTable(doc, {
+          ...commonTableOpts,
+          startY: currentY,
+          head: [['No', 'Nama Peminjam', 'Rincian Inventaris Alat', 'Tanggal Pinjam', 'Tanggal Kembali', 'Status Peminjaman']],
+          body:
+            filteredLoans.length > 0
+              ? filteredLoans.map((item, idx) => [
+                  idx + 1,
+                  item.borrowerName,
+                  getLoanItemNames(item),
+                  formatDateID(item.borrowDate),
+                  item.returnDate ? formatDateID(item.returnDate) : 'Belum Kembali',
+                  formatReportStatus(item.status),
+                ])
+              : [['-', 'Tidak ada data peminjaman alat pada periode ini.', '-', '-', '-', '-']],
+          columnStyles: {
+            0: { halign: 'center', cellWidth: 12 },
+            1: { cellWidth: 48 },
+            3: { halign: 'center', cellWidth: 40 },
+            4: { halign: 'center', cellWidth: 40 },
+            5: { halign: 'center', cellWidth: 38 },
+          },
+        });
+        currentY = ((doc as any).lastAutoTable?.finalY || currentY) + 6;
+
+        // 5. Tabel Evaluasi Kinerja Anggota
+        if (evaluationData.length > 0) {
+          currentY = drawSectionHeading(`V. EVALUASI KINERJA ANGGOTA TIM HUMAS (${evaluationData.length} Personel)`, currentY);
+          autoTable(doc, {
+            ...commonTableOpts,
+            startY: currentY,
+            head: [['Peringkat', 'Nama Anggota', 'Username', 'Kegiatan', 'Hadir', 'Tepat Waktu', 'Terlambat', '% Kehadiran', 'Dok.', 'Konten', 'Nilai Kinerja']],
+            body: evaluationData.map((item, idx) => [
+              `#${idx + 1}`,
+              item.fullName,
+              `@${item.username}`,
+              item.totalKegiatan,
+              item.totalCheckin,
+              item.totalTepatWaktu,
+              item.totalTerlambat,
+              `${item.persenKehadiran}%`,
+              item.totalDokumentasi,
+              item.totalContentPlan,
+              `${item.nilaiKinerja} / 100`,
+            ]),
+            columnStyles: {
+              0: { halign: 'center', fontStyle: 'bold', cellWidth: 18 },
+              3: { halign: 'center', cellWidth: 18 },
+              4: { halign: 'center', cellWidth: 16 },
+              5: { halign: 'center', cellWidth: 22 },
+              6: { halign: 'center', cellWidth: 18 },
+              7: { halign: 'center', cellWidth: 22 },
+              8: { halign: 'center', cellWidth: 16 },
+              9: { halign: 'center', cellWidth: 16 },
+              10: { halign: 'center', fontStyle: 'bold', cellWidth: 24 },
+            },
+          });
+        }
+      } else {
+        // Tab Spesifik
+        let head: string[][] = [];
+        let body: any[][] = [];
+        let colStyles: Record<number, any> = { 0: { halign: 'center', cellWidth: 12 } };
+
+        if (activeTab === 'kegiatan') {
+          head = [['No', 'Judul Kegiatan Peliputan', 'Kategori', 'Tanggal Pelaksanaan', 'Waktu (WIB)', 'PIC Lapangan', 'Status Kegiatan']];
+          body =
+            filteredActivities.length > 0
+              ? filteredActivities.map((item, idx) => [
+                  idx + 1,
+                  item.title,
+                  item.category || '-',
+                  formatDateID(item.date),
+                  `${item.startTime || '--:--'} - ${item.endTime || '--:--'}`,
+                  item.pic?.fullName ?? '-',
+                  formatReportStatus(item.status),
+                ])
+              : [['-', 'Tidak ada data kegiatan peliputan untuk periode ini.', '-', '-', '-', '-', '-']];
+          colStyles = {
+            0: { halign: 'center', cellWidth: 12 },
+            2: { halign: 'center', cellWidth: 36 },
+            3: { halign: 'center', cellWidth: 38 },
+            4: { halign: 'center', cellWidth: 28 },
+            5: { cellWidth: 42 },
+            6: { halign: 'center', cellWidth: 38 },
+          };
+        } else if (activeTab === 'content-plans') {
+          head = [['No', 'Judul Rencana Konten', 'Jenis Format', 'Platform Publikasi', 'Deadline Publish', 'PIC Kreator', 'Status Konten']];
+          body =
+            filteredContentPlans.length > 0
+              ? filteredContentPlans.map((item, idx) => [
+                  idx + 1,
+                  item.title,
+                  item.contentType || '-',
+                  item.platform || '-',
+                  item.deadline ? formatDateID(item.deadline) : '-',
+                  item.pic?.fullName ?? '-',
+                  formatReportStatus(item.status),
+                ])
+              : [['-', 'Tidak ada data rencana konten untuk periode ini.', '-', '-', '-', '-', '-']];
+          colStyles = {
+            0: { halign: 'center', cellWidth: 12 },
+            2: { halign: 'center', cellWidth: 32 },
+            3: { halign: 'center', cellWidth: 32 },
+            4: { halign: 'center', cellWidth: 36 },
+            5: { cellWidth: 42 },
+            6: { halign: 'center', cellWidth: 38 },
+          };
+        } else if (activeTab === 'loans') {
+          head = [['No', 'Nama Peminjam', 'Rincian Inventaris Alat', 'Tanggal Pinjam', 'Tanggal Kembali', 'Status Peminjaman']];
+          body =
+            filteredLoans.length > 0
+              ? filteredLoans.map((item, idx) => [
+                  idx + 1,
+                  item.borrowerName,
+                  getLoanItemNames(item),
+                  formatDateID(item.borrowDate),
+                  item.returnDate ? formatDateID(item.returnDate) : 'Belum Kembali',
+                  formatReportStatus(item.status),
+                ])
+              : [['-', 'Tidak ada data peminjaman alat untuk periode ini.', '-', '-', '-', '-']];
+          colStyles = {
+            0: { halign: 'center', cellWidth: 12 },
+            1: { cellWidth: 50 },
+            3: { halign: 'center', cellWidth: 40 },
+            4: { halign: 'center', cellWidth: 40 },
+            5: { halign: 'center', cellWidth: 38 },
+          };
+        } else if (activeTab === 'users') {
+          head = [['No', 'Nama Lengkap Personel', 'Username', 'Alamat Email Resmi', 'Jabatan / Peran', 'Status Akun']];
+          body =
+            filteredUsers.length > 0
+              ? filteredUsers.map((item, idx) => [
+                  idx + 1,
+                  item.fullName,
+                  item.username,
+                  item.email,
+                  item.roleLabel,
+                  item.isActive ? 'Aktif' : 'Nonaktif',
+                ])
+              : [['-', 'Tidak ada data personel pengguna.', '-', '-', '-', '-']];
+          colStyles = {
+            0: { halign: 'center', cellWidth: 12 },
+            2: { cellWidth: 38 },
+            4: { halign: 'center', cellWidth: 44 },
+            5: { halign: 'center', cellWidth: 28 },
+          };
+        } else if (activeTab === 'evaluasi') {
+          head = [['Peringkat', 'Nama Lengkap Anggota', 'Username', 'Kegiatan', 'Hadir', 'Tepat Waktu', 'Terlambat', '% Kehadiran', 'Dokumentasi', 'Content Plan', 'Nilai Kinerja']];
+          body =
+            evaluationData.length > 0
+              ? evaluationData.map((item, idx) => [
+                  `#${idx + 1}`,
+                  item.fullName,
+                  `@${item.username}`,
+                  item.totalKegiatan,
+                  item.totalCheckin,
+                  item.totalTepatWaktu,
+                  item.totalTerlambat,
+                  `${item.persenKehadiran}%`,
+                  item.totalDokumentasi,
+                  item.totalContentPlan,
+                  `${item.nilaiKinerja} / 100`,
+                ])
+              : [['-', 'Tidak ada data evaluasi kinerja anggota untuk periode ini.', '-', '-', '-', '-', '-', '-', '-', '-', '-']];
+          colStyles = {
+            0: { halign: 'center', fontStyle: 'bold', cellWidth: 18 },
+            3: { halign: 'center', cellWidth: 18 },
+            4: { halign: 'center', cellWidth: 16 },
+            5: { halign: 'center', cellWidth: 22 },
+            6: { halign: 'center', cellWidth: 18 },
+            7: { halign: 'center', cellWidth: 22 },
+            8: { halign: 'center', cellWidth: 22 },
+            9: { halign: 'center', cellWidth: 22 },
+            10: { halign: 'center', fontStyle: 'bold', cellWidth: 25 },
+          };
+        }
+
+        autoTable(doc, {
+          ...commonTableOpts,
+          startY: currentY,
+          head,
+          body,
+          columnStyles: colStyles,
+        });
+      }
+
+      // ── Footer Setiap Halaman ──
+      const totalPages = (doc as any).internal.getNumberOfPages();
+      for (let p = 1; p <= totalPages; p++) {
+        doc.setPage(p);
+        doc.setDrawColor(226, 232, 240);
+        doc.setLineWidth(0.25);
+        doc.line(marginX, pageHeight - 12, pageWidth - marginX, pageHeight - 12);
+
+        doc.setFont('helvetica', 'italic');
+        doc.setFontSize(7.5);
+        doc.setTextColor(100, 116, 139);
+        doc.text(
+          `Dokumen Resmi Sistem Informasi Kehumasan PRIMA — Politeknik Negeri Lampung | Dicetak otomatis pada ${dateStr} ${timeStr}`,
+          marginX,
+          pageHeight - 7.5
+        );
+        doc.setFont('helvetica', 'bold');
+        doc.text(`Halaman ${p} dari ${totalPages}`, pageWidth - marginX, pageHeight - 7.5, { align: 'right' });
+      }
+
+      doc.save(`Laporan-PRIMA-Polinela-${activeTab}-${startDate}-sd-${endDate}.pdf`);
+      toast.success('Laporan PDF resmi berhasil diunduh!');
     } catch (err) {
       console.error(err);
-      toast.error('Gagal membuat PDF. Coba lagi.');
+      toast.error('Gagal membuat laporan PDF. Silakan coba lagi.');
     }
   };
+
   const handleExportExcel = async () => {
     try {
-      toast.info('Membuat file Excel...', { duration: 2000 });
-      const ExcelJS = await import('exceljs');
+      toast.info('Menyiapkan buku kerja Excel (.xlsx) resmi...', { duration: 2500 });
+      const [ExcelJS, polinelaLogo, primaLogo] = await Promise.all([
+        import('exceljs'),
+        loadImageAsDataUrl('/logo-polinela.png'),
+        loadImageAsDataUrl('/logo-prima.png'),
+      ]);
+
       const workbook = new ExcelJS.Workbook();
-      workbook.creator = 'Sistem Humas Polinela';
+      workbook.creator = 'Sistem Informasi Kehumasan PRIMA - Politeknik Negeri Lampung';
       workbook.created = new Date();
 
-      const headerFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF0D9488' } };
-      const headerFont: any = { bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+      let polinelaImgId: number | null = null;
+      let primaImgId: number | null = null;
 
+      if (polinelaLogo) {
+        polinelaImgId = workbook.addImage({ base64: polinelaLogo, extension: 'png' });
+      }
+      if (primaLogo) {
+        primaImgId = workbook.addImage({ base64: primaLogo, extension: 'png' });
+      }
 
-      const addSheet = (name: string, columns: string[], rows: any[][]) => {
-        const sheet = workbook.addWorksheet(name);
-        sheet.mergeCells('A1:G1');
-        sheet.getCell('A1').value = 'LAPORAN HUMAS POLINELA';
-        sheet.getCell('A1').font = { bold: true, size: 13 };
-        sheet.mergeCells('A2:G2');
-        sheet.getCell('A2').value = `Periode: ${startDate} s/d ${endDate}`;
+      const now = new Date();
+      const dateStr = now.toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' });
+      const periodFormatted = `${formatDateID(startDate)} s.d. ${formatDateID(endDate)}`;
+
+      const headerFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF003D58' } };
+      const zebraFill: any = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFF8FAFC' } };
+      const headerFont: any = { name: 'Calibri', bold: true, color: { argb: 'FFFFFFFF' }, size: 10 };
+      const thinBorder: any = {
+        top: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        left: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        bottom: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+        right: { style: 'thin', color: { argb: 'FFCBD5E1' } },
+      };
+
+      const addOfficialSheet = (
+        sheetName: string,
+        reportTitle: string,
+        columns: string[],
+        rows: any[][],
+        colWidths?: number[]
+      ) => {
+        const sheet = workbook.addWorksheet(sheetName, {
+          views: [{ showGridLines: true }],
+        });
+
+        const lastColIndex = Math.max(columns.length, 6);
+        const lastColLetter = String.fromCharCode(64 + lastColIndex);
+
+        // Kop Surat Rows (Rows 1 - 4)
+        sheet.mergeCells(`A1:${lastColLetter}1`);
+        sheet.getCell('A1').value = 'KEMENTERIAN PENDIDIKAN TINGGI, SAINS, DAN TEKNOLOGI';
+        sheet.getCell('A1').font = { name: 'Calibri', bold: true, size: 10, color: { argb: 'FF334155' } };
+        sheet.getCell('A1').alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.getRow(1).height = 16;
+
+        sheet.mergeCells(`A2:${lastColLetter}2`);
+        sheet.getCell('A2').value = 'POLITEKNIK NEGERI LAMPUNG';
+        sheet.getCell('A2').font = { name: 'Calibri', bold: true, size: 15, color: { argb: 'FF003D58' } };
+        sheet.getCell('A2').alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.getRow(2).height = 22;
+
+        sheet.mergeCells(`A3:${lastColLetter}3`);
+        sheet.getCell('A3').value = 'UPT HUBUNGAN MASYARAKAT DAN KERJASAMA — SISTEM INFORMASI PRIMA';
+        sheet.getCell('A3').font = { name: 'Calibri', bold: true, size: 11, color: { argb: 'FF0F172A' } };
+        sheet.getCell('A3').alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.getRow(3).height = 18;
+
+        sheet.mergeCells(`A4:${lastColLetter}4`);
+        sheet.getCell('A4').value =
+          'Jl. Soekarno Hatta No. 10, Rajabasa Raya, Bandar Lampung 35144 | Telp: (0721) 703995 | www.polinela.ac.id';
+        sheet.getCell('A4').font = { name: 'Calibri', italic: true, size: 9, color: { argb: 'FF475569' } };
+        sheet.getCell('A4').alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.getRow(4).height = 18;
+
+        // Double Bottom Border on Row 4 (Garis Kop Surat)
+        for (let c = 1; c <= lastColIndex; c++) {
+          sheet.getRow(4).getCell(c).border = {
+            bottom: { style: 'double', color: { argb: 'FF003D58' } },
+          };
+        }
+
+        // Embed Logo Polinela (Left) & Logo PRIMA (Right)
+        if (polinelaImgId !== null) {
+          sheet.addImage(polinelaImgId, {
+            tl: { col: 0.15, row: 0.2 },
+            ext: { width: 64, height: 64 },
+          });
+        }
+        if (primaImgId !== null) {
+          sheet.addImage(primaImgId, {
+            tl: { col: lastColIndex - 0.85, row: 0.2 },
+            ext: { width: 64, height: 64 },
+          });
+        }
+
+        // Title & Period (Rows 6 - 7)
+        sheet.mergeCells(`A6:${lastColLetter}6`);
+        sheet.getCell('A6').value = reportTitle.toUpperCase();
+        sheet.getCell('A6').font = { name: 'Calibri', bold: true, size: 12, color: { argb: 'FF003D58' } };
+        sheet.getCell('A6').alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.getRow(6).height = 20;
+
+        sheet.mergeCells(`A7:${lastColLetter}7`);
+        sheet.getCell('A7').value = `Periode Laporan: ${periodFormatted}   |   Tanggal Cetak: ${dateStr}`;
+        sheet.getCell('A7').font = { name: 'Calibri', size: 9.5, color: { argb: 'FF475569' } };
+        sheet.getCell('A7').alignment = { horizontal: 'center', vertical: 'middle' };
+        sheet.getRow(7).height = 16;
+
         sheet.addRow([]);
+
+        // Table Header (Row 9)
         const headerRow = sheet.addRow(columns);
+        headerRow.height = 24;
         headerRow.eachCell((cell) => {
           cell.fill = headerFill;
           cell.font = headerFont;
-          cell.alignment = { horizontal: 'center', vertical: 'middle' };
+          cell.alignment = { horizontal: 'center', vertical: 'middle', wrapText: true };
+          cell.border = thinBorder;
         });
-        rows.forEach((r) => {
-          const row = sheet.addRow(r);
-          row.eachCell((cell) => { cell.alignment = { vertical: 'middle', wrapText: true }; });
+
+        // Data Rows
+        if (rows.length === 0) {
+          const emptyRow = sheet.addRow(['-', 'Tidak ada data pada periode laporan ini.', ...Array(Math.max(0, columns.length - 2)).fill('-')]);
+          emptyRow.height = 20;
+          emptyRow.eachCell((cell) => {
+            cell.font = { name: 'Calibri', italic: true, size: 9.5, color: { argb: 'FF64748B' } };
+            cell.alignment = { horizontal: 'center', vertical: 'middle' };
+            cell.border = thinBorder;
+          });
+        } else {
+          rows.forEach((r, idx) => {
+            const row = sheet.addRow(r);
+            row.height = 20;
+            row.eachCell((cell, colNumber) => {
+              if (idx % 2 === 1) {
+                cell.fill = zebraFill;
+              }
+              cell.font = { name: 'Calibri', size: 9.5, color: { argb: 'FF1E293B' } };
+              cell.border = thinBorder;
+              cell.alignment = {
+                horizontal: colNumber === 1 ? 'center' : 'left',
+                vertical: 'middle',
+                wrapText: true,
+              };
+            });
+          });
+        }
+
+        // Column widths
+        sheet.columns.forEach((col, i) => {
+          if (col) {
+            col.width = colWidths?.[i] ?? (i === 0 ? 8 : 25);
+          }
         });
-        sheet.columns.forEach((col) => { if (col) col.width = 22; });
       };
 
-      addSheet('Rekap Kegiatan',
-        ['No', 'Judul Kegiatan', 'Kategori', 'Tanggal', 'Waktu', 'PIC', 'Status'],
+      // Sheet 1: Ringkasan Eksekutif
+      addOfficialSheet(
+        'Ringkasan Eksekutif',
+        'Laporan Ringkasan Eksekutif Indikator Kinerja Humas',
+        ['No', 'Kategori Indikator Kinerja', 'Total Kumulatif Sistem', 'Data Periode Laporan', 'Keterangan Operasional', 'Status Evaluasi'],
+        [
+          [1, 'Kegiatan Peliputan & Dokumentasi Humas', `${stats.totalActivities} Agenda`, `${filteredActivities.length} Agenda`, 'Agenda peliputan surat masuk & kegiatan internal', 'Tercatat Sistem'],
+          [2, 'Perencanaan & Publikasi Konten (Content Plan)', `${stats.totalContentPlans} Konten`, `${filteredContentPlans.length} Konten`, 'Publikasi media sosial resmi Polinela', 'Tercatat Sistem'],
+          [3, 'Sesi Peminjaman Inventaris Peralatan', `${stats.activeLoans} Sesi Aktif`, `${filteredLoans.length} Transaksi`, 'Peminjaman perangkat operasional liputan', 'Tercatat Sistem'],
+          [4, 'Personel & Kru Humas Terdaftar', `${stats.totalUsers} Personel`, `${evaluationData.length} Anggota Tim`, 'Personel aktif terdaftar pada Sistem PRIMA', 'Tercatat Sistem'],
+        ],
+        [8, 38, 22, 22, 42, 20]
+      );
+
+      // Sheet 2: Rekap Kegiatan
+      addOfficialSheet(
+        'Rekap Kegiatan',
+        'Laporan Rekapitulasi Kegiatan Peliputan Humas',
+        ['No', 'Judul Kegiatan Peliputan', 'Kategori Kegiatan', 'Tanggal Pelaksanaan', 'Waktu (WIB)', 'PIC Lapangan', 'Status Kegiatan'],
         filteredActivities.map((item, idx) => [
-          idx + 1, item.title, item.category, formatDateID(item.date),
-          `${item.startTime} - ${item.endTime}`, item.pic?.fullName ?? '-', item.status,
-        ])
+          idx + 1,
+          item.title,
+          item.category || '-',
+          formatDateID(item.date),
+          `${item.startTime || '--:--'} - ${item.endTime || '--:--'}`,
+          item.pic?.fullName ?? '-',
+          formatReportStatus(item.status),
+        ]),
+        [8, 42, 24, 24, 18, 26, 26]
       );
 
-      addSheet('Rekap Content Plan',
-        ['No', 'Judul Konten', 'Jenis Konten', 'Platform', 'PIC', 'Status'],
+      // Sheet 3: Rekap Content Plan
+      addOfficialSheet(
+        'Rekap Content Plan',
+        'Laporan Rekapitulasi Rencana Konten (Content Plan)',
+        ['No', 'Judul Rencana Konten', 'Jenis Format', 'Platform Publikasi', 'Deadline Publish', 'PIC Kreator', 'Status Konten'],
         filteredContentPlans.map((item, idx) => [
-          idx + 1, item.title, item.contentType, item.platform, item.pic?.fullName ?? '-', item.status,
-        ])
+          idx + 1,
+          item.title,
+          item.contentType || '-',
+          item.platform || '-',
+          item.deadline ? formatDateID(item.deadline) : '-',
+          item.pic?.fullName ?? '-',
+          formatReportStatus(item.status),
+        ]),
+        [8, 42, 22, 22, 24, 26, 26]
       );
 
-      addSheet('Rekap Peminjaman',
-        ['No', 'Peminjam', 'Inventaris', 'Tgl Pinjam', 'Tgl Kembali', 'Status'],
+      // Sheet 4: Rekap Peminjaman
+      addOfficialSheet(
+        'Rekap Peminjaman',
+        'Laporan Rekapitulasi Peminjaman Inventaris Alat',
+        ['No', 'Nama Peminjam', 'Rincian Inventaris Alat', 'Tanggal Pinjam', 'Tanggal Kembali', 'Status Peminjaman'],
         filteredLoans.map((item, idx) => [
-          idx + 1, item.borrowerName, getLoanItemNames(item), formatDateID(item.borrowDate),
-          item.returnDate ? formatDateID(item.returnDate) : '-', item.status,
-        ])
+          idx + 1,
+          item.borrowerName,
+          getLoanItemNames(item),
+          formatDateID(item.borrowDate),
+          item.returnDate ? formatDateID(item.returnDate) : 'Belum Kembali',
+          formatReportStatus(item.status),
+        ]),
+        [8, 28, 44, 24, 24, 26]
       );
 
-      addSheet('Rekap Pengguna',
-        ['No', 'Nama Lengkap', 'Username', 'Email', 'Peran', 'Status'],
+      // Sheet 5: Rekap Pengguna
+      addOfficialSheet(
+        'Rekap Pengguna',
+        'Laporan Rekapitulasi Data Personel & Pengguna Sistem',
+        ['No', 'Nama Lengkap Personel', 'Username', 'Alamat Email Resmi', 'Peran / Jabatan', 'Status Akun'],
         filteredUsers.map((item, idx) => [
-          idx + 1, item.fullName, item.username, item.email, item.roleLabel, item.isActive ? 'Aktif' : 'Nonaktif',
-        ])
+          idx + 1,
+          item.fullName,
+          item.username,
+          item.email,
+          item.roleLabel,
+          item.isActive ? 'Aktif' : 'Nonaktif',
+        ]),
+        [8, 34, 22, 34, 26, 18]
       );
 
-      addSheet('Evaluasi Kinerja',
-        ['No', 'Nama', 'Total Kegiatan', 'Total Hadir', '% Kehadiran', 'Dokumentasi', 'Content Plan', 'Nilai Kinerja'],
+      // Sheet 6: Evaluasi Kinerja
+      addOfficialSheet(
+        'Evaluasi Kinerja',
+        'Laporan Evaluasi Kinerja Anggota Tim Kehumasan',
+        ['Peringkat', 'Nama Lengkap Anggota', 'Username', 'Total Kegiatan', 'Total Hadir', 'Tepat Waktu', 'Terlambat', '% Kehadiran', 'Dokumentasi', 'Content Plan', 'Nilai Kinerja'],
         evaluationData.map((item, idx) => [
-          idx + 1, item.fullName, item.totalKegiatan, item.totalCheckin,
-          `${item.persenKehadiran}%`, item.totalDokumentasi, item.totalContentPlan, `${item.nilaiKinerja}/100`,
-        ])
+          `#${idx + 1}`,
+          item.fullName,
+          `@${item.username}`,
+          item.totalKegiatan,
+          item.totalCheckin,
+          item.totalTepatWaktu,
+          item.totalTerlambat,
+          `${item.persenKehadiran}%`,
+          item.totalDokumentasi,
+          item.totalContentPlan,
+          `${item.nilaiKinerja} / 100`,
+        ]),
+        [12, 32, 20, 16, 16, 16, 16, 16, 16, 16, 18]
       );
 
       const buffer = await workbook.xlsx.writeBuffer();
@@ -429,10 +1069,10 @@ export default function ReportPage() {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `laporan-humas-${startDate}-${endDate}.xlsx`;
+      a.download = `Laporan-PRIMA-Polinela-${startDate}-sd-${endDate}.xlsx`;
       a.click();
       URL.revokeObjectURL(url);
-      toast.success('Excel (.xlsx) berhasil diunduh!');
+      toast.success('Laporan Excel (.xlsx) resmi berhasil diunduh!');
     } catch (err) {
       console.error(err);
       toast.error('Gagal membuat file Excel.');
@@ -540,7 +1180,7 @@ export default function ReportPage() {
       render: (item) => (
         <div>
           <p className="font-bold text-slate-800 text-xs sm:text-sm">{item.title}</p>
-          <span className="text-[10px] bg-teal-50 text-teal-700 border border-teal-200 font-bold px-1.5 py-0.5 rounded mt-1 inline-block">{item.contentType}</span>
+          <span className="text-[10px] bg-blue-50 text-[#003D58] border border-blue-200 font-bold px-1.5 py-0.5 rounded mt-1 inline-block">{item.contentType}</span>
         </div>
       ),
     },
@@ -631,7 +1271,7 @@ export default function ReportPage() {
       header: 'Peran Akun',
       render: (item) => (
         <span className={`text-[10px] font-bold px-2 py-0.5 rounded-md ${
-          item.roleLabel.includes('Admin') ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-teal-50 text-teal-700 border border-teal-200'
+          item.roleLabel.includes('Admin') ? 'bg-indigo-50 text-indigo-700 border border-indigo-200' : 'bg-blue-50 text-[#003D58] border border-blue-200'
         }`}>
           {item.roleLabel}
         </span>
@@ -655,37 +1295,38 @@ export default function ReportPage() {
   let printRows: any[][] = [];
 
   if (activeTab === 'kegiatan') {
-    printHeaders = ['No', 'Judul Kegiatan', 'Kategori', 'Tanggal Pelaksanaan', 'PIC Peliputan', 'Status'];
+    printHeaders = ['No', 'Judul Kegiatan Peliputan', 'Kategori', 'Tanggal & Waktu Pelaksanaan', 'PIC Lapangan', 'Status Kegiatan'];
     printRows = filteredActivities.map((item, idx) => [
       idx + 1,
       item.title,
-      item.category,
-      `${formatDateID(item.date)} (${item.startTime} - ${item.endTime} WIB)`,
+      item.category || '-',
+      `${formatDateID(item.date)} (${item.startTime || '--:--'} - ${item.endTime || '--:--'} WIB)`,
       item.pic?.fullName ?? '-',
-      item.status.replace('_', ' '),
+      formatReportStatus(item.status),
     ]);
   } else if (activeTab === 'content-plans') {
-    printHeaders = ['No', 'Judul Rencana Konten', 'Jenis Konten', 'Platform', 'PIC Kreator', 'Status'];
+    printHeaders = ['No', 'Judul Rencana Konten', 'Jenis Format', 'Platform', 'Deadline Publish', 'PIC Kreator', 'Status Konten'];
     printRows = filteredContentPlans.map((item, idx) => [
       idx + 1,
       item.title,
-      item.contentType,
-      item.platform,
+      item.contentType || '-',
+      item.platform || '-',
+      item.deadline ? formatDateID(item.deadline) : '-',
       item.pic?.fullName ?? '-',
-      item.status,
+      formatReportStatus(item.status),
     ]);
   } else if (activeTab === 'loans') {
-    printHeaders = ['No', 'Nama Peminjam', 'Nama Inventaris', 'Tanggal Pinjam', 'Tanggal Kembali', 'Status'];
+    printHeaders = ['No', 'Nama Peminjam', 'Rincian Inventaris Alat', 'Tanggal Pinjam', 'Tanggal Kembali', 'Status Peminjaman'];
     printRows = filteredLoans.map((item, idx) => [
       idx + 1,
       item.borrowerName,
       getLoanItemNames(item),
       formatDateID(item.borrowDate),
-      item.returnDate ? formatDateID(item.returnDate) : 'Sedang Dipinjam',
-      item.status.replace('_', ' '),
+      item.returnDate ? formatDateID(item.returnDate) : 'Belum Kembali',
+      formatReportStatus(item.status),
     ]);
   } else if (activeTab === 'users') {
-    printHeaders = ['No', 'Nama Lengkap', 'Username', 'Email', 'Peran', 'Status'];
+    printHeaders = ['No', 'Nama Lengkap Personel', 'Username', 'Alamat Email Resmi', 'Peran / Jabatan', 'Status Akun'];
     printRows = filteredUsers.map((item, idx) => [
       idx + 1,
       item.fullName,
@@ -694,205 +1335,267 @@ export default function ReportPage() {
       item.roleLabel,
       item.isActive ? 'Aktif' : 'Nonaktif',
     ]);
+  } else if (activeTab === 'evaluasi') {
+    printHeaders = ['Peringkat', 'Nama Lengkap Anggota', 'Username', 'Kegiatan', 'Hadir', 'Tepat Waktu', 'Terlambat', '% Kehadiran', 'Dok.', 'Konten', 'Nilai Kinerja'];
+    printRows = evaluationData.map((item, idx) => [
+      `#${idx + 1}`,
+      item.fullName,
+      `@${item.username}`,
+      item.totalKegiatan,
+      item.totalCheckin,
+      item.totalTepatWaktu,
+      item.totalTerlambat,
+      `${item.persenKehadiran}%`,
+      item.totalDokumentasi,
+      item.totalContentPlan,
+      `${item.nilaiKinerja} / 100`,
+    ]);
   } else {
-    // For summary print all summary tables count
-    printHeaders = ['No', 'Kategori Rekap Laporan', 'Jumlah Record', 'Keterangan Kinerja'];
+    printHeaders = ['No', 'Indikator Kinerja Kehumasan', 'Total Kumulatif Sistem', 'Data Periode Laporan', 'Keterangan Operasional'];
     printRows = [
-      [1, 'Kegiatan Peliputan Humas', `${stats.totalActivities} Agenda`, 'Agenda peliputan kehumasan resmi'],
-      [2, 'Publikasi Content Plan', `${stats.totalContentPlans} Konten`, 'Produksi konten media sosial & website'],
-      [3, 'Peminjaman Inventaris Alat', `${stats.activeLoans} Sesi Peminjaman`, 'Pemakaian perangkat operasional'],
-      [4, 'Personel Anggota Aktif', `${stats.totalUsers} Personel`, 'Total kru kehumasan terdaftar'],
+      [1, 'Kegiatan Peliputan & Dokumentasi Humas', `${stats.totalActivities} Agenda`, `${filteredActivities.length} Agenda`, 'Agenda peliputan kehumasan resmi'],
+      [2, 'Perencanaan & Publikasi Konten (Content Plan)', `${stats.totalContentPlans} Konten`, `${filteredContentPlans.length} Konten`, 'Produksi konten media sosial & website'],
+      [3, 'Peminjaman Inventaris Peralatan', `${stats.activeLoans} Sesi Aktif`, `${filteredLoans.length} Transaksi`, 'Pemakaian perangkat operasional liputan'],
+      [4, 'Personel & Kru Humas Terdaftar', `${stats.totalUsers} Personel`, `${evaluationData.length} Anggota Tim`, 'Total kru kehumasan terdaftar pada Sistem PRIMA'],
     ];
   }
+
+  const printReportTitleMap: Record<string, string> = {
+    summary: 'LAPORAN REKAPITULASI EKSEKUTIF KEHUMASAN',
+    kegiatan: 'LAPORAN REKAPITULASI KEGIATAN PELIPUTAN HUMAS',
+    'content-plans': 'LAPORAN REKAPITULASI RENCANA KONTEN (CONTENT PLAN)',
+    loans: 'LAPORAN REKAPITULASI PEMINJAMAN INVENTARIS ALAT',
+    users: 'LAPORAN REKAPITULASI DATA PERSONEL & PENGGUNA SISTEM',
+    evaluasi: 'LAPORAN EVALUASI KINERJA ANGGOTA TIM KEHUMASAN',
+  };
 
   return (
     <AdminLayout title="Laporan & Analisis Statistik Kehumasan">
       {/* Printable Area - Hidden on Screen */}
       <div className="hidden print:block font-serif text-black p-8 bg-white" style={{ minWidth: '800px' }}>
-        {/* Kop Surat */}
-        <div className="flex items-center gap-6 border-b-4 border-black pb-3 mb-6">
+        {/* Kop Surat Resmi dengan Logo Polinela (Kiri) & Logo PRIMA (Kanan) */}
+        <div className="flex items-center justify-between gap-6 border-b-4 border-double border-[#003D58] pb-4 mb-6">
           <img
-            src="https://upload.wikimedia.org/wikipedia/commons/e/e0/Logo_Politeknik_Negeri_Lampung.png"
-            alt="Logo Polinela"
+            src="/logo-polinela.png"
+            alt="Logo Politeknik Negeri Lampung"
             className="w-20 h-20 object-contain shrink-0"
           />
           <div className="text-center flex-1">
-            <h2 className="text-xs font-bold tracking-wide uppercase">KEMENTERIAN PENDIDIKAN TINGGI, SAINS, DAN TEKNOLOGI</h2>
-            <h1 className="text-base font-extrabold tracking-wide uppercase mt-0.5">POLITEKNIK NEGERI LAMPUNG</h1>
-            <h3 className="text-sm font-bold tracking-wide uppercase mt-0.5">UPT HUMAS DAN KERJASAMA</h3>
-            <p className="text-[10px] text-slate-650 mt-1">Jl. Soekarno Hatta No. 10 Rajabasa, Bandar Lampung | Telp: (0721) 703995</p>
+            <h2 className="text-xs font-bold tracking-wide uppercase text-slate-800">
+              KEMENTERIAN PENDIDIKAN TINGGI, SAINS, DAN TEKNOLOGI
+            </h2>
+            <h1 className="text-lg font-extrabold tracking-wide uppercase text-[#003D58] mt-0.5">
+              POLITEKNIK NEGERI LAMPUNG
+            </h1>
+            <h3 className="text-sm font-bold tracking-wide uppercase text-slate-900 mt-0.5">
+              UPT HUBUNGAN MASYARAKAT DAN KERJASAMA — SISTEM INFORMASI PRIMA
+            </h3>
+            <p className="text-[10px] text-slate-600 mt-1">
+              Jl. Soekarno Hatta No. 10, Rajabasa Raya, Kec. Rajabasa, Kota Bandar Lampung, Lampung 35144
+            </p>
+            <p className="text-[10px] text-slate-600">
+              Telepon: (0721) 703995 | Faksimile: (0721) 787309 | Laman: www.polinela.ac.id | Email: humas@polinela.ac.id
+            </p>
           </div>
+          <img
+            src="/logo-prima.png"
+            alt="Logo PRIMA Humas Polinela"
+            className="w-20 h-20 object-contain shrink-0"
+          />
         </div>
 
         {/* Title */}
-        <div className="text-center space-y-1 mb-8">
-          <h2 className="text-md font-bold underline uppercase">
-            LAPORAN REKAPITULASI {activeTab === 'summary' ? 'GLOBAL' : activeTab.toUpperCase()} HUMAS
+        <div className="text-center space-y-1 mb-6">
+          <h2 className="text-base font-bold underline uppercase text-[#003D58]">
+            {printReportTitleMap[activeTab] || 'LAPORAN REKAPITULASI KEHUMASAN'}
           </h2>
-          <p className="text-xs">Periode Laporan: <strong>{formatDateID(startDate)}</strong> s.d. <strong>{formatDateID(endDate)}</strong></p>
-          <p className="text-[10px] text-slate-500">Dicetak pada: {new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</p>
+          <p className="text-xs">
+            Periode Laporan: <strong>{formatDateID(startDate)}</strong> s.d. <strong>{formatDateID(endDate)}</strong>
+          </p>
+          <p className="text-[10px] text-slate-500">
+            Dicetak pada: {new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}
+          </p>
         </div>
 
         {/* Stats Row */}
-        <div className="grid grid-cols-4 gap-4 border border-black p-4 mb-6 text-center text-xs">
+        <div className="grid grid-cols-4 gap-4 border border-slate-400 rounded-lg p-3.5 mb-6 text-center text-xs bg-slate-50">
           <div>
-            <p className="font-semibold">Total Kegiatan</p>
-            <p className="text-base font-bold mt-1">{stats.totalActivities}</p>
+            <p className="font-semibold text-slate-600">Total Kegiatan Diliput</p>
+            <p className="text-base font-bold text-[#003D58] mt-1">{stats.totalActivities} Agenda</p>
           </div>
           <div>
-            <p className="font-semibold">Total Konten</p>
-            <p className="text-base font-bold mt-1">{stats.totalContentPlans}</p>
+            <p className="font-semibold text-slate-600">Rencana Konten Humas</p>
+            <p className="text-base font-bold text-[#003D58] mt-1">{stats.totalContentPlans} Konten</p>
           </div>
           <div>
-            <p className="font-semibold">Peminjaman Alat</p>
-            <p className="text-base font-bold mt-1">{stats.activeLoans}</p>
+            <p className="font-semibold text-slate-600">Peminjaman Inventaris</p>
+            <p className="text-base font-bold text-[#003D58] mt-1">{stats.activeLoans} Sesi</p>
           </div>
           <div>
-            <p className="font-semibold">Personel Aktif</p>
-            <p className="text-base font-bold mt-1">{stats.totalUsers}</p>
+            <p className="font-semibold text-slate-600">Personel Kru Humas</p>
+            <p className="text-base font-bold text-[#003D58] mt-1">{stats.totalUsers} Personel</p>
           </div>
         </div>
 
         {/* Data Table */}
-        <table className="w-full text-xs border-collapse border border-black mb-12">
+        <table className="w-full text-xs border-collapse border border-slate-400 mb-10">
           <thead>
-            <tr className="bg-slate-100">
+            <tr className="bg-[#003D58] text-white">
               {printHeaders.map((hdr) => (
-                <th key={hdr} className="border border-black p-2.5 text-left font-bold">{hdr}</th>
+                <th key={hdr} className="border border-slate-400 p-2.5 text-left font-bold">
+                  {hdr}
+                </th>
               ))}
             </tr>
           </thead>
           <tbody>
             {printRows.length === 0 ? (
               <tr>
-                <td colSpan={printHeaders.length} className="border border-black p-4 text-center italic">Tidak ada data rekapitulasi.</td>
+                <td colSpan={printHeaders.length} className="border border-slate-300 p-4 text-center italic">
+                  Tidak ada data rekapitulasi untuk periode ini.
+                </td>
               </tr>
             ) : (
               printRows.map((row, idx) => (
-                <tr key={idx}>
+                <tr key={idx} className={idx % 2 === 1 ? 'bg-slate-50' : 'bg-white'}>
                   {row.map((cell: any, cellIdx: number) => (
-                    <td key={cellIdx} className="border border-black p-2">{cell}</td>
+                    <td key={cellIdx} className="border border-slate-300 p-2">
+                      {cell}
+                    </td>
                   ))}
                 </tr>
               ))
             )}
           </tbody>
         </table>
-
-        {/* Signature Block */}
-        <div className="flex justify-end text-xs">
-          <div className="text-center space-y-16">
-            <div>
-              <p>Bandar Lampung, {new Date().toLocaleDateString('id-ID', { dateStyle: 'long' })}</p>
-              <p className="font-bold">Kepala UPT Humas Polinela,</p>
-            </div>
-            <div>
-              <p className="font-bold underline">Hendi Firmansah, M.Kom.</p>
-              <p>NIP. 19890412 201803 1 002</p>
-            </div>
-          </div>
-        </div>
       </div>
 
       {/* Screen Layout - Hidden on Print */}
-      <div className="print:hidden space-y-6">
-        {/* Top Banner Control */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-lg font-bold text-slate-900 tracking-tight">Laporan Rekapitulasi & Analisis Humas</h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Analisis data produktivitas peliputan, publikasi konten, peminjaman alat, dan status anggota secara real-time.
-            </p>
+      <div className="print:hidden space-y-5">
+        {/* Unified Filters, Shortcut Buttons & Export Control Bar */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-4 sm:p-5 shadow-xs flex flex-col lg:flex-row lg:items-end justify-between gap-4">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-end gap-3 flex-1">
+            <CustomDatePicker
+              label="Tanggal Mulai"
+              value={startDate}
+              onChange={(val) => setStartDate(val)}
+              className="w-full sm:w-56"
+            />
+            <CustomDatePicker
+              label="Tanggal Selesai"
+              value={endDate}
+              onChange={(val) => setEndDate(val)}
+              className="w-full sm:w-56"
+            />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2.5">
-            {/* EXPORT Dropdown */}
-            <div className="relative">
-              <CustomButton
-                variant="primary"
-                size="sm"
-                icon={Download}
-                onClick={() => setIsExportOpen(!isExportOpen)}
-                className="flex items-center gap-1.5"
-              >
-                Export Data <ChevronDown className="w-3.5 h-3.5" />
-              </CustomButton>
-              {isExportOpen && (
-                <div className="absolute right-0 mt-1.5 w-44 bg-white border border-slate-200 rounded-xl shadow-lg z-50 py-1 overflow-hidden">
-                  <button
-                    onClick={() => {
-                      setIsExportOpen(false);
-                      handleExportPDF();
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-xs text-slate-700 hover:bg-slate-50 font-semibold flex items-center gap-2"
-                  >
-                    <FileText className="w-4 h-4 text-red-500 shrink-0" />
-                    Cetak Laporan PDF
-                  </button>
-                  <button
-                    onClick={() => {
-                      setIsExportOpen(false);
-                      handleExportExcel();
-                    }}
-                    className="w-full text-left px-4 py-2.5 text-xs text-slate-700 hover:bg-slate-50 font-semibold flex items-center gap-2"
-                  >
-                    <FileSpreadsheet className="w-4 h-4 text-emerald-600 shrink-0" />
-                    Export Excel (.xlsx)
-                  </button>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-
-        {/* Filters and Shortcut Buttons */}
-        <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
-            <div className="flex flex-col">
-              <label className="block text-[11px] font-[600] text-[#64748B] mb-1">Tanggal Mulai</label>
-              <input
-                type="date"
-                value={startDate}
-                onChange={(e) => setStartDate(e.target.value)}
-                className="h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all font-semibold"
-              />
-            </div>
-            <div className="flex flex-col">
-              <label className="block text-[11px] font-[600] text-[#64748B] mb-1">Tanggal Selesai</label>
-              <input
-                type="date"
-                value={endDate}
-                onChange={(e) => setEndDate(e.target.value)}
-                className="h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all font-semibold"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
             <button
+              type="button"
               onClick={() => applyShortcut('hari')}
-              className="h-[36px] px-3.5 rounded-[8px] border border-[#E2E8F0] hover:border-[#0D9488] text-[12px] font-semibold text-[#475569] hover:text-[#0D9488] bg-white hover:bg-teal-50/20 shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer flex items-center justify-center"
+              className="h-[38px] px-3.5 rounded-lg border border-[#E2E8F0] hover:border-[#003D58] text-[12px] font-bold text-[#475569] hover:text-[#003D58] bg-white hover:bg-blue-50/50 shadow-2xs transition-all cursor-pointer flex items-center justify-center"
             >
               Hari Ini
             </button>
             <button
+              type="button"
               onClick={() => applyShortcut('minggu')}
-              className="h-[36px] px-3.5 rounded-[8px] border border-[#E2E8F0] hover:border-[#0D9488] text-[12px] font-semibold text-[#475569] hover:text-[#0D9488] bg-white hover:bg-teal-50/20 shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer flex items-center justify-center"
+              className="h-[38px] px-3.5 rounded-lg border border-[#E2E8F0] hover:border-[#003D58] text-[12px] font-bold text-[#475569] hover:text-[#003D58] bg-white hover:bg-blue-50/50 shadow-2xs transition-all cursor-pointer flex items-center justify-center"
             >
               Minggu Ini
             </button>
             <button
+              type="button"
               onClick={() => applyShortcut('bulan')}
-              className="h-[36px] px-3.5 rounded-[8px] border border-[#E2E8F0] hover:border-[#0D9488] text-[12px] font-semibold text-[#475569] hover:text-[#0D9488] bg-white hover:bg-teal-50/20 shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer flex items-center justify-center"
+              className="h-[38px] px-3.5 rounded-lg border border-[#E2E8F0] hover:border-[#003D58] text-[12px] font-bold text-[#475569] hover:text-[#003D58] bg-white hover:bg-blue-50/50 shadow-2xs transition-all cursor-pointer flex items-center justify-center"
             >
               Bulan Ini
             </button>
             <button
+              type="button"
               onClick={() => applyShortcut('tahun')}
-              className="h-[36px] px-3.5 rounded-[8px] border border-[#E2E8F0] hover:border-[#0D9488] text-[12px] font-semibold text-[#475569] hover:text-[#0D9488] bg-white hover:bg-teal-50/20 shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-all cursor-pointer flex items-center justify-center"
+              className="h-[38px] px-3.5 rounded-lg border border-[#E2E8F0] hover:border-[#003D58] text-[12px] font-bold text-[#475569] hover:text-[#003D58] bg-white hover:bg-blue-50/50 shadow-2xs transition-all cursor-pointer flex items-center justify-center"
             >
               Tahun Ini
             </button>
+
+            <div className="hidden sm:block w-px h-6 bg-slate-200 mx-1" />
+
+            {/* EXPORT Dropdown */}
+            <div className="relative" ref={exportMenuRef}>
+              <button
+                type="button"
+                onClick={() => setIsExportOpen((prev) => !prev)}
+                className="inline-flex items-center justify-center gap-2 whitespace-nowrap h-[38px] px-4 rounded-xl bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-xs font-bold shadow-xs shadow-[#003D58]/20 transition-all cursor-pointer"
+              >
+                <Download className="w-4 h-4 shrink-0" />
+                <span>Export Data</span>
+                <ChevronDown
+                  className={`w-4 h-4 shrink-0 transition-transform duration-200 ${
+                    isExportOpen ? 'rotate-180' : ''
+                  }`}
+                />
+              </button>
+
+              {isExportOpen && (
+                <div className="absolute right-0 mt-2 w-64 bg-white border border-slate-200 rounded-2xl shadow-xl z-50 py-1.5 overflow-hidden">
+                  <div className="px-3.5 py-2 border-b border-slate-100 bg-slate-50/70">
+                    <p className="text-[11px] font-bold text-[#003D58] uppercase tracking-wider">
+                      Pilih Format Laporan Resmi
+                    </p>
+                    <p className="text-[10px] text-slate-400">
+                      Dilengkapi Kop Surat Polinela &amp; Logo PRIMA
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsExportOpen(false);
+                      handleExportPDF();
+                    }}
+                    className="w-full text-left px-3.5 py-2.5 text-xs text-slate-700 hover:bg-sky-50/70 transition-colors flex items-start gap-2.5 cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-red-50 text-red-600 border border-red-100 flex items-center justify-center shrink-0 mt-0.5">
+                      <FileText className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-800">Unduh Laporan PDF (.pdf)</p>
+                      <p className="text-[10px] text-slate-500">Dokumen resmi berlogo Polinela &amp; PRIMA</p>
+                    </div>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsExportOpen(false);
+                      handleExportExcel();
+                    }}
+                    className="w-full text-left px-3.5 py-2.5 text-xs text-slate-700 hover:bg-emerald-50/60 transition-colors flex items-start gap-2.5 cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 border border-emerald-100 flex items-center justify-center shrink-0 mt-0.5">
+                      <FileSpreadsheet className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-800">Export Excel (.xlsx)</p>
+                      <p className="text-[10px] text-slate-500">Rekap lengkap 6 sheet berlogo resmi</p>
+                    </div>
+                  </button>
+                  <div className="border-t border-slate-100 my-1" />
+                  <button
+                    type="button"
+                    onClick={handlePrintReport}
+                    className="w-full text-left px-3.5 py-2.5 text-xs text-slate-700 hover:bg-slate-50 transition-colors flex items-start gap-2.5 cursor-pointer"
+                  >
+                    <div className="w-8 h-8 rounded-lg bg-blue-50 text-[#003D58] border border-blue-100 flex items-center justify-center shrink-0 mt-0.5">
+                      <Printer className="w-4 h-4" />
+                    </div>
+                    <div>
+                      <p className="font-bold text-slate-800">Cetak Dokumen (Print)</p>
+                      <p className="text-[10px] text-slate-500">Cetak langsung halaman laporan aktif</p>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -902,7 +1605,7 @@ export default function ReportPage() {
             onClick={() => setActiveTab('summary')}
             className={`px-6 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === 'summary'
-                ? 'border-teal-600 text-teal-600 bg-teal-50/30'
+                ? 'border-[#003D58] text-[#003D58] bg-blue-50/40'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -912,7 +1615,7 @@ export default function ReportPage() {
             onClick={() => setActiveTab('kegiatan')}
             className={`px-6 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === 'kegiatan'
-                ? 'border-teal-600 text-teal-600 bg-teal-50/30'
+                ? 'border-[#003D58] text-[#003D58] bg-blue-50/40'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -922,7 +1625,7 @@ export default function ReportPage() {
             onClick={() => setActiveTab('content-plans')}
             className={`px-6 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === 'content-plans'
-                ? 'border-teal-600 text-teal-600 bg-teal-50/30'
+                ? 'border-[#003D58] text-[#003D58] bg-blue-50/40'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -932,7 +1635,7 @@ export default function ReportPage() {
             onClick={() => setActiveTab('loans')}
             className={`px-6 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === 'loans'
-                ? 'border-teal-600 text-teal-600 bg-teal-50/30'
+                ? 'border-[#003D58] text-[#003D58] bg-blue-50/40'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -942,7 +1645,7 @@ export default function ReportPage() {
             onClick={() => setActiveTab('users')}
             className={`px-6 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === 'users'
-                ? 'border-teal-600 text-teal-600 bg-teal-50/30'
+                ? 'border-[#003D58] text-[#003D58] bg-blue-50/40'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -952,7 +1655,7 @@ export default function ReportPage() {
             onClick={() => setActiveTab('evaluasi')}
             className={`px-6 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
               activeTab === 'evaluasi'
-                ? 'border-amber-500 text-amber-600 bg-amber-50/30'
+                ? 'border-[#003D58] text-[#003D58] bg-blue-50/40'
                 : 'border-transparent text-slate-500 hover:text-slate-800'
             }`}
           >
@@ -962,7 +1665,7 @@ export default function ReportPage() {
 
         {/* Render Tab Contents */}
         {loading ? (
-          <DashboardSkeleton />
+          <TableSkeleton statsCount={4} rows={5} />
         ) : (
           <div className="space-y-6">
             {activeTab === 'summary' && (
@@ -974,8 +1677,8 @@ export default function ReportPage() {
                     value={`${stats.totalActivities} Agenda`}
                     subtitle="Liputan humas Polinela"
                     icon={CalendarCheck2}
-                    iconBgClass="bg-teal-50"
-                    iconColorClass="text-teal-600"
+                    iconBgClass="bg-blue-50"
+                    iconColorClass="text-[#003D58]"
                   />
                   <StatCard
                     title="Rencana Konten Humas"
@@ -1135,7 +1838,7 @@ export default function ReportPage() {
                 {evaluationData.length > 0 && (
                   <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
                     <h3 className="text-sm font-bold text-slate-800 mb-1 flex items-center gap-2">
-                      <BarChart2 className="w-4 h-4 text-teal-600" /> Grafik Nilai Kinerja Seluruh Anggota
+                      <BarChart2 className="w-4 h-4 text-[#003D58]" /> Grafik Nilai Kinerja Seluruh Anggota
                     </h3>
                     <p className="text-xs text-slate-400 mb-4">Perbandingan nilai kinerja anggota tim berdasarkan formula evaluasi</p>
                     <div className="h-64">
@@ -1236,7 +1939,7 @@ export default function ReportPage() {
                               </td>
                               <td className="py-3 px-3">
                                 <div className="flex items-center gap-2.5">
-                                  <div className="w-8 h-8 rounded-full bg-teal-100 flex items-center justify-center text-xs font-bold text-teal-700 shrink-0">
+                                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center text-xs font-bold text-[#003D58] shrink-0">
                                     {item.fullName.charAt(0).toUpperCase()}
                                   </div>
                                   <div>
@@ -1254,7 +1957,7 @@ export default function ReportPage() {
                                 </span>
                               </td>
                               <td className="py-3 px-3 text-center">
-                                <span className="text-teal-600 font-bold">{item.totalTepatWaktu}</span>
+                                <span className="text-[#003D58] font-bold">{item.totalTepatWaktu}</span>
                               </td>
                               <td className="py-3 px-3 text-center">
                                 <span className={`font-bold ${
@@ -1307,7 +2010,7 @@ export default function ReportPage() {
                 {/* Legend */}
                 <div className="bg-slate-50 rounded-2xl border border-slate-200 p-4">
                   <p className="text-xs font-bold text-slate-600 mb-2 flex items-center gap-1.5">
-                    <Info className="w-4 h-4 text-teal-600" /> Keterangan Formula Evaluasi
+                    <Info className="w-4 h-4 text-[#003D58]" /> Keterangan Formula Evaluasi
                   </p>
                   <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                     <div className="flex items-center gap-2">
@@ -1335,7 +2038,7 @@ export default function ReportPage() {
                     <h3 className="text-base font-bold text-slate-800">
                       Tabel Rekapitulasi {activeTab === 'kegiatan' ? 'Kegiatan' : activeTab === 'content-plans' ? 'Content Plan' : activeTab === 'loans' ? 'Peminjaman Alat' : 'Pengguna'}
                     </h3>
-                    <p className="text-xs text-slate-400">
+                    <p className="text-xs text-slate-600">
                       Menampilkan data valid sesuai filter aktif.
                     </p>
                   </div>
@@ -1344,10 +2047,11 @@ export default function ReportPage() {
                     <Search className="w-4 h-4 text-slate-400 absolute left-3 top-3" />
                     <input
                       type="text"
+                      aria-label="Cari kata kunci"
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
                       placeholder="Cari kata kunci..."
-                      className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all font-medium"
+                      className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-[#003D58]/20 focus:border-[#003D58] transition-all font-medium"
                     />
                   </div>
                 </div>

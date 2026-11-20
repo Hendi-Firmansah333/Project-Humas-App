@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 import 'package:poli_humas/models/notification_item.dart';
 import 'package:poli_humas/providers/app_data_provider.dart';
 import 'package:poli_humas/screens/notification_detail_screen.dart';
+import 'package:poli_humas/services/app_settings_service.dart';
 import 'package:poli_humas/theme/app_colors.dart';
 import 'package:poli_humas/widgets/paginated_refresh_list.dart';
 
@@ -217,6 +218,41 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   ),
                 ),
               ),
+
+              // ── Banner Pengaturan Notifikasi Nonaktif ──
+              if (!AppSettingsService.instance.notificationsEnabled)
+                Container(
+                  margin: const EdgeInsets.fromLTRB(20, 10, 20, 4),
+                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFFFFBEB),
+                    borderRadius: BorderRadius.circular(14),
+                    border: Border.all(color: const Color(0xFFFDE68A)),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(
+                        Icons.notifications_off_outlined,
+                        size: 18,
+                        color: Color(0xFFD97706),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          'Notifikasi real-time dan badge sedang dinonaktifkan di Pengaturan.',
+                          style: _pj(11.5, FontWeight.w600, const Color(0xFF92400E)),
+                        ),
+                      ),
+                      TextButton(
+                        onPressed: () => AppSettingsService.instance.setNotifications(true),
+                        child: Text(
+                          'Aktifkan',
+                          style: _pj(11.5, FontWeight.w800, AppColors.brand600),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
 
               // ── Optional Search Bar ──
               if (_showSearch)
@@ -443,7 +479,7 @@ class _RedesignedNotificationCard extends StatelessWidget {
       case NotificationType.jadwalBerubah:
         return (const Color(0xFFFFFBEB), const Color(0xFFD97706), Icons.sync_rounded);
       case NotificationType.checkInReminder:
-        return (const Color(0xFFF0FDFA), const Color(0xFF0D9488), Icons.location_on_rounded);
+        return (AppColors.brand50, AppColors.primary, Icons.location_on_rounded);
       case NotificationType.umum:
         return (const Color(0xFFF1F5F9), const Color(0xFF475569), Icons.notifications_rounded);
     }

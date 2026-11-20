@@ -21,7 +21,8 @@ class AppSettingsService extends ChangeNotifier {
     if (_loaded) return;
     notificationsEnabled = (await LocalStorage.getString(_keyNotifications)) != 'false';
     locationEnabled = (await LocalStorage.getString(_keyLocation)) != 'false';
-    darkModeEnabled = (await LocalStorage.getString(_keyDarkMode)) == 'true';
+    darkModeEnabled = false;
+    await LocalStorage.setString(_keyDarkMode, 'false');
     language = await LocalStorage.getString(_keyLanguage) ?? 'Indonesia';
     _loaded = true;
     notifyListeners();
@@ -40,8 +41,8 @@ class AppSettingsService extends ChangeNotifier {
   }
 
   Future<void> setDarkMode(bool value) async {
-    darkModeEnabled = value;
-    await LocalStorage.setString(_keyDarkMode, value.toString());
+    darkModeEnabled = false;
+    await LocalStorage.setString(_keyDarkMode, 'false');
     notifyListeners();
   }
 

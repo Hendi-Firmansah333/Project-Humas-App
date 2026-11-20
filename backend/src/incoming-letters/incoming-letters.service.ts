@@ -133,10 +133,7 @@ export class IncomingLettersService {
   }
 
   async update(id: number, userId: number, dto: UpdateLetterDto) {
-    const existing = await this.findOne(id);
-    if (existing.status !== 'DRAFT' && existing.status !== 'BARU' && existing.status !== 'MENUNGGU_VERIFIKASI_ADMIN') {
-      throw new BadRequestException('Surat yang sudah diproses atau disetujui tidak dapat diubah.');
-    }
+    await this.findOne(id);
 
     const updated = await this.prisma.incomingLetter.update({
       where: { id },
@@ -253,6 +250,58 @@ export class IncomingLettersService {
     return updated;
   }
 
+  async complete(id: number, userId: number) {
+    await this.findOne(id);
+    const updated = await this.prisma.incomingLetter.update({
+      where: { id },
+      data: { status: 'SELESAI' },
+      include: letterInclude,
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'COMPLETE_SURAT_MASUK',
+        entity: 'IncomingLetter',
+        entityId: String(id),
+        newValue: JSON.stringify({ status: 'SELESAI' }),
+      },
+    });
+
+    return updated;
+  }
+
+  async revert(id: number, userId: number) {
+    const letter = await this.findOne(id);
+    const updated = await this.prisma.incomingLetter.update({
+      where: { id },
+      data: { status: 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' },
+      include: letterInclude,
+    });
+
+    await this.prisma.auditLog.create({
+      data: {
+        userId,
+        action: 'REVERT_SURAT_MASUK',
+        entity: 'IncomingLetter',
+        entityId: String(id),
+        newValue: JSON.stringify({ status: 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' }),
+      },
+    });
+
+    await this.prisma.notification.create({
+      data: {
+        userId: letter.createdById,
+        title: 'Status Surat Dikembalikan ke Aktif',
+        message: `Surat No. ${letter.letterNumber} dikembalikan ke antrean persetujuan Surat Masuk.`,
+        type: 'INFO',
+        link: `/surat-masuk`,
+      },
+    });
+
+    return updated;
+  }
+
   async createActivityFromLetter(letterId: number, userId: number, dto: CreateActivityFromLetterDto) {
     const letter = await this.findOne(letterId);
 
@@ -265,17 +314,37 @@ export class IncomingLettersService {
       throw new BadRequestException('Surat ini sudah ditolak atau telah ditugaskan sebelumnya.');
     }
 
-    const picId = dto.picId || userId;
+    let picId = dto.picId;
+    if (!picId) {
+      // Check if caller is role USER and active
+      const caller = await this.prisma.user.findUnique({ where: { id: userId } });
+      if (caller && caller.role === 'USER' && caller.status === 'AKTIF') {
+        picId = userId;
+      } else {
+        // Find first active Anggota (role USER & status AKTIF)
+        const defaultMember = await this.prisma.user.findFirst({
+          where: { role: 'USER', status: 'AKTIF', deletedAt: null },
+          orderBy: { id: 'asc' },
+        });
+        if (!defaultMember) {
+          throw new BadRequestException('Tidak ditemukan Anggota Humas aktif yang dapat ditugaskan sebagai PIC.');
+        }
+        picId = defaultMember.id;
+      }
+    }
     const memberIds = dto.memberIds || [];
 
-    // Verify PIC is role USER
+    // Verify PIC is valid, role USER, and status AKTIF
     const picUser = await this.prisma.user.findUnique({ where: { id: picId } });
     if (!picUser) throw new NotFoundException('PIC tidak ditemukan.');
     if (picUser.role !== 'USER') {
-      throw new BadRequestException('Hanya pengguna dengan role Anggota yang dapat ditugaskan sebagai PIC.');
+      throw new BadRequestException('Admin Humas dan Kepala Humas tidak dapat ditugaskan sebagai PIC kegiatan.');
+    }
+    if (picUser.status !== 'AKTIF') {
+      throw new BadRequestException('Akun nonaktif tidak dapat ditugaskan sebagai PIC kegiatan.');
     }
 
-    // Verify all members have role USER
+    // Verify all members have role USER and status AKTIF
     if (memberIds.length > 0) {
       const invalidMembers = await this.prisma.user.findMany({
         where: { id: { in: memberIds }, role: { not: 'USER' } },
@@ -284,7 +353,18 @@ export class IncomingLettersService {
       if (invalidMembers.length > 0) {
         const names = invalidMembers.map((m) => m.fullName).join(', ');
         throw new BadRequestException(
-          `Pengguna berikut bukan Anggota Humas: ${names}. Hanya akun dengan role Anggota yang boleh ditugaskan.`,
+          `Admin Humas dan Kepala Humas (${names}) tidak dapat ditugaskan sebagai anggota kegiatan.`,
+        );
+      }
+
+      const inactiveMembers = await this.prisma.user.findMany({
+        where: { id: { in: memberIds }, status: { not: 'AKTIF' } },
+        select: { fullName: true },
+      });
+      if (inactiveMembers.length > 0) {
+        const names = inactiveMembers.map((m) => m.fullName).join(', ');
+        throw new BadRequestException(
+          `Akun nonaktif (${names}) tidak dapat ditugaskan dalam kegiatan apapun.`,
         );
       }
     }
@@ -318,7 +398,7 @@ export class IncomingLettersService {
 
     let initialStatus: ActivityStatus = ActivityStatus.AKAN_DATANG;
     if (now > endDateTime) {
-      initialStatus = ActivityStatus.MENUNGGU_VERIFIKASI;
+      initialStatus = ActivityStatus.MENUNGGU_PERSETUJUAN_AKHIR;
     } else if (now >= startDateTime && now <= endDateTime) {
       initialStatus = ActivityStatus.SEDANG_BERLANGSUNG;
     }

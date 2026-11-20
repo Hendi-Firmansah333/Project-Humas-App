@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:poli_humas/providers/app_data_provider.dart';
 import 'package:poli_humas/screens/profile/help_screen.dart';
 import 'package:poli_humas/services/app_settings_service.dart';
+import 'package:poli_humas/services/live_location_sync_service.dart';
 import 'package:poli_humas/theme/app_colors.dart';
 import 'package:poli_humas/utils/translation_helper.dart';
 import 'package:provider/provider.dart';
@@ -30,6 +31,59 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _onSettingsChanged() => setState(() {});
+
+  Future<void> _toggleNotifications(bool val) async {
+    await _settings.setNotifications(val);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            val
+                ? 'Notifikasi real-time dan badge diaktifkan.'
+                : 'Notifikasi dan badge dijeda.',
+          ),
+          backgroundColor: AppColors.primary,
+          duration: const Duration(seconds: 2),
+        ),
+      );
+  }
+
+  Future<void> _toggleLocation(bool val) async {
+    if (!val) {
+      await _settings.setLocation(false);
+      if (!mounted) return;
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Sinkronisasi lokasi dimatikan (status offline).'),
+            duration: Duration(seconds: 2),
+          ),
+        );
+      return;
+    }
+
+    final agreed = await LiveLocationSyncService.instance.ensureConsent(
+      context,
+      forcePromptIfDenied: true,
+    );
+    if (!mounted) return;
+
+    await _settings.setLocation(agreed);
+    if (agreed) {
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          const SnackBar(
+            content: Text('Berbagi lokasi real-time diaktifkan.'),
+            backgroundColor: AppColors.success,
+            duration: Duration(seconds: 2),
+          ),
+        );
+    }
+  }
 
   Future<void> _confirmReset() async {
     final confirmed = await showDialog<bool>(
@@ -85,7 +139,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: Switch(
               value: _settings.notificationsEnabled,
               activeTrackColor: AppColors.primary,
-              onChanged: _settings.setNotifications,
+              onChanged: _toggleNotifications,
             ),
           ),
           _SettingsTile(
@@ -96,18 +150,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             trailing: Switch(
               value: _settings.locationEnabled,
               activeTrackColor: AppColors.primary,
-              onChanged: _settings.setLocation,
-            ),
-          ),
-          _SettingsTile(
-            icon: Icons.dark_mode_outlined,
-            iconColor: AppColors.primary,
-            title: T.t('dark_mode'),
-            subtitle: T.t('dark_mode_sub'),
-            trailing: Switch(
-              value: _settings.darkModeEnabled,
-              activeTrackColor: AppColors.primary,
-              onChanged: _settings.setDarkMode,
+              onChanged: _toggleLocation,
             ),
           ),
           _SettingsTile(

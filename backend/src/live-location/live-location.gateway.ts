@@ -33,12 +33,16 @@ export class LiveLocationGateway {
   ) {
     if (!payload || !payload.userId) return;
 
-    // Simpan ke database
-    const updated = await this.liveLocationService.updateLocation(payload.userId, payload.dto);
+    try {
+      // Simpan ke database (hanya role USER / Anggota Humas yang diizinkan)
+      const updated = await this.liveLocationService.updateLocation(payload.userId, payload.dto);
 
-    // Broadcast koordinat terbaru ke seluruh admin panel web & anggota lain yang terkoneksi
-    this.server.emit('locationUpdated', updated);
+      // Broadcast koordinat terbaru ke seluruh admin panel web & anggota lain yang terkoneksi
+      this.server.emit('locationUpdated', updated);
 
-    return { status: 'success', data: updated };
+      return { status: 'success', data: updated };
+    } catch (err: any) {
+      return { status: 'error', message: err?.message || 'Tidak diizinkan.' };
+    }
   }
 }

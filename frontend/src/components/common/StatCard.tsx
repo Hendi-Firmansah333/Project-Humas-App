@@ -15,8 +15,8 @@ export default function StatCard({
   title,
   value,
   icon: Icon,
-  iconBgClass = 'bg-[#006971]/10',
-  iconColorClass = 'text-[#006971]',
+  iconBgClass = 'bg-[#35C6D4]/15',
+  iconColorClass = 'text-[#007985]',
   subtitle,
 }: StatCardProps) {
   return (

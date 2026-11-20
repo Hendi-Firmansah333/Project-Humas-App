@@ -11,8 +11,9 @@ import {
   FilterDropdown,
   CustomButton,
   CustomModal,
+  CustomDatePicker,
+  TableSkeleton,
 } from '@/components/common';
-import DashboardSkeleton from '@/components/common/DashboardSkeleton';
 import {
   Plus,
   Eye,
@@ -22,8 +23,6 @@ import {
   RotateCcw,
   Trash2,
   Edit,
-  History,
-  Archive,
   CheckCircle,
   Wrench,
   XCircle,
@@ -47,12 +46,11 @@ interface LoanWithOverdue extends EquipmentLoan {
 }
 
 // ─── Tab Definition ───────────────────────────────────────────────────────────
-type Tab = 'inventaris' | 'peminjaman' | 'riwayat';
+type Tab = 'inventaris' | 'peminjaman';
 
 const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
   { id: 'inventaris', label: 'Inventaris Alat', icon: Package },
   { id: 'peminjaman', label: 'Peminjaman Aktif & Terlambat', icon: Clock },
-  { id: 'riwayat', label: 'Riwayat Peminjaman', icon: History },
 ];
 
 const CONDITION_LABELS: Record<string, string> = {
@@ -74,6 +72,149 @@ const inputCls =
   'w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all';
 const textareaCls =
   'w-full min-h-[70px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] p-3 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all resize-none';
+
+interface EquipmentFormProps {
+  onSubmit: (e: React.FormEvent) => void;
+  title: string;
+  formData: {
+    name: string;
+    code: string;
+    category: string;
+    brand: string;
+    serialNumber: string;
+    total: number;
+    storage: string;
+    condition: string;
+    description: string;
+    status: string;
+  };
+  setFormData: React.Dispatch<React.SetStateAction<any>>;
+  isSubmitting: boolean;
+  onCancel: () => void;
+}
+
+function EquipmentFormContent({
+  onSubmit,
+  title,
+  formData,
+  setFormData,
+  isSubmitting,
+  onCancel,
+}: EquipmentFormProps) {
+  return (
+    <form onSubmit={onSubmit} className="space-y-5 text-[12px]">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className={labelCls}>Nama Alat *</label>
+          <input
+            required
+            className={inputCls}
+            value={formData.name}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, name: e.target.value }))}
+            placeholder="Cth: Kamera DSLR Canon"
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Kode Inventaris *</label>
+          <input
+            required
+            className={inputCls}
+            value={formData.code}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, code: e.target.value }))}
+            placeholder="Cth: KAM-001"
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Kategori</label>
+          <input
+            className={inputCls}
+            value={formData.category}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, category: e.target.value }))}
+            placeholder="Cth: Kamera & Audio"
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Merek / Brand</label>
+          <input
+            className={inputCls}
+            value={formData.brand}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, brand: e.target.value }))}
+            placeholder="Cth: Canon, Sony, DJI"
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Nomor Seri</label>
+          <input
+            className={inputCls}
+            value={formData.serialNumber}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, serialNumber: e.target.value }))}
+            placeholder="Opsional"
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Total Unit *</label>
+          <input
+            type="number"
+            min={1}
+            required
+            className={inputCls}
+            value={formData.total}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, total: Number(e.target.value) }))}
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Lokasi Penyimpanan</label>
+          <input
+            className={inputCls}
+            value={formData.storage}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, storage: e.target.value }))}
+            placeholder="Cth: Rak A3, Lemari Studio"
+          />
+        </div>
+        <div>
+          <label className={labelCls}>Kondisi</label>
+          <select
+            className={inputCls}
+            value={formData.condition}
+            onChange={(e) => setFormData((prev: any) => ({ ...prev, condition: e.target.value }))}
+          >
+            {Object.entries(CONDITION_LABELS).map(([v, l]) => (
+              <option key={v} value={v}>
+                {l}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
+      <div>
+        <label className={labelCls}>Deskripsi</label>
+        <textarea
+          rows={3}
+          className={textareaCls}
+          value={formData.description}
+          onChange={(e) => setFormData((prev: any) => ({ ...prev, description: e.target.value }))}
+          placeholder="Keterangan tambahan alat..."
+        />
+      </div>
+      <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
+        <button
+          type="button"
+          onClick={onCancel}
+          className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-[8px] transition-colors cursor-pointer"
+        >
+          Batal
+        </button>
+        <button
+          type="submit"
+          disabled={isSubmitting}
+          className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-[8px] shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
+        >
+          {isSubmitting ? 'Menyimpan...' : title}
+        </button>
+      </div>
+    </form>
+  );
+}
 
 // ─── Main Component ──────────────────────────────────────────────────────────
 export default function PeminjamanAlatPage() {
@@ -121,10 +262,6 @@ export default function PeminjamanAlatPage() {
   const [returnQuantities, setReturnQuantities] = useState<Record<number, number>>({});
   const [returnConditions, setReturnConditions] = useState<Record<number, string>>({});
 
-  // Riwayat state
-  const [history, setHistory] = useState<LoanWithOverdue[]>([]);
-  const [historySearch, setHistorySearch] = useState('');
-
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   // ─── Loaders ────────────────────────────────────────────────────────────────
@@ -141,18 +278,11 @@ export default function PeminjamanAlatPage() {
   const loadLoans = useCallback(async () => {
     try {
       const data = await loanService.getAll();
-      setLoans(Array.isArray(data) ? data : []);
+      const all = Array.isArray(data) ? data : [];
+      // Hanya tampilkan peminjaman aktif & terlambat; riwayat peminjaman (SELESAI) otomatis dipindahkan ke modul Riwayat
+      setLoans(all.filter((l: any) => l.status !== 'SELESAI'));
     } catch {
       toast.error('Gagal memuat data peminjaman aktif.');
-    }
-  }, []);
-
-  const loadHistory = useCallback(async () => {
-    try {
-      const data = await loanService.getHistory();
-      setHistory(Array.isArray(data) ? data : []);
-    } catch {
-      toast.error('Gagal memuat riwayat peminjaman.');
     }
   }, []);
 
@@ -170,11 +300,11 @@ export default function PeminjamanAlatPage() {
   useEffect(() => {
     const init = async () => {
       setLoading(true);
-      await Promise.all([loadEquipment(), loadLoans(), loadHistory(), loadActivities()]);
+      await Promise.all([loadEquipment(), loadLoans(), loadActivities()]);
       setLoading(false);
     };
     init();
-  }, [loadEquipment, loadLoans, loadHistory, loadActivities]);
+  }, [loadEquipment, loadLoans, loadActivities]);
 
   // ─── Helpers ────────────────────────────────────────────────────────────────
 
@@ -332,8 +462,8 @@ export default function PeminjamanAlatPage() {
     try {
       await loanService.returnItems(selectedLoan.id, payload);
       setIsReturnOpen(false);
-      toast.success('Pengembalian alat berhasil diproses!');
-      await Promise.all([loadLoans(), loadEquipment(), loadHistory()]);
+      toast.success('Pengembalian alat berhasil diproses. Peminjaman yang telah selesai otomatis dipindahkan ke Riwayat Peminjaman.');
+      await Promise.all([loadLoans(), loadEquipment()]);
     } catch (err: any) {
       toast.error(err.response?.data?.message ?? 'Gagal memproses pengembalian.');
     } finally { setIsSubmitting(false); }
@@ -360,15 +490,15 @@ export default function PeminjamanAlatPage() {
     return matchSearch && matchCat;
   });
 
-  const filteredLoans = loans.filter((l) => {
+  // Hanya peminjaman aktif & terlambat yang tampil di modul inventaris.
+  // Peminjaman yang telah selesai dikembalikan otomatis berpindah ke Riwayat Peminjaman.
+  const activeLoans = loans.filter((l) => l.status !== 'SELESAI');
+  const filteredLoans = activeLoans.filter((l) => {
     const matchSearch = getEquipmentNames(l).toLowerCase().includes(loanSearch.toLowerCase()) || l.borrowerName.toLowerCase().includes(loanSearch.toLowerCase());
     const matchStatus = loanStatusFilter ? l.status === loanStatusFilter : true;
     return matchSearch && matchStatus;
   });
 
-  const filteredHistory = history.filter((l) =>
-    getEquipmentNames(l).toLowerCase().includes(historySearch.toLowerCase()) || l.borrowerName.toLowerCase().includes(historySearch.toLowerCase())
-  );
 
   // Summary stats
   const totalEq = equipment.reduce((s, e) => s + e.total, 0);
@@ -497,7 +627,7 @@ export default function PeminjamanAlatPage() {
           <button onClick={() => { setSelectedLoan(item); setIsDetailOpen(true); }} className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 cursor-pointer" title="Detail"><Eye className="w-4 h-4" /></button>
           {isAdmin && (
             <>
-              <button onClick={() => handleOpenReturn(item)} className="p-1.5 rounded-lg border border-teal-200 bg-teal-50 hover:bg-teal-100 text-teal-700 cursor-pointer" title="Proses Pengembalian"><RotateCcw className="w-4 h-4" /></button>
+              <button onClick={() => handleOpenReturn(item)} className="p-1.5 rounded-lg border border-blue-200 bg-blue-50 hover:bg-blue-100 text-[#003D58] cursor-pointer" title="Proses Pengembalian"><RotateCcw className="w-4 h-4" /></button>
               <button onClick={() => { setSelectedLoan(item); setIsLoanDeleteOpen(true); }} className="p-1.5 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 cursor-pointer" title="Hapus"><Trash2 className="w-4 h-4" /></button>
             </>
           )}
@@ -507,103 +637,14 @@ export default function PeminjamanAlatPage() {
     },
   ];
 
-  const historyColumns: Column<LoanWithOverdue>[] = [
-    {
-      key: 'borrowerName', header: 'Peminjam',
-      render: (item) => (
-        <div>
-          <p className="font-semibold text-slate-800 text-sm">{item.borrowerName}</p>
-          <p className="text-[11px] text-slate-400">{item.borrowerPhone}</p>
-        </div>
-      ),
-    },
-    { key: 'items', header: 'Alat Dipinjam', render: (item) => <span className="text-xs text-slate-700 font-medium">{getEquipmentNames(item)}</span> },
-    {
-      key: 'dates', header: 'Tanggal Pinjam & Kembali',
-      render: (item) => (
-        <div className="text-xs space-y-0.5">
-          <p className="text-slate-500">Pinjam: <span className="font-medium text-slate-700">{formatDateID(item.borrowDate.split('T')[0])}</span></p>
-          {item.actualReturnDate && (
-            <p className="text-slate-500">Dikembalikan: <span className="font-medium text-emerald-700">{formatDateID(item.actualReturnDate.split('T')[0])}</span></p>
-          )}
-        </div>
-      ),
-    },
-    { key: 'status', header: 'Status', render: () => (
-      <span className="text-[11px] font-bold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 inline-flex items-center gap-1">
-        <CheckCircle className="w-3 h-3 text-emerald-700" /> Selesai
-      </span>
-    ) },
-    { key: 'purpose', header: 'Keperluan', render: (item) => <span className="text-xs text-slate-500 truncate max-w-[180px] inline-block">{item.purpose ?? '-'}</span> },
-  ];
 
-  // ─── Equipment form shared ────────────────────────────────────────────────────
 
-  const EqForm = ({ onSubmit, title }: { onSubmit: (e: React.FormEvent) => void; title: string }) => (
-    <form onSubmit={onSubmit} className="space-y-4 text-[12px]">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label className={labelCls}>Nama Alat *</label>
-          <input required className={inputCls} value={eqForm.name} onChange={(e) => setEqForm({ ...eqForm, name: e.target.value })} placeholder="Cth: Kamera DSLR Canon" />
-        </div>
-        <div>
-          <label className={labelCls}>Kode Inventaris *</label>
-          <input required className={inputCls} value={eqForm.code} onChange={(e) => setEqForm({ ...eqForm, code: e.target.value })} placeholder="Cth: KAM-001" />
-        </div>
-        <div>
-          <label className={labelCls}>Kategori</label>
-          <input className={inputCls} value={eqForm.category} onChange={(e) => setEqForm({ ...eqForm, category: e.target.value })} placeholder="Cth: Kamera & Audio" />
-        </div>
-        <div>
-          <label className={labelCls}>Merek / Brand</label>
-          <input className={inputCls} value={eqForm.brand} onChange={(e) => setEqForm({ ...eqForm, brand: e.target.value })} placeholder="Cth: Canon, Sony, DJI" />
-        </div>
-        <div>
-          <label className={labelCls}>Nomor Seri</label>
-          <input className={inputCls} value={eqForm.serialNumber} onChange={(e) => setEqForm({ ...eqForm, serialNumber: e.target.value })} placeholder="Opsional" />
-        </div>
-        <div>
-          <label className={labelCls}>Total Unit *</label>
-          <input type="number" min={1} required className={inputCls} value={eqForm.total} onChange={(e) => setEqForm({ ...eqForm, total: Number(e.target.value) })} />
-        </div>
-        <div>
-          <label className={labelCls}>Lokasi Penyimpanan</label>
-          <input className={inputCls} value={eqForm.storage} onChange={(e) => setEqForm({ ...eqForm, storage: e.target.value })} placeholder="Cth: Rak A3, Lemari Studio" />
-        </div>
-        <div>
-          <label className={labelCls}>Kondisi</label>
-          <select className={inputCls} value={eqForm.condition} onChange={(e) => setEqForm({ ...eqForm, condition: e.target.value })}>
-            {Object.entries(CONDITION_LABELS).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-        </div>
-      </div>
-      <div>
-        <label className={labelCls}>Deskripsi</label>
-        <textarea rows={2} className={textareaCls} value={eqForm.description} onChange={(e) => setEqForm({ ...eqForm, description: e.target.value })} placeholder="Keterangan tambahan alat..." />
-      </div>
-      <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
-        <button
-          type="button"
-          onClick={() => { setIsEqCreateOpen(false); setIsEqEditOpen(false); }}
-          className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-[8px] transition-colors cursor-pointer"
-        >
-          Batal
-        </button>
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="px-5 py-2 bg-gradient-to-r from-[#0D9488] to-[#14B8A6] hover:from-[#0F766E] hover:to-[#0D9488] text-white text-[12px] font-semibold rounded-[8px] shadow-xs transition-all cursor-pointer"
-        >
-          {isSubmitting ? 'Menyimpan...' : title}
-        </button>
-      </div>
-    </form>
-  );
+  // ─── Equipment form shared (moved outside component to prevent focus loss) ───
 
   // ─── Render ──────────────────────────────────────────────────────────────────
 
   if (loading) {
-    return <AdminLayout title="Inventaris & Peminjaman Alat"><DashboardSkeleton /></AdminLayout>;
+    return <AdminLayout title="Inventaris & Peminjaman Alat"><TableSkeleton statsCount={4} rows={5} /></AdminLayout>;
   }
 
   return (
@@ -627,7 +668,7 @@ export default function PeminjamanAlatPage() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center gap-2 px-4 sm:px-6 py-3.5 text-xs font-semibold whitespace-nowrap transition-all border-b-2 ${
                   activeTab === tab.id
-                    ? 'border-teal-600 text-teal-700 bg-teal-50/50'
+                    ? 'border-[#003D58] text-[#003D58] bg-blue-50/50'
                     : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
                 }`}
               >
@@ -686,29 +727,31 @@ export default function PeminjamanAlatPage() {
           </div>
         )}
 
-        {/* ── TAB: RIWAYAT PEMINJAMAN ─────────────────────────────────────── */}
-        {activeTab === 'riwayat' && (
-          <div>
-            <div className="p-4 sm:p-5 border-b border-slate-100 flex flex-col sm:flex-row items-stretch sm:items-center gap-3">
-              <SearchBox value={historySearch} onChange={setHistorySearch} placeholder="Cari riwayat peminjaman..." className="flex-1 sm:max-w-xs" />
-              <div className="flex items-center gap-2 text-xs text-slate-500">
-                <Archive className="w-4 h-4" />
-                <span>{filteredHistory.length} transaksi selesai</span>
-              </div>
-            </div>
-            <DataTable columns={historyColumns} data={filteredHistory} emptyMessage="Belum ada riwayat peminjaman yang selesai." />
-          </div>
-        )}
+
       </div>
 
       {/* ── MODAL: TAMBAH ALAT ───────────────────────────────────────────────── */}
-      <CustomModal isOpen={isEqCreateOpen} onClose={() => setIsEqCreateOpen(false)} title="Tambah Alat ke Inventaris" maxWidth="6xl">
-        <EqForm onSubmit={handleCreateEqSubmit} title="Simpan Alat" />
+      <CustomModal isOpen={isEqCreateOpen} onClose={() => setIsEqCreateOpen(false)} title="Tambah Alat ke Inventaris" maxWidth="xl">
+        <EquipmentFormContent
+          onSubmit={handleCreateEqSubmit}
+          title="Simpan Alat"
+          formData={eqForm}
+          setFormData={setEqForm}
+          isSubmitting={isSubmitting}
+          onCancel={() => setIsEqCreateOpen(false)}
+        />
       </CustomModal>
 
       {/* ── MODAL: EDIT ALAT ─────────────────────────────────────────────────── */}
-      <CustomModal isOpen={isEqEditOpen} onClose={() => setIsEqEditOpen(false)} title={`Edit: ${selectedEquipment?.name}`} maxWidth="6xl">
-        <EqForm onSubmit={handleEditEqSubmit} title="Perbarui Alat" />
+      <CustomModal isOpen={isEqEditOpen} onClose={() => setIsEqEditOpen(false)} title={`Edit: ${selectedEquipment?.name}`} maxWidth="xl">
+        <EquipmentFormContent
+          onSubmit={handleEditEqSubmit}
+          title="Perbarui Alat"
+          formData={eqForm}
+          setFormData={setEqForm}
+          isSubmitting={isSubmitting}
+          onCancel={() => setIsEqEditOpen(false)}
+        />
       </CustomModal>
 
       {/* ── MODAL: HAPUS ALAT ────────────────────────────────────────────────── */}
@@ -725,8 +768,8 @@ export default function PeminjamanAlatPage() {
       </CustomModal>
 
       {/* ── MODAL: CATAT PEMINJAMAN ──────────────────────────────────────────── */}
-      <CustomModal isOpen={isCreateLoanOpen} onClose={() => setIsCreateLoanOpen(false)} title="Catat Peminjaman Alat" maxWidth="6xl">
-        <form onSubmit={handleCreateLoanSubmit} className="space-y-4 text-[12px]">
+      <CustomModal isOpen={isCreateLoanOpen} onClose={() => setIsCreateLoanOpen(false)} title="Catat Peminjaman Alat" maxWidth="2xl">
+        <form onSubmit={handleCreateLoanSubmit} className="space-y-5 text-[12px]">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Nama Peminjam *</label>
@@ -736,19 +779,24 @@ export default function PeminjamanAlatPage() {
               <label className={labelCls}>Nomor HP/WA *</label>
               <input required className={inputCls} value={borrowerPhone} onChange={(e) => setBorrowerPhone(e.target.value)} placeholder="08xxxxxxxxxx" />
             </div>
-            <div>
-              <label className={labelCls}>Tanggal Pinjam *</label>
-              <input type="date" required className={inputCls} value={borrowDate} onChange={(e) => setBorrowDate(e.target.value)} />
-            </div>
-            <div>
-              <label className={labelCls}>Tanggal Kembali *</label>
-              <input type="date" required className={inputCls} value={returnDate} onChange={(e) => setReturnDate(e.target.value)} min={borrowDate} />
-            </div>
+            <CustomDatePicker
+              label="Tanggal Pinjam"
+              required
+              value={borrowDate}
+              onChange={(val) => setBorrowDate(val)}
+            />
+            <CustomDatePicker
+              label="Tanggal Kembali"
+              required
+              value={returnDate}
+              minDate={borrowDate}
+              onChange={(val) => setReturnDate(val)}
+            />
           </div>
 
           <div>
             <label className={labelCls}>Keperluan Peminjaman *</label>
-            <textarea rows={2} required className={textareaCls} value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="Deskripsi keperluan peminjaman alat..." />
+            <textarea rows={3} required className={textareaCls} value={purpose} onChange={(e) => setPurpose(e.target.value)} placeholder="Deskripsi keperluan peminjaman alat..." />
           </div>
 
           <div>
@@ -769,29 +817,29 @@ export default function PeminjamanAlatPage() {
 
           <div>
             <label className={labelCls}>Pilih Peralatan *</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-h-52 overflow-y-auto border border-[#E2E8F0] rounded-[8px] p-3 bg-slate-50/50">
+            <div className="grid grid-cols-1 sm:grid-cols-2 content-start items-start gap-2 max-h-60 overflow-y-auto border border-[#E2E8F0] rounded-[8px] p-2.5 bg-slate-50/50">
               {equipment.filter((e) => e.available > 0 || selectedItems.some((i) => i.equipmentId === e.id)).map((eq) => {
                 const sel = selectedItems.find((i) => i.equipmentId === eq.id);
                 return (
-                  <div key={eq.id} className="flex items-center justify-between p-2.5 rounded-[8px] border border-[#E2E8F0] bg-white text-[12px]">
-                    <div>
-                      <p className="font-bold text-slate-800">{eq.name}</p>
-                      <p className="text-[11px] text-slate-500">Kode: {eq.code} • Tersedia: <strong className="text-teal-700">{eq.available}</strong>/{eq.total}</p>
+                  <div key={eq.id} className="flex items-center justify-between gap-2 px-2.5 py-2 rounded-[8px] border border-[#E2E8F0] bg-white text-[12px]">
+                    <div className="min-w-0 flex-1">
+                      <p className="font-bold text-slate-800 truncate">{eq.name}</p>
+                      <p className="text-[11px] text-slate-500">Kode: {eq.code} • Tersedia: <strong className="text-[#003D58]">{eq.available}</strong>/{eq.total}</p>
                     </div>
                     {sel ? (
-                      <div className="flex items-center gap-1.5">
+                      <div className="flex items-center gap-1.5 shrink-0">
                         <button type="button" onClick={() => handleUpdateItemQty(eq.id, sel.quantity - 1)} className="w-6 h-6 rounded bg-slate-100 hover:bg-slate-200 flex items-center justify-center font-bold text-slate-700">-</button>
                         <span className="font-bold w-5 text-center text-slate-800">{sel.quantity}</span>
-                        <button type="button" onClick={() => handleUpdateItemQty(eq.id, sel.quantity + 1)} className="w-6 h-6 rounded bg-teal-100 text-teal-800 hover:bg-teal-200 flex items-center justify-center font-bold">+</button>
+                        <button type="button" onClick={() => handleUpdateItemQty(eq.id, sel.quantity + 1)} className="w-6 h-6 rounded bg-blue-100 text-[#003D58] hover:bg-blue-200 flex items-center justify-center font-bold">+</button>
                       </div>
                     ) : (
-                      <button type="button" onClick={() => handleAddItem(eq.id)} disabled={eq.available < 1} className={`px-2.5 py-1 rounded-[6px] font-semibold text-[11px] ${eq.available < 1 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-teal-600 text-white hover:bg-teal-700 cursor-pointer'}`}>+ Pilih</button>
+                      <button type="button" onClick={() => handleAddItem(eq.id)} disabled={eq.available < 1} className={`shrink-0 px-2.5 py-1 rounded-[6px] font-semibold text-[11px] ${eq.available < 1 ? 'bg-slate-100 text-slate-400 cursor-not-allowed' : 'bg-[#003D58] text-white hover:bg-[#002F44] active:bg-[#00263A] shadow-xs cursor-pointer'}`}>+ Pilih</button>
                     )}
                   </div>
                 );
               })}
               {equipment.filter((e) => e.available > 0).length === 0 && (
-                <div className="col-span-2 text-center py-4 text-slate-400 text-[12px]">Tidak ada alat tersedia</div>
+                <div className="sm:col-span-2 text-center py-4 text-slate-400 text-[12px]">Tidak ada alat tersedia</div>
               )}
             </div>
           </div>
@@ -807,7 +855,7 @@ export default function PeminjamanAlatPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 bg-gradient-to-r from-[#0D9488] to-[#14B8A6] hover:from-[#0F766E] hover:to-[#0D9488] text-white text-[12px] font-semibold rounded-[8px] shadow-xs transition-all cursor-pointer"
+              className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-[8px] shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
             >
               {isSubmitting ? 'Menyimpan...' : 'Simpan Peminjaman'}
             </button>
@@ -816,7 +864,7 @@ export default function PeminjamanAlatPage() {
       </CustomModal>
 
       {/* ── MODAL: PROSES PENGEMBALIAN ───────────────────────────────────────── */}
-      <CustomModal isOpen={isReturnOpen} onClose={() => setIsReturnOpen(false)} title="Proses Pengembalian Alat" subtitle={selectedLoan ? `Peminjam: ${selectedLoan.borrowerName}` : ''} maxWidth="md">
+      <CustomModal isOpen={isReturnOpen} onClose={() => setIsReturnOpen(false)} title="Proses Pengembalian Alat" subtitle={selectedLoan ? `Peminjam: ${selectedLoan.borrowerName}` : ''} maxWidth="lg">
         <form onSubmit={handleConfirmReturn} className="space-y-4 text-xs">
           <p className="text-slate-600 font-medium text-xs leading-relaxed">
             Tentukan jumlah unit yang dikembalikan dan kondisinya. Alat rusak akan dipindahkan ke <strong>stok rusak</strong> dan tidak kembali ke stok tersedia.
@@ -866,7 +914,7 @@ export default function PeminjamanAlatPage() {
       </CustomModal>
 
       {/* ── MODAL: DETAIL PEMINJAMAN ─────────────────────────────────────────── */}
-      <CustomModal isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} title="Detail Peminjaman Alat" maxWidth="md">
+      <CustomModal isOpen={isDetailOpen} onClose={() => setIsDetailOpen(false)} title="Detail Peminjaman Alat" maxWidth="lg">
         {selectedLoan && (
           <div className="space-y-4 text-xs">
             <div className="flex items-center gap-3">

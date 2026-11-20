@@ -40,4 +40,18 @@ class LocalStorage {
     _memory[key] = value;
     return true;
   }
+
+  static Future<bool?> getBool(String key) async {
+    await init();
+    if (_prefs != null) return _prefs!.getBool(key);
+    final val = await getString(key);
+    if (val == null) return null;
+    return val == 'true';
+  }
+
+  static Future<bool> setBool(String key, bool value) async {
+    await init();
+    if (_prefs != null) return _prefs!.setBool(key, value);
+    return setString(key, value.toString());
+  }
 }

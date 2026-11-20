@@ -1,6 +1,6 @@
 import { ContentPlan, LocationData, User } from '@/types';
 
-export const MEMBER_COLORS = ['#0D9488', '#0284C7', '#16A34A', '#D97706', '#7C3AED', '#DB2777'];
+export const MEMBER_COLORS = ['#35C6D4', '#E99710', '#B8484A', '#202938', '#67686D', '#007985'];
 
 export function isValidImageSrc(src?: string): boolean {
   if (!src) return false;
@@ -19,7 +19,10 @@ export function getMemberColor(userId: number): string {
 export function formatApiDate(value: string | Date): string {
   const d = typeof value === 'string' ? new Date(value) : value;
   if (Number.isNaN(d.getTime())) return String(value);
-  return d.toISOString().split('T')[0];
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }
 
 export function formatRelativeTime(value: string | Date): string {
@@ -89,6 +92,7 @@ export function contentPlanToItem(
     description?: string;
     thumbnailUrl?: string;
     videoUrl?: string;
+    rawMaterialUrl?: string;
     revisionNote?: string;
     adminNotes?: string;
     submittedAt?: string;
@@ -119,6 +123,7 @@ export function contentPlanToItem(
     thumbnailUrl: plan.thumbnailUrl ?? undefined,
     videoUrl: plan.videoUrl ?? undefined,
     draftUrl: plan.draftUrl ?? undefined,
+    rawMaterialUrl: plan.rawMaterialUrl ?? undefined,
     mediaType: isVideo ? ('video' as const) : ('image' as const),
     revisionNote: plan.revisionNote ?? undefined,
     adminNotes: plan.adminNotes ?? undefined,
@@ -133,7 +138,65 @@ export function userToMemberOption(user: User) {
     name: user.fullName,
     role: user.roleLabel,
     color: getMemberColor(user.id),
-    bgClass: 'bg-teal-50 text-teal-800 border-teal-200',
+    bgClass: 'bg-[#E0F7F9] text-[#007985] border-[#35C6D4]/30',
     avatar: user.avatar,
   };
+}
+
+export function getFileViewUrl(fileUrl?: string): string {
+  if (!fileUrl) return '#';
+  const trimmed = fileUrl.trim();
+  if (!trimmed) return '#';
+
+  if (
+    trimmed.startsWith('http://') ||
+    trimmed.startsWith('https://') ||
+    trimmed.startsWith('/') ||
+    trimmed.startsWith('blob:')
+  ) {
+    return trimmed;
+  }
+
+  // Base64 Data URI -> convert to Blob URL
+  if (trimmed.startsWith('data:')) {
+    try {
+      const parts = trimmed.split(',');
+      const header = parts[0];
+      const base64Data = parts[1];
+      const mimeMatch = header.match(/:(.*?);/);
+      const mimeType = mimeMatch ? mimeMatch[1] : 'application/octet-stream';
+
+      const byteCharacters = atob(base64Data);
+      const byteNumbers = new Uint8Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const blob = new Blob([byteNumbers], { type: mimeType });
+      return URL.createObjectURL(blob);
+    } catch (err) {
+      console.error('Gagal convert base64 ke blob:', err);
+      return trimmed;
+    }
+  }
+
+  // External domain without protocol (e.g. drive.google.com/...)
+  if (trimmed.includes('.') && !trimmed.includes(' ')) {
+    return 'https://' + trimmed;
+  }
+
+  return trimmed;
+}
+
+export function openFileInNewTab(fileUrl?: string) {
+  if (!fileUrl) return;
+  const viewUrl = getFileViewUrl(fileUrl);
+  if (!viewUrl || viewUrl === '#') return;
+
+  const a = document.createElement('a');
+  a.href = viewUrl;
+  a.target = '_blank';
+  a.rel = 'noopener noreferrer';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
 }

@@ -12,8 +12,8 @@ import {
   CustomModal,
   PaginationBar,
   UserAvatar,
+  TableSkeleton,
 } from '@/components/common';
-import DashboardSkeleton from '@/components/common/DashboardSkeleton';
 import {
   Eye,
   RotateCcw,
@@ -33,7 +33,7 @@ import {
 import { formatDateID, isValidImageSrc } from '@/utils/formatters';
 import { toast } from 'sonner';
 import { contentService } from '@/services';
-import { contentPlanToItem } from '@/utils/api-helpers';
+import { contentPlanToItem, getFileViewUrl } from '@/utils/api-helpers';
 
 interface ContentItem {
   id: number;
@@ -49,6 +49,7 @@ interface ContentItem {
   caption: string;
   mediaUrl?: string;
   videoUrl?: string;
+  rawMaterialUrl?: string;
   mediaType: 'image' | 'video';
   revisionNote?: string;
   media?: any[];
@@ -206,7 +207,7 @@ export default function ContentPlanHistoryPage() {
       render: (item) => (
         <div className="max-w-xs">
           <div className="flex items-center gap-1.5 mb-1">
-            <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded border border-teal-200">
+            <span className="bg-blue-50 text-[#003D58] text-[10px] font-bold px-2 py-0.5 rounded border border-blue-200">
               {item.contentType}
             </span>
           </div>
@@ -284,7 +285,7 @@ export default function ContentPlanHistoryPage() {
               setSelectedItem(item);
               setIsViewerOpen(true);
             }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-[#003D58] hover:bg-blue-50 transition-colors cursor-pointer"
             title="Lihat Detail"
           >
             <Eye className="w-4.5 h-4.5" />
@@ -312,7 +313,7 @@ export default function ContentPlanHistoryPage() {
   if (loading) {
     return (
       <AdminLayout title="Riwayat Content Plan">
-        <DashboardSkeleton />
+        <TableSkeleton rows={5} />
       </AdminLayout>
     );
   }
@@ -422,7 +423,7 @@ export default function ContentPlanHistoryPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {getPlatformBadge(selectedItem.platform)}
-                  <span className="bg-teal-50 text-teal-700 border border-teal-200 text-xs font-bold px-2 py-0.5 rounded">
+                  <span className="bg-blue-50 text-[#003D58] border border-blue-200 text-xs font-bold px-2 py-0.5 rounded">
                     {selectedItem.contentType}
                   </span>
                   <StatusBadge status={selectedItem.status} />
@@ -432,11 +433,11 @@ export default function ContentPlanHistoryPage() {
               {/* Deadline & Time */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-700 p-1">
                 <div className="flex items-center gap-2.5">
-                  <Calendar className="w-4 h-4 text-teal-600 shrink-0" />
+                  <Calendar className="w-4 h-4 text-[#003D58] shrink-0" />
                   <span><strong>Deadline Tayang:</strong> {formatDateID(selectedItem.deadline)}</span>
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <Clock className="w-4 h-4 text-teal-600 shrink-0" />
+                  <Clock className="w-4 h-4 text-[#003D58] shrink-0" />
                   <span><strong>Jam Publish:</strong> {selectedItem.time}</span>
                 </div>
               </div>
@@ -444,7 +445,7 @@ export default function ContentPlanHistoryPage() {
               {/* Progress Section */}
               <div className="space-y-2 p-1">
                 <div className="flex justify-between items-center text-xs font-bold text-slate-700">
-                  <span>Progress Konten: <span className="text-teal-600 font-semibold">{progress.label}</span></span>
+                  <span>Progress Konten: <span className="text-[#003D58] font-semibold">{progress.label}</span></span>
                   <span>{progress.val}%</span>
                 </div>
                 <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
@@ -454,6 +455,22 @@ export default function ContentPlanHistoryPage() {
                   />
                 </div>
               </div>
+
+              {/* Link Bahan Mentahan */}
+              {selectedItem.rawMaterialUrl && (
+                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200">
+                  <h5 className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-1.5">Link Bahan Mentahan</h5>
+                  <a
+                    href={getFileViewUrl(selectedItem.rawMaterialUrl)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-amber-900 break-all underline font-semibold flex items-center gap-1.5"
+                  >
+                    <ExternalLink className="w-4 h-4 shrink-0" />
+                    {selectedItem.rawMaterialUrl}
+                  </a>
+                </div>
+              )}
 
               {/* Link Video (Published Link) */}
               {selectedItem.videoUrl && (
@@ -518,7 +535,7 @@ export default function ContentPlanHistoryPage() {
                             href={med.fileUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-teal-600 hover:underline truncate block max-w-sm font-semibold"
+                            className="text-[#003D58] hover:underline truncate block max-w-sm font-semibold"
                           >
                             {med.fileUrl}
                           </a>
@@ -534,7 +551,7 @@ export default function ContentPlanHistoryPage() {
                             href={med.fileUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-1.5 rounded-lg bg-teal-50 text-teal-600 hover:bg-teal-150 transition-colors"
+                            className="p-1.5 rounded-lg bg-blue-50 text-[#003D58] hover:bg-teal-150 transition-colors"
                             title="Buka Drive"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />

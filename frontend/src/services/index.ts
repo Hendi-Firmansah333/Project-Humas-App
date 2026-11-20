@@ -18,11 +18,23 @@ export const authService = {
     const res = await api.get('/auth/profile');
     return res.data as User;
   },
+  updateProfile: async (data: { fullName?: string; username?: string; email?: string; phone?: string; nip?: string; avatar?: string }) => {
+    const res = await api.patch('/auth/profile', data);
+    return res.data as User;
+  },
+  changePassword: async (data: { currentPassword: string; newPassword: string }) => {
+    const res = await api.patch('/auth/password', data);
+    return res.data as { message: string };
+  },
 };
 
 export const dashboardService = {
   summary: async () => {
     const res = await api.get('/dashboard/summary');
+    return res.data;
+  },
+  agendaAnalytics: async (period: '3m' | '6m' | 'year' | 'all' = '3m') => {
+    const res = await api.get('/dashboard/agenda-analytics', { params: { period } });
     return res.data;
   },
 };
@@ -368,6 +380,14 @@ export const incomingLetterService = {
   },
   approve: async (id: number) => {
     const res = await api.patch(`/incoming-letters/${id}/approve`);
+    return res.data;
+  },
+  complete: async (id: number) => {
+    const res = await api.patch(`/incoming-letters/${id}/complete`);
+    return res.data;
+  },
+  revert: async (id: number) => {
+    const res = await api.patch(`/incoming-letters/${id}/revert`);
     return res.data;
   },
   reject: async (id: number, notes: string) => {

@@ -17,6 +17,15 @@ class UserProfile {
   final String? photoPath;
   final bool emailEditable;
 
+  String get initials {
+    final parts = name.trim().split(RegExp(r'\s+')).where((p) => p.isNotEmpty).toList();
+    if (parts.isEmpty) return 'HM';
+    if (parts.length == 1) {
+      return parts.first.substring(0, parts.first.length >= 2 ? 2 : 1).toUpperCase();
+    }
+    return '${parts.first[0]}${parts[1][0]}'.toUpperCase();
+  }
+
   UserProfile copyWith({
     int? id,
     String? name,

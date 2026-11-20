@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:poli_humas/models/content_plan.dart';
 import 'package:poli_humas/providers/app_data_provider.dart';
 import 'package:poli_humas/services/cloudinary_service.dart';
@@ -31,6 +32,35 @@ class _ContentPlanDetailScreenState extends State<ContentPlanDetailScreen> {
   bool _isSubmitting = false;
 
   bool get _canSubmit => widget.item.canSubmit;
+
+  Future<void> _openExternalUrl(String rawUrl) async {
+    final trimmed = rawUrl.trim();
+    if (trimmed.isEmpty) return;
+    final normalized =
+        (trimmed.startsWith('http://') || trimmed.startsWith('https://'))
+            ? trimmed
+            : 'https://$trimmed';
+    final uri = Uri.tryParse(normalized);
+    if (uri == null) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Link bahan mentahan tidak valid.'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Tidak dapat membuka link bahan mentahan.'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    }
+  }
 
   @override
   void initState() {
@@ -165,7 +195,7 @@ class _ContentPlanDetailScreenState extends State<ContentPlanDetailScreen> {
       if (!mounted) return;
       messenger.showSnackBar(
         const SnackBar(
-          content: Text('Hasil konten berhasil dikirim! Menunggu verifikasi Admin Humas.'),
+          content: Text('Hasil konten berhasil dikirim! Menunggu persetujuan Kepala Humas.'),
           backgroundColor: AppColors.success,
         ),
       );
@@ -226,12 +256,12 @@ class _ContentPlanDetailScreenState extends State<ContentPlanDetailScreen> {
         icon = Icons.check_circle_outline;
         break;
       case ContentPlanStatus.menungguPersetujuanKepalaHumas:
-        message = 'Telah diverifikasi Admin. Menunggu persetujuan Kepala Humas.';
+        message = 'Hasil konten telah dikirim. Menunggu persetujuan Kepala Humas.';
         color = const Color(0xFF7C3AED);
         icon = Icons.hourglass_top_outlined;
         break;
       case ContentPlanStatus.menungguVerifikasiAdmin:
-        message = 'Hasil konten telah dikirim. Menunggu verifikasi Admin Humas.';
+        message = 'Hasil konten telah dikirim. Menunggu persetujuan Kepala Humas.';
         color = AppColors.warning;
         icon = Icons.hourglass_top_outlined;
         break;
@@ -342,6 +372,69 @@ class _ContentPlanDetailScreenState extends State<ContentPlanDetailScreen> {
                     item.description.isNotEmpty ? item.description : 'Tidak ada deskripsi/brief tambahan.',
                     style: TextStyle(color: AppColors.textSecondary, height: 1.5),
                   ),
+
+                  // Link Bahan Mentahan
+                  if (item.rawMaterialUrl != null && item.rawMaterialUrl!.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFFBEB),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: const Color(0xFFFDE68A)),
+                      ),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.folder_open_outlined, size: 18, color: Color(0xFFB45309)),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  'Link Bahan Mentahan',
+                                  style: TextStyle(
+                                    fontWeight: FontWeight.w700,
+                                    color: Color(0xFF92400E),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  item.rawMaterialUrl!,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(
+                                    color: Color(0xFFB45309),
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          TextButton(
+                            onPressed: () => _openExternalUrl(item.rawMaterialUrl!),
+                            style: TextButton.styleFrom(
+                              backgroundColor: const Color(0xFFD97706),
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                              minimumSize: Size.zero,
+                              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                            ),
+                            child: const Text(
+                              'Buka',
+                              style: TextStyle(fontSize: 12, fontWeight: FontWeight.w700),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
 
                   // Catatan Verifikasi Admin
                   if (item.adminNotes != null && item.adminNotes!.isNotEmpty) ...[

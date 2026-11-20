@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:poli_humas/models/user_profile.dart';
+import 'package:poli_humas/services/api_service.dart';
+import 'package:poli_humas/services/cloudinary_service.dart';
 import 'package:poli_humas/services/local_storage.dart';
 
 class UserProfileService extends ChangeNotifier {
@@ -29,6 +31,16 @@ class UserProfileService extends ChangeNotifier {
       } catch (e) {
         debugPrint('Error decoding user profile JSON: $e');
       }
+    }
+  }
+
+  Future<void> refreshFromApi() async {
+    if (!ApiService.instance.isAvailable) return;
+    try {
+      final user = await ApiService.instance.fetchProfile();
+      await syncFromApi(user);
+    } catch (e) {
+      debugPrint('Failed to refresh user profile from API: $e');
     }
   }
 
@@ -66,6 +78,39 @@ class UserProfileService extends ChangeNotifier {
     String? photoPath,
     bool clearPhoto = false,
   }) async {
+    if (ApiService.instance.isAvailable) {
+      String? resolvedAvatar = _profile.photoPath;
+      var includeAvatar = false;
+
+      if (clearPhoto) {
+        resolvedAvatar = null;
+        includeAvatar = true;
+      } else if (photoPath != null && photoPath.trim().isNotEmpty) {
+        final trimmedPhoto = photoPath.trim();
+        if (trimmedPhoto.startsWith('http://') || trimmedPhoto.startsWith('https://')) {
+          resolvedAvatar = trimmedPhoto;
+        } else {
+          final uploadedUrl = await CloudinaryService.uploadImage(trimmedPhoto);
+          if (uploadedUrl == null || uploadedUrl.trim().isEmpty) {
+            throw Exception('Gagal mengunggah foto profil ke Cloudinary.');
+          }
+          resolvedAvatar = uploadedUrl.trim();
+        }
+        if (resolvedAvatar != _profile.photoPath) {
+          includeAvatar = true;
+        }
+      }
+
+      final updatedUser = await ApiService.instance.updateMyProfile(
+        fullName: name.trim(),
+        phone: phone.trim(),
+        avatar: resolvedAvatar,
+        includeAvatar: includeAvatar,
+      );
+      await syncFromApi(updatedUser);
+      return;
+    }
+
     _profile = _profile.copyWith(
       name: name.trim(),
       phone: phone.trim(),

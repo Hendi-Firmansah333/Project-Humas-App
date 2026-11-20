@@ -2,6 +2,31 @@ import 'package:dio/dio.dart';
 import 'package:poli_humas/config/api_config.dart';
 import 'package:poli_humas/services/local_storage.dart';
 
+enum ApiErrorType {
+  unauthorized,
+  forbidden,
+  notFound,
+  badRequest,
+  serverError,
+  networkError,
+  unknown,
+}
+
+class ApiException implements Exception {
+  const ApiException({
+    required this.message,
+    required this.type,
+    this.statusCode,
+  });
+
+  final String message;
+  final ApiErrorType type;
+  final int? statusCode;
+
+  @override
+  String toString() => message;
+}
+
 class ApiClient {
   ApiClient._();
 
@@ -25,14 +50,18 @@ class ApiClient {
     _dio!.interceptors.add(
       InterceptorsWrapper(
         onRequest: (options, handler) {
-          options.headers['ngrok-skip-browser-warning'] = '69420';
+          if (ApiConfig.baseUrl.contains('ngrok')) {
+            options.headers['ngrok-skip-browser-warning'] = '69420';
+          }
           if (_token != null && _token!.isNotEmpty) {
             options.headers['Authorization'] = 'Bearer $_token';
           }
           handler.next(options);
         },
-        onError: (DioException e, handler) {
+        onError: (DioException e, handler) async {
+          final statusCode = e.response?.statusCode;
           String? serverMessage;
+
           if (e.response?.data is Map<String, dynamic>) {
             final data = e.response!.data as Map<String, dynamic>;
             if (data['message'] != null) {
@@ -40,18 +69,51 @@ class ApiClient {
               serverMessage = msg is List ? msg.join(', ') : msg.toString();
             }
           }
-          if (serverMessage != null && serverMessage.isNotEmpty) {
-            return handler.reject(
-              DioException(
-                requestOptions: e.requestOptions,
-                response: e.response,
-                type: e.type,
-                error: serverMessage,
-                message: serverMessage,
-              ),
-            );
+
+          ApiErrorType errorType;
+          String userFriendlyMessage;
+
+          if (statusCode == 401) {
+            errorType = ApiErrorType.unauthorized;
+            userFriendlyMessage = serverMessage ?? 'Sesi Anda telah berakhir. Silakan masuk kembali.';
+            await clearToken();
+          } else if (statusCode == 403) {
+            errorType = ApiErrorType.forbidden;
+            userFriendlyMessage = serverMessage ?? 'Anda tidak memiliki hak akses untuk tindakan ini.';
+          } else if (statusCode == 404) {
+            errorType = ApiErrorType.notFound;
+            userFriendlyMessage = serverMessage ?? 'Data atau layanan yang diminta tidak ditemukan.';
+          } else if (statusCode != null && statusCode >= 500) {
+            errorType = ApiErrorType.serverError;
+            userFriendlyMessage = 'Terjadi gangguan internal pada server (500). Silakan coba lagi nanti.';
+          } else if (e.type == DioExceptionType.connectionTimeout ||
+              e.type == DioExceptionType.receiveTimeout ||
+              e.type == DioExceptionType.connectionError) {
+            errorType = ApiErrorType.networkError;
+            userFriendlyMessage = 'Tidak dapat terhubung ke server. Periksa koneksi internet atau jaringan Anda.';
+          } else if (statusCode == 400) {
+            errorType = ApiErrorType.badRequest;
+            userFriendlyMessage = serverMessage ?? 'Permintaan data tidak valid.';
+          } else {
+            errorType = ApiErrorType.unknown;
+            userFriendlyMessage = serverMessage ?? (e.message ?? 'Terjadi kesalahan sistem.');
           }
-          return handler.next(e);
+
+          final apiException = ApiException(
+            message: userFriendlyMessage,
+            type: errorType,
+            statusCode: statusCode,
+          );
+
+          return handler.reject(
+            DioException(
+              requestOptions: e.requestOptions,
+              response: e.response,
+              type: e.type,
+              error: apiException,
+              message: userFriendlyMessage,
+            ),
+          );
         },
       ),
     );

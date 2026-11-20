@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { BadRequestException, Injectable, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateReportDto } from './dto/create-report.dto';
 
@@ -216,6 +216,20 @@ export class ReportsService {
   }
 
   async create(dto: CreateReportDto) {
+    const picUser = await this.prisma.user.findFirst({
+      where: { id: dto.picId, deletedAt: null },
+      select: { id: true, role: true, status: true },
+    });
+    if (!picUser) {
+      throw new NotFoundException('PIC tidak ditemukan.');
+    }
+    if (picUser.role !== 'USER') {
+      throw new BadRequestException('Admin Humas dan Kepala Humas tidak dapat ditugaskan sebagai PIC laporan.');
+    }
+    if (picUser.status !== 'AKTIF') {
+      throw new BadRequestException('Akun nonaktif tidak dapat ditugaskan sebagai PIC laporan.');
+    }
+
     return this.prisma.report.create({
       data: {
         title: dto.title,

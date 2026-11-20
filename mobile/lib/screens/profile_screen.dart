@@ -143,7 +143,7 @@ class ProfileScreen extends StatelessWidget {
                                   decoration: BoxDecoration(
                                     shape: BoxShape.circle,
                                     gradient: const LinearGradient(
-                                      colors: [Color(0xFF14B8A6), Color(0xFF2DD4BF), Color(0xFF6EE7B7)],
+                                      colors: [Color(0xFF003D58), Color(0xFF0284C7), Color(0xFF38BDF8)],
                                       begin: Alignment.bottomLeft,
                                       end: Alignment.topRight,
                                     ),

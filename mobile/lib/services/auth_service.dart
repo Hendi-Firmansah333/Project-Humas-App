@@ -4,6 +4,7 @@ import 'package:poli_humas/services/api_client.dart';
 import 'package:poli_humas/services/api_service.dart';
 import 'package:poli_humas/services/live_location_sync_service.dart';
 import 'package:poli_humas/services/local_storage.dart';
+import 'package:poli_humas/services/realtime_sync_service.dart';
 import 'package:poli_humas/services/user_profile_service.dart';
 
 class PasswordValidationResult {
@@ -21,6 +22,8 @@ class AuthService {
   static const defaultPassword = 'Humas@123';
   static const _passwordKey = 'user_password';
   static const _loggedInKey = 'is_logged_in';
+  static const _rememberMeKey = 'login_remember_me';
+  static const _rememberedUsernameKey = 'login_remembered_username';
 
   String _password = defaultPassword;
   bool _isLoggedIn = false;
@@ -28,6 +31,20 @@ class AuthService {
   Future<void> load() async {
     _password = await LocalStorage.getString(_passwordKey) ?? defaultPassword;
     _isLoggedIn = (await LocalStorage.getString(_loggedInKey)) == 'true';
+  }
+
+  Future<({bool rememberMe, String username})> getRememberedCredentials() async {
+    final rememberMe = (await LocalStorage.getBool(_rememberMeKey)) == true;
+    final username = rememberMe ? (await LocalStorage.getString(_rememberedUsernameKey) ?? '') : '';
+    return (rememberMe: rememberMe, username: username);
+  }
+
+  Future<void> saveRememberedCredentials({
+    required bool rememberMe,
+    required String username,
+  }) async {
+    await LocalStorage.setBool(_rememberMeKey, rememberMe);
+    await LocalStorage.setString(_rememberedUsernameKey, rememberMe ? username.trim() : '');
   }
 
   bool verifyPassword(String password) => _password == password;
@@ -91,6 +108,7 @@ class AuthService {
   }
 
   Future<void> logoutRemote() async {
+    RealtimeSyncService.instance.stop();
     await LiveLocationSyncService.instance.stop(markOffline: true);
     if (ApiClient.instance.hasToken) {
       try {
@@ -106,11 +124,12 @@ class AuthService {
     required String oldPassword,
     required String newPassword,
     required String confirmPassword,
+    bool verifyLocalOldPassword = false,
   }) {
     if (oldPassword.isEmpty) {
       return const PasswordValidationResult(isValid: false, message: 'Password lama wajib diisi.');
     }
-    if (_password != oldPassword) {
+    if (verifyLocalOldPassword && _password != oldPassword) {
       return const PasswordValidationResult(
         isValid: false,
         message: 'Password lama tidak sesuai.',
@@ -155,20 +174,57 @@ class AuthService {
     return const PasswordValidationResult(isValid: true);
   }
 
+  Future<String?> changePasswordRemote({
+    required String oldPassword,
+    required String newPassword,
+    required String confirmPassword,
+  }) async {
+    final useRemote = ApiService.instance.isAvailable;
+    final validation = validateNewPassword(
+      oldPassword: oldPassword,
+      newPassword: newPassword,
+      confirmPassword: confirmPassword,
+      verifyLocalOldPassword: !useRemote,
+    );
+    if (!validation.isValid) {
+      return validation.message ?? 'Data password tidak valid.';
+    }
+
+    if (useRemote) {
+      try {
+        await ApiService.instance.changeMyPassword(
+          currentPassword: oldPassword,
+          newPassword: newPassword,
+          confirmPassword: confirmPassword,
+        );
+        return null;
+      } on DioException catch (e) {
+        final data = e.response?.data;
+        if (data is Map && data['message'] != null) {
+          final msg = data['message'];
+          return msg is List ? msg.join(', ') : msg.toString();
+        }
+        return e.message ?? 'Gagal memperbarui password ke server.';
+      } catch (e) {
+        return e.toString().replaceFirst('Exception: ', '');
+      }
+    }
+
+    _password = newPassword;
+    await LocalStorage.setString(_passwordKey, _password);
+    return null;
+  }
+
   Future<bool> changePassword({
     required String oldPassword,
     required String newPassword,
     required String confirmPassword,
   }) async {
-    final validation = validateNewPassword(
+    final error = await changePasswordRemote(
       oldPassword: oldPassword,
       newPassword: newPassword,
       confirmPassword: confirmPassword,
     );
-    if (!validation.isValid) return false;
-
-    _password = newPassword;
-    await LocalStorage.setString(_passwordKey, _password);
-    return true;
+    return error == null;
   }
 }

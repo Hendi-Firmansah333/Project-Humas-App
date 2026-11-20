@@ -13,8 +13,8 @@ import {
   CustomButton,
   CustomModal,
   CustomDrawer,
+  TableSkeleton,
 } from '@/components/common';
-import DashboardSkeleton from '@/components/common/DashboardSkeleton';
 import { Eye, RotateCcw, Trash2, MapPin, Calendar, Clock, User as UserIcon, AlertTriangle, ExternalLink } from 'lucide-react';
 import { Activity } from '@/types';
 import { formatDateID } from '@/utils/formatters';
@@ -151,7 +151,7 @@ export default function ActivityHistoryPage() {
         <div className="flex items-center gap-1 justify-center">
           <button
             onClick={() => handleOpenDetail(item)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-[#003D58] hover:bg-blue-50 transition-colors cursor-pointer"
             title="Lihat Detail"
           >
             <Eye className="w-4 h-4" />
@@ -179,7 +179,7 @@ export default function ActivityHistoryPage() {
   if (loading) {
     return (
       <AdminLayout title="Riwayat Kegiatan">
-        <DashboardSkeleton />
+        <TableSkeleton rows={5} />
       </AdminLayout>
     );
   }
@@ -252,14 +252,14 @@ export default function ActivityHistoryPage() {
 
             <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3 text-xs">
               <div className="flex items-center gap-3 text-slate-700">
-                <Calendar className="w-4 h-4 text-teal-600 shrink-0" />
+                <Calendar className="w-4 h-4 text-[#003D58] shrink-0" />
                 <div>
                   <span className="font-semibold">Tanggal: </span>
                   <span>{formatDateID(selectedActivity.date)}</span>
                 </div>
               </div>
               <div className="flex items-center gap-3 text-slate-700">
-                <Clock className="w-4 h-4 text-teal-600 shrink-0" />
+                <Clock className="w-4 h-4 text-[#003D58] shrink-0" />
                 <div>
                   <span className="font-semibold">Waktu Pelaksanaan: </span>
                   <span>
@@ -268,14 +268,14 @@ export default function ActivityHistoryPage() {
                 </div>
               </div>
               <div className="flex items-center gap-3 text-slate-700">
-                <MapPin className="w-4 h-4 text-teal-600 shrink-0" />
+                <MapPin className="w-4 h-4 text-[#003D58] shrink-0" />
                 <div>
                   <span className="font-semibold">Lokasi: </span>
                   <span>{selectedActivity.location}</span>
                 </div>
               </div>
               <div className="flex items-center gap-3 text-slate-700">
-                <UserIcon className="w-4 h-4 text-teal-600 shrink-0" />
+                <UserIcon className="w-4 h-4 text-[#003D58] shrink-0" />
                 <div>
                   <span className="font-semibold">PIC Bertugas: </span>
                   <span>{selectedActivity.pic?.fullName ?? '-'} ({selectedActivity.pic?.roleLabel ?? ''})</span>
@@ -301,10 +301,10 @@ export default function ActivityHistoryPage() {
                   {(selectedActivity.members ?? []).map((m) => (
                     <div
                       key={m.id}
-                      className="flex items-center justify-between p-3 rounded-xl bg-teal-50/50 border border-teal-100 text-xs"
+                      className="flex items-center justify-between p-3 rounded-xl bg-blue-50/50 border border-blue-100 text-xs"
                     >
                       <span className="font-semibold text-slate-800">{m.user.fullName}</span>
-                      <span className="bg-teal-100 text-teal-700 font-semibold px-2.5 py-1 rounded-lg">
+                      <span className="bg-teal-100 text-[#003D58] font-semibold px-2.5 py-1 rounded-lg">
                         {m.role}
                       </span>
                     </div>
@@ -345,7 +345,7 @@ export default function ActivityHistoryPage() {
                             href={doc.fileUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-teal-600 hover:underline truncate block max-w-[220px]"
+                            className="text-[#003D58] hover:underline truncate block max-w-[220px]"
                           >
                             {doc.fileUrl}
                           </a>
@@ -354,7 +354,7 @@ export default function ActivityHistoryPage() {
                           href={doc.fileUrl}
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="shrink-0 p-1.5 rounded-lg bg-teal-100 text-teal-700 hover:bg-teal-200 transition-colors"
+                          className="shrink-0 p-1.5 rounded-lg bg-teal-100 text-[#003D58] hover:bg-teal-200 transition-colors"
                           title="Buka Link"
                         >
                           <ExternalLink className="w-3.5 h-3.5" />

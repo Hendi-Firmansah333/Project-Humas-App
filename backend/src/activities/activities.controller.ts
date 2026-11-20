@@ -214,8 +214,8 @@ export class ActivitiesController {
   }
 
   @Patch(':id')
-  @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Perbarui jadwal atau penugasan kegiatan (Kepala Humas)' })
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Perbarui jadwal atau penugasan kegiatan (Admin & Kepala Humas)' })
   update(
     @Param('id', ParseIntPipe) id: number,
     @Request() req: any,
@@ -225,8 +225,8 @@ export class ActivitiesController {
   }
 
   @Delete(':id')
-  @Roles(Role.SUPER_ADMIN)
-  @ApiOperation({ summary: 'Hapus/arsip kegiatan (Kepala Humas)' })
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Hapus/arsip kegiatan (Admin & Kepala Humas)' })
   remove(@Param('id', ParseIntPipe) id: number) {
     return this.activitiesService.remove(id);
   }

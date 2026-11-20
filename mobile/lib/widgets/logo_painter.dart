@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
+import 'package:poli_humas/theme/app_colors.dart';
 
-/// Widget logo Humas menggunakan image asset logo.png
+/// Widget logo PoliHumas menggunakan image asset logo.png (Logo P)
 class HumasLogoVector extends StatelessWidget {
   const HumasLogoVector({
     super.key,
@@ -29,7 +30,7 @@ class HumasLogoVector extends StatelessWidget {
         borderRadius: BorderRadius.circular(size * 0.18),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0D9488).withValues(alpha: 0.28),
+            color: AppColors.primary.withValues(alpha: 0.25),
             blurRadius: size * 0.28,
             offset: Offset(0, size * 0.06),
             spreadRadius: 0,

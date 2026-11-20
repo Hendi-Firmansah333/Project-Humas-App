@@ -25,7 +25,7 @@ import {
 import { usePathname, useRouter } from 'next/navigation';
 import UserAvatar from '@/components/common/UserAvatar';
 import { authService, notificationService, activityService, incomingLetterService, userService } from '@/services';
-import { syncUserSession } from '@/utils/session';
+import { getStoredUser, syncUserSession } from '@/utils/session';
 import { Notification } from '@/types';
 import { formatDateID } from '@/utils/formatters';
 
@@ -36,10 +36,10 @@ interface NavbarProps {
 
 const notifIcon = (type: string) => {
   switch (type) {
-    case 'SUCCESS': return <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" style={{ color: '#006971' }} />;
-    case 'WARNING': return <AlertTriangle className="w-4 h-4 text-orange-500 shrink-0 mt-0.5" />;
-    case 'ALERT': return <AlertCircle className="w-4 h-4 text-red-500 shrink-0 mt-0.5" />;
-    default: return <Info className="w-4 h-4 text-sky-500 shrink-0 mt-0.5" />;
+    case 'SUCCESS': return <CheckCircle2 className="w-4 h-4 shrink-0 mt-0.5" style={{ color: '#35C6D4' }} />;
+    case 'WARNING': return <AlertTriangle className="w-4 h-4 text-[#E99710] shrink-0 mt-0.5" />;
+    case 'ALERT': return <AlertCircle className="w-4 h-4 text-[#B8484A] shrink-0 mt-0.5" />;
+    default: return <Info className="w-4 h-4 text-[#35C6D4] shrink-0 mt-0.5" />;
   }
 };
 
@@ -81,6 +81,7 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
 
   const SYSTEM_MENUS = [
     { title: 'Dashboard Operasional', path: '/dashboard', desc: 'Statistik, ringkasan peliputan & kehadiran hari ini' },
+    { title: 'Mode TV Display Monitoring', path: '/dashboard/display', desc: 'Layar lebar TV Command Center, live GPS & monitoring kegiatan' },
     { title: 'Surat Masuk Humas', path: '/surat-masuk', desc: 'Kelola & catat disposisi surat masuk dari luar/internal' },
     { title: 'Kegiatan & Peliputan', path: '/kegiatan', desc: 'Jadwal liputan, penugasan kru & dokumentasi' },
     { title: 'Content Plan & Media', path: '/content-plan', desc: 'Perencanaan konten media sosial & publikasi Humas' },
@@ -89,6 +90,10 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
     { title: 'Jadwal Piket Humas', path: '/jadwal-piket', desc: 'Daftar jadwal tugas & piket harian staf Humas' },
     { title: 'Persetujuan & Verifikasi', path: '/persetujuan', desc: 'Persetujuan surat masuk, penugasan & laporan kegiatan' },
     { title: 'Laporan Publikasi & Kinerja', path: '/laporan', desc: 'Rekapitulasi berkas laporan dan evaluasi kinerja' },
+    { title: 'Riwayat Surat Masuk', path: '/riwayat-surat', desc: 'Arsip riwayat surat masuk yang disetujui Kepala Humas' },
+    { title: 'Riwayat Kegiatan', path: '/riwayat-kegiatan', desc: 'Arsip kegiatan dan peliputan yang telah selesai' },
+    { title: 'Riwayat Content Plan', path: '/riwayat-content-plan', desc: 'Arsip rencana dan realisasi konten media Humas' },
+    { title: 'Riwayat Peminjaman Alat', path: '/riwayat-peminjaman', desc: 'Arsip transaksi peminjaman alat yang telah selesai' },
     { title: 'Profil & Pengaturan Akun', path: '/profil', desc: 'Informasi profil pengguna dan keamanan' },
   ];
 
@@ -245,6 +250,59 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
     }
   };
 
+  const getNotificationLink = (n: Notification): string => {
+    const isSuperAdmin = getStoredUser()?.role === 'SUPER_ADMIN';
+    if (n.link && n.link.trim() !== '') {
+      if (n.link.startsWith('/verifikasi-kegiatan')) {
+        return isSuperAdmin ? '/persetujuan?tab=akhir' : '/kegiatan';
+      }
+      if (n.link.startsWith('/persetujuan') && !isSuperAdmin) {
+        if (n.link.includes('konten')) return '/content-plan';
+        if (n.link.includes('surat')) return '/surat-masuk';
+        return '/kegiatan';
+      }
+      return n.link;
+    }
+    const text = `${n.title || ''} ${n.message || ''}`.toLowerCase();
+    if (text.includes('pinjam') || text.includes('alat') || text.includes('loan')) {
+      return '/peminjaman-alat';
+    }
+    if (text.includes('surat') || text.includes('persetujuan') || text.includes('disetujui') || text.includes('ditolak')) {
+      return isSuperAdmin && text.includes('persetujuan') ? '/persetujuan?tab=surat' : '/surat-masuk';
+    }
+    if (text.includes('verifikasi-kegiatan') || (text.includes('verifikasi') && text.includes('kegiatan'))) {
+      return isSuperAdmin ? '/persetujuan?tab=akhir' : '/kegiatan';
+    }
+    if (text.includes('kegiatan') || text.includes('liputan') || text.includes('pic') || text.includes('acara')) {
+      return '/kegiatan';
+    }
+    if (text.includes('content') || text.includes('konten') || text.includes('publikasi') || text.includes('plan')) {
+      return '/content-plan';
+    }
+    if (text.includes('piket') || text.includes('jadwal')) {
+      return '/jadwal-piket';
+    }
+    if (text.includes('pengguna') || text.includes('user') || text.includes('akun') || text.includes('personel')) {
+      return '/pengguna';
+    }
+    if (text.includes('laporan') || text.includes('report')) {
+      return '/laporan';
+    }
+    if (text.includes('lokasi') || text.includes('presensi') || text.includes('tracking') || text.includes('check-in')) {
+      return '/live-location';
+    }
+    return '/dashboard';
+  };
+
+  const handleNotificationClick = (n: Notification) => {
+    if (!n.isRead) {
+      handleMarkRead(n.id);
+    }
+    setShowNotifs(false);
+    const targetUrl = getNotificationLink(n);
+    router.push(targetUrl);
+  };
+
   useEffect(() => {
     const dateStr = new Intl.DateTimeFormat('id-ID', {
       weekday: 'long',
@@ -314,21 +372,31 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
       <div className="flex items-center gap-3 sm:gap-4">
         {onOpenMobileMenu && (
           <button
+            type="button"
             onClick={onOpenMobileMenu}
+            aria-label="Buka menu navigasi"
             className="lg:hidden p-2 rounded-xl text-slate-600 hover:bg-slate-100 transition-colors cursor-pointer"
           >
             <Menu className="w-5 h-5" />
           </button>
         )}
         <div>
-          <h2 className="text-sm sm:text-base font-bold text-slate-900 leading-tight">{title}</h2>
-          {pathParts.length > 0 && (
-            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-400 font-normal mt-0.5">
+          <h2 className="text-sm sm:text-base font-bold text-[#0F172A] leading-tight font-['Poppins']">
+            {isDashboard ? 'Dashboard Operasional Humas' : title}
+          </h2>
+          {isDashboard ? (
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-600 font-normal mt-0.5 font-['Poppins']">
+              <span>Beranda</span>
+              <span>&gt;</span>
+              <span className="text-[#003D58] font-bold">Dashboard</span>
+            </div>
+          ) : pathParts.length > 0 && (
+            <div className="hidden sm:flex items-center gap-1.5 text-xs text-slate-600 font-normal mt-0.5">
               <span>Beranda</span>
               {pathParts.map((part, i) => (
                 <React.Fragment key={part}>
                   <span>&gt;</span>
-                  <span className={i === pathParts.length - 1 ? 'text-slate-600 font-medium capitalize' : 'capitalize'}>
+                  <span className={i === pathParts.length - 1 ? 'text-[#003D58] font-bold capitalize' : 'capitalize'}>
                     {part.replace(/-/g, ' ')}
                   </span>
                 </React.Fragment>
@@ -340,7 +408,7 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
 
       {/* Global Quick Search - Only rendered on Dashboard */}
       {isDashboard && (
-        <div ref={searchRef} className="relative hidden md:flex items-center justify-center flex-1 max-w-sm lg:max-w-md mx-4">
+        <div ref={searchRef} className="relative hidden md:flex items-center justify-center flex-1 max-w-[320px] mx-4">
           <form
             onSubmit={(e) => {
               e.preventDefault();
@@ -348,13 +416,13 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
             }}
             className="w-full"
           >
-            <div className="w-full h-10 bg-slate-50 border border-slate-200/80 rounded-full px-4 flex items-center gap-2.5 text-slate-400 focus-within:bg-white focus-within:border-[#006971] focus-within:shadow-xs focus-within:ring-2 focus-within:ring-[#006971]/20 transition-all">
+            <div className="w-full h-9 bg-white border border-slate-200/90 rounded-xl px-3 flex items-center gap-2 text-slate-400 focus-within:border-[#003D58] focus-within:shadow-xs focus-within:ring-2 focus-within:ring-[#003D58]/20 transition-all">
               <button
                 type="submit"
-                className="cursor-pointer text-slate-400 hover:text-[#006971] transition-colors"
+                className="cursor-pointer text-slate-400 hover:text-[#003D58] transition-colors"
                 title="Cari"
               >
-                <Search className="w-4 h-4 shrink-0" />
+                <Search className="w-3.5 h-3.5 shrink-0" />
               </button>
               <input
                 type="text"
@@ -366,11 +434,11 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
                 onKeyDown={(e) => {
                   if (e.key === 'Escape') setShowSearchResults(false);
                 }}
-                placeholder="Cari kegiatan, surat masuk, atau modul..."
-                className="w-full bg-transparent text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none"
+                placeholder="Cari kegiatan, dokumen, atau personel..."
+                className="w-full bg-transparent text-xs text-slate-800 placeholder:text-slate-400 focus:outline-none font-['Poppins']"
               />
               {isSearching && (
-                <div className="w-3.5 h-3.5 border-2 border-[#006971] border-t-transparent rounded-full animate-spin shrink-0" />
+                <div className="w-3.5 h-3.5 border-2 border-[#003D58] border-t-transparent rounded-full animate-spin shrink-0" />
               )}
               {searchQuery && !isSearching && (
                 <button
@@ -408,7 +476,7 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
                   {searchResults.menus.length > 0 && (
                     <div>
                       <p className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                        <Compass className="w-3 h-3 text-teal-600" />
+                        <Compass className="w-3 h-3 text-[#003D58]" />
                         Modul &amp; Navigasi Halaman
                       </p>
                       <div className="space-y-1 mt-1">
@@ -417,15 +485,15 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
                             key={m.path}
                             type="button"
                             onClick={() => handleSelectResult(m.path)}
-                            className="w-full text-left p-2 rounded-xl hover:bg-teal-50/60 flex items-center justify-between transition-colors group cursor-pointer"
+                            className="w-full text-left p-2 rounded-xl hover:bg-blue-50/60 flex items-center justify-between transition-colors group cursor-pointer"
                           >
                             <div>
-                              <p className="font-bold text-slate-800 text-xs group-hover:text-teal-700 transition-colors">
+                              <p className="font-bold text-slate-800 text-xs group-hover:text-[#003D58] transition-colors">
                                 {m.title}
                               </p>
                               <p className="text-[10px] text-slate-500">{m.desc}</p>
                             </div>
-                            <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-teal-600 transition-colors" />
+                            <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#003D58] transition-colors" />
                           </button>
                         ))}
                       </div>
@@ -436,7 +504,7 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
                   {searchResults.activities.length > 0 && (
                     <div>
                       <p className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                        <CalendarCheck2 className="w-3 h-3 text-teal-600" />
+                        <CalendarCheck2 className="w-3 h-3 text-[#003D58]" />
                         Kegiatan &amp; Peliputan
                       </p>
                       <div className="space-y-1 mt-1">
@@ -445,17 +513,17 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
                             key={act.id}
                             type="button"
                             onClick={() => handleSelectResult(`/kegiatan?search=${encodeURIComponent(act.title)}`)}
-                            className="w-full text-left p-2 rounded-xl hover:bg-teal-50/60 flex items-center justify-between transition-colors group cursor-pointer"
+                            className="w-full text-left p-2 rounded-xl hover:bg-blue-50/60 flex items-center justify-between transition-colors group cursor-pointer"
                           >
                             <div className="min-w-0 pr-2">
-                              <p className="font-bold text-slate-800 text-xs group-hover:text-teal-700 transition-colors truncate">
+                              <p className="font-bold text-slate-800 text-xs group-hover:text-[#003D58] transition-colors truncate">
                                 {act.title}
                               </p>
                               <p className="text-[10px] text-slate-500 truncate">
                                 {act.location || 'Polinela'} {act.date ? `• ${formatDateID(act.date.split('T')[0])}` : ''}
                               </p>
                             </div>
-                            <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-teal-600 transition-colors shrink-0" />
+                            <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#003D58] transition-colors shrink-0" />
                           </button>
                         ))}
                       </div>
@@ -466,7 +534,7 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
                   {searchResults.letters.length > 0 && (
                     <div>
                       <p className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                        <Mail className="w-3 h-3 text-teal-600" />
+                        <Mail className="w-3 h-3 text-[#003D58]" />
                         Surat Masuk Humas
                       </p>
                       <div className="space-y-1 mt-1">
@@ -475,14 +543,14 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
                             key={letItem.id}
                             type="button"
                             onClick={() => handleSelectResult(`/surat-masuk?search=${encodeURIComponent(letItem.letterNumber)}`)}
-                            className="w-full text-left p-2 rounded-xl hover:bg-teal-50/60 flex items-center justify-between transition-colors group cursor-pointer"
+                            className="w-full text-left p-2 rounded-xl hover:bg-blue-50/60 flex items-center justify-between transition-colors group cursor-pointer"
                           >
                             <div className="min-w-0 pr-2">
                               <div className="flex items-center gap-1.5">
                                 <span className="font-mono text-[10px] font-bold bg-slate-100 text-slate-700 px-1.5 py-0.5 rounded">
                                   {letItem.letterNumber}
                                 </span>
-                                <span className="font-semibold text-slate-800 text-xs group-hover:text-teal-700 transition-colors truncate">
+                                <span className="font-semibold text-slate-800 text-xs group-hover:text-[#003D58] transition-colors truncate">
                                   {letItem.subject}
                                 </span>
                               </div>
@@ -490,7 +558,7 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
                                 Pengirim: {letItem.sender}
                               </p>
                             </div>
-                            <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-teal-600 transition-colors shrink-0" />
+                            <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#003D58] transition-colors shrink-0" />
                           </button>
                         ))}
                       </div>
@@ -501,7 +569,7 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
                   {searchResults.users.length > 0 && (
                     <div>
                       <p className="px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1">
-                        <Users className="w-3 h-3 text-teal-600" />
+                        <Users className="w-3 h-3 text-[#003D58]" />
                         Personel &amp; Tim Humas
                       </p>
                       <div className="space-y-1 mt-1">
@@ -510,15 +578,15 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
                             key={u.id}
                             type="button"
                             onClick={() => handleSelectResult(`/jadwal-piket`)}
-                            className="w-full text-left p-2 rounded-xl hover:bg-teal-50/60 flex items-center justify-between transition-colors group cursor-pointer"
+                            className="w-full text-left p-2 rounded-xl hover:bg-blue-50/60 flex items-center justify-between transition-colors group cursor-pointer"
                           >
                             <div>
-                              <p className="font-bold text-slate-800 text-xs group-hover:text-teal-700 transition-colors">
+                              <p className="font-bold text-slate-800 text-xs group-hover:text-[#003D58] transition-colors">
                                 {u.fullName}
                               </p>
                               <p className="text-[10px] text-slate-500">{u.roleLabel || 'Tim Humas'}</p>
                             </div>
-                            <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-teal-600 transition-colors shrink-0" />
+                            <ArrowUpRight className="w-3.5 h-3.5 text-slate-300 group-hover:text-[#003D58] transition-colors shrink-0" />
                           </button>
                         ))}
                       </div>
@@ -531,23 +599,25 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
         </div>
       )}
 
-      <div className="flex items-center gap-2 sm:gap-4">
-        <div className="hidden xl:flex items-center gap-2 bg-slate-50 border border-slate-200/80 px-4 py-2 rounded-full text-xs font-normal text-slate-600">
-          <Calendar className="w-4 h-4 text-slate-400 shrink-0" />
+      <div className="flex items-center gap-2 sm:gap-3">
+        <div className="hidden xl:flex items-center gap-2 bg-[#F8FAFC] border border-slate-200/90 px-3.5 py-1.5 rounded-xl text-xs font-normal text-[#64748B] font-['Poppins']">
+          <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
           <span>{currentDate}</span>
         </div>
 
         <div className="relative" ref={notifRef}>
           <button
+            type="button"
+            aria-label="Buka notifikasi sistem"
             onClick={() => {
               setShowNotifs(!showNotifs);
               if (!showNotifs) loadNotifications();
             }}
-            className="relative p-2 rounded-lg hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer"
+            className="relative p-2 rounded-xl hover:bg-slate-100 text-slate-600 transition-colors cursor-pointer"
           >
             <Bell className="w-5 h-5" />
             {unreadCount > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-4 h-4 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center ring-2 ring-white">
+              <span className="absolute top-1 right-1 w-4 h-4 bg-[#E11D48] text-white text-[9px] font-bold rounded-full flex items-center justify-center ring-2 ring-white">
                 {unreadCount > 9 ? '9+' : unreadCount}
               </span>
             )}
@@ -567,7 +637,7 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
                     <button
                       onClick={handleMarkAllRead}
                       className="text-[10px] font-semibold hover:opacity-80 transition-colors cursor-pointer"
-                      style={{ color: '#006971' }}
+                      style={{ color: '#35C6D4' }}
                     >
                       Tandai Semua
                     </button>
@@ -584,31 +654,43 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
                   notifications.map((n) => (
                     <div
                       key={n.id}
-                      className={`p-2.5 rounded-xl flex gap-3 text-xs transition-colors group ${
+                      onClick={() => handleNotificationClick(n)}
+                      className={`p-2.5 rounded-xl flex gap-3 text-xs transition-colors group cursor-pointer ${
                         !n.isRead
-                          ? 'bg-[#006971]/5 border border-[#006971]/10'
+                          ? 'bg-[#35C6D4]/5 border border-[#35C6D4]/15 hover:bg-[#35C6D4]/10'
                           : 'hover:bg-slate-50 border border-transparent'
                       }`}
                     >
                       {notifIcon(n.type)}
                       <div className="flex-1 min-w-0">
-                        <p className="font-semibold text-slate-800 leading-snug">{n.title}</p>
+                        <p className="font-semibold text-slate-800 leading-snug group-hover:text-[#003D58] transition-colors">{n.title}</p>
                         <p className="text-slate-500 text-[11px] mt-0.5 line-clamp-2">{n.message}</p>
                         <p className="text-[10px] text-slate-400 mt-1">{formatDateID(n.createdAt)}</p>
                       </div>
-                      <div className="flex flex-col items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div
+                        className="flex flex-col items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity"
+                        onClick={(e) => e.stopPropagation()}
+                      >
                         {!n.isRead && (
                           <button
-                            onClick={() => handleMarkRead(n.id)}
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleMarkRead(n.id);
+                            }}
                             title="Tandai sudah dibaca"
-                            className="p-0.5 rounded hover:bg-[#006971]/10 transition-colors cursor-pointer"
-                            style={{ color: '#006971' }}
+                            className="p-0.5 rounded hover:bg-[#35C6D4]/10 transition-colors cursor-pointer"
+                            style={{ color: '#35C6D4' }}
                           >
                             <CheckCircle2 className="w-3.5 h-3.5" />
                           </button>
                         )}
                         <button
-                          onClick={() => handleDeleteNotif(n.id)}
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDeleteNotif(n.id);
+                          }}
                           title="Hapus notifikasi"
                           className="p-0.5 rounded text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors cursor-pointer"
                         >
@@ -632,7 +714,7 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
               <p className="text-xs font-semibold text-slate-800 leading-tight">
                 {user.fullName || 'Memuat...'}
               </p>
-              <p className="text-[10px] text-slate-400 font-medium leading-tight mt-0.5">
+              <p className="text-[10px] text-slate-600 font-medium leading-tight mt-0.5">
                 {user.roleLabel || 'Admin Humas'}
               </p>
             </div>

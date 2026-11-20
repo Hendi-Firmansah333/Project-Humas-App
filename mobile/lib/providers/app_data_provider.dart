@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 import 'package:poli_humas/models/activity.dart';
 import 'package:poli_humas/models/content_plan.dart';
@@ -5,7 +7,9 @@ import 'package:poli_humas/models/notification_item.dart';
 import 'package:poli_humas/models/team_member.dart';
 import 'package:poli_humas/models/duty_schedule.dart';
 import 'package:poli_humas/repositories/app_repository.dart';
+import 'package:poli_humas/services/app_settings_service.dart';
 import 'package:poli_humas/services/connectivity_service.dart';
+import 'package:poli_humas/services/user_profile_service.dart';
 
 class ListLoadState<T> {
   const ListLoadState({
@@ -67,7 +71,12 @@ class AppDataProvider extends ChangeNotifier {
 
   bool _initialized = false;
   bool _isRefreshingAll = false;
+  bool _lastNotificationsEnabled = AppSettingsService.instance.notificationsEnabled;
+  Future<void>? _refreshInFlight;
+  DateTime? _lastFullSyncAt;
   String? _globalError;
+  final Set<String> _knownNotificationIds = <String>{};
+  void Function(AppNotification notification)? onNewNotification;
 
   ListLoadState<ActivityItem> activitiesState = const ListLoadState();
   ListLoadState<ActivityItem> historyState = const ListLoadState(filter: 'Semua');
@@ -79,6 +88,7 @@ class AppDataProvider extends ChangeNotifier {
   bool get isRefreshingAll => _isRefreshingAll;
   bool get isOffline => !_connectivity.isOnline;
   String? get globalError => _globalError;
+  DateTime? get lastFullSyncAt => _lastFullSyncAt;
 
   ActivityItem? get todaySchedule => _repo.todaySchedule;
   List<ActivityItem> get activeSchedules => _repo.activeSchedules;
@@ -86,17 +96,38 @@ class AppDataProvider extends ChangeNotifier {
   String get todayCheckInLabel => _repo.todayCheckInLabel;
   CheckInState get todayCheckInState => _repo.todayCheckInState;
   ProfileStats get profileStats => _repo.computeProfileStats();
-  int get unreadNotificationCount => _repo.unreadNotificationCount;
+  int get unreadNotificationCount =>
+      AppSettingsService.instance.notificationsEnabled ? _repo.unreadNotificationCount : 0;
   List<TeamMember> get teamMembers => _repo.data.teamMembers;
   List<DutyScheduleItem> get dutySchedules => _repo.data.dutySchedules;
 
-  Future<void> init() async {
+  Future<void> initCacheOnly() async {
     if (_initialized) return;
-    await _repo.init();
+    await _repo.initCacheOnly();
     _connectivity.addListener(_onConnectivityChanged);
-    await refreshAll();
+    AppSettingsService.instance.addListener(_onSettingsChanged);
+    _lastNotificationsEnabled = AppSettingsService.instance.notificationsEnabled;
+    _knownNotificationIds
+      ..clear()
+      ..addAll(_repo.data.notifications.map((n) => n.id));
+    _syncListStatesFromSnapshot();
     _initialized = true;
     notifyListeners();
+  }
+
+  void _onSettingsChanged() {
+    final enabled = AppSettingsService.instance.notificationsEnabled;
+    if (enabled == _lastNotificationsEnabled) return;
+    _lastNotificationsEnabled = enabled;
+    notifyListeners();
+    if (enabled && _repo.isUsingApi && _connectivity.isOnline) {
+      unawaited(syncScopesSilent({'notifications'}));
+    }
+  }
+
+  Future<void> init() async {
+    await initCacheOnly();
+    await refreshAll(simulateNetwork: false);
   }
 
   void _onConnectivityChanged() {
@@ -106,29 +137,156 @@ class AppDataProvider extends ChangeNotifier {
     }
   }
 
+  void _syncListStatesFromSnapshot({Set<String>? scopes}) {
+    final snap = _repo.data;
+    final syncAll = scopes == null || scopes.contains('all');
+
+    if (syncAll || scopes.contains('activities')) {
+      final actFilter = activitiesState.filter;
+      final actSearch = activitiesState.searchQuery.toLowerCase();
+      final filteredActs = snap.activities.where((item) {
+        final matchSearch = actSearch.isEmpty ||
+            item.title.toLowerCase().contains(actSearch) ||
+            item.description.toLowerCase().contains(actSearch);
+        final matchFilter = actFilter == 'Semua' || item.status == actFilter;
+        return matchSearch && matchFilter;
+      }).toList();
+
+      activitiesState = activitiesState.copyWith(
+        items: filteredActs,
+        page: 1,
+        hasMore: _repo.isUsingApi && snap.activities.length >= 50,
+        isLoading: false,
+        isRefreshing: false,
+        clearError: true,
+      );
+
+      final histFilter = historyState.filter;
+      final histSearch = historyState.searchQuery.toLowerCase();
+      final filteredHist = snap.activityHistory.where((item) {
+        final matchSearch = histSearch.isEmpty || item.title.toLowerCase().contains(histSearch);
+        final matchFilter = histFilter == 'Semua' || item.status == histFilter;
+        return matchSearch && matchFilter;
+      }).toList();
+
+      historyState = historyState.copyWith(
+        items: filteredHist,
+        page: 1,
+        hasMore: _repo.isUsingApi && snap.activityHistory.length >= 50,
+        isLoading: false,
+        isRefreshing: false,
+        clearError: true,
+      );
+    }
+
+    if (syncAll || scopes.contains('contentPlans')) {
+      final cpFilter = contentPlansState.filter;
+      final cpSearch = contentPlansState.searchQuery.toLowerCase();
+      final filteredCp = snap.contentPlans.where((item) {
+        final matchSearch = cpSearch.isEmpty ||
+            item.title.toLowerCase().contains(cpSearch) ||
+            item.description.toLowerCase().contains(cpSearch);
+        final matchFilter = item.matchesFilter(cpFilter);
+        return matchSearch && matchFilter;
+      }).toList();
+
+      contentPlansState = contentPlansState.copyWith(
+        items: filteredCp,
+        page: 1,
+        hasMore: _repo.isUsingApi && snap.contentPlans.length >= 50,
+        isLoading: false,
+        isRefreshing: false,
+        clearError: true,
+      );
+    }
+
+    if (syncAll || scopes.contains('notifications')) {
+      final nFilter = notificationsState.filter;
+      final nSearch = notificationsState.searchQuery.toLowerCase();
+      final filteredNotifs = snap.notifications.where((n) {
+        final matchSearch = nSearch.isEmpty ||
+            n.title.toLowerCase().contains(nSearch) ||
+            n.body.toLowerCase().contains(nSearch);
+        if (nFilter == 'Belum Dibaca') return matchSearch && n.isUnread;
+        if (nFilter == 'Sudah Dibaca') return matchSearch && !n.isUnread;
+        return matchSearch;
+      }).toList();
+
+      notificationsState = notificationsState.copyWith(
+        items: filteredNotifs,
+        page: 1,
+        hasMore: _repo.isUsingApi && snap.notifications.length >= 50,
+        isLoading: false,
+        isRefreshing: false,
+        clearError: true,
+      );
+    }
+  }
+
   ActivityItem? activityById(String id) => _repo.activityById(id);
   ContentPlanItem? contentPlanById(String id) => _repo.contentPlanById(id);
   AppNotification? notificationById(String id) => _repo.notificationById(id);
 
-  Future<void> refreshAll({bool simulateNetwork = true}) async {
+  Future<void> refreshAll({bool simulateNetwork = false}) {
+    if (_refreshInFlight != null) return _refreshInFlight!;
+
+    final future = _doRefreshAll(simulateNetwork: simulateNetwork).whenComplete(() {
+      _refreshInFlight = null;
+    });
+    _refreshInFlight = future;
+    return future;
+  }
+
+  Future<void> _doRefreshAll({bool simulateNetwork = false}) async {
     _isRefreshingAll = true;
     _globalError = null;
     notifyListeners();
     try {
       if (_connectivity.isOnline) {
         await _repo.refresh(simulateNetwork: simulateNetwork);
+        if (_repo.isUsingApi) {
+          _lastFullSyncAt = DateTime.now();
+          unawaited(UserProfileService.instance.refreshFromApi());
+        }
       }
-      await Future.wait([
-        loadActivities(refresh: true, simulateNetwork: simulateNetwork),
-        loadActivityHistory(refresh: true),
-        loadContentPlans(refresh: true),
-        loadNotifications(refresh: true),
-      ]);
+      _knownNotificationIds
+        ..clear()
+        ..addAll(_repo.data.notifications.map((n) => n.id));
+      _syncListStatesFromSnapshot();
     } catch (e) {
       _globalError = e.toString();
     } finally {
       _isRefreshingAll = false;
       notifyListeners();
+    }
+  }
+
+  Future<void> syncScopesSilent(Set<String> scopes) async {
+    final effectiveScopes = Set<String>.from(scopes);
+    if (!AppSettingsService.instance.notificationsEnabled) {
+      effectiveScopes.remove('notifications');
+    }
+    if (!_repo.isUsingApi || !_connectivity.isOnline || effectiveScopes.isEmpty) return;
+    try {
+      await _repo.refreshScopes(effectiveScopes);
+      if (effectiveScopes.contains('all')) {
+        _lastFullSyncAt = DateTime.now();
+      }
+      if (effectiveScopes.contains('notifications') || effectiveScopes.contains('all')) {
+        final newUnread = _repo.data.notifications
+            .where((n) => n.isUnread && !_knownNotificationIds.contains(n.id))
+            .toList();
+        _knownNotificationIds
+          ..clear()
+          ..addAll(_repo.data.notifications.map((n) => n.id));
+        if (AppSettingsService.instance.notificationsEnabled && newUnread.isNotEmpty) {
+          onNewNotification?.call(newUnread.first);
+        }
+      }
+      _syncListStatesFromSnapshot(scopes: effectiveScopes);
+      notifyListeners();
+    } catch (e) {
+      debugPrint('Silent realtime sync error ($effectiveScopes): $e');
     }
   }
 
@@ -404,6 +562,7 @@ class AppDataProvider extends ChangeNotifier {
   @override
   void dispose() {
     _connectivity.removeListener(_onConnectivityChanged);
+    AppSettingsService.instance.removeListener(_onSettingsChanged);
     super.dispose();
   }
 }

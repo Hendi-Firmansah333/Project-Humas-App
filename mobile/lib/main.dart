@@ -10,6 +10,7 @@ import 'package:poli_humas/services/auth_service.dart';
 import 'package:poli_humas/services/connectivity_service.dart';
 import 'package:poli_humas/services/local_storage.dart';
 import 'package:poli_humas/services/live_location_sync_service.dart';
+import 'package:poli_humas/services/realtime_sync_service.dart';
 import 'package:poli_humas/services/user_profile_service.dart';
 import 'package:poli_humas/theme/app_colors.dart';
 import 'package:poli_humas/theme/rigid_scroll_behavior.dart';
@@ -28,7 +29,8 @@ Future<void> main() async {
     LiveLocationSyncService.instance.start();
   }
   final appData = AppDataProvider();
-  await appData.init();
+  await appData.initCacheOnly();
+  RealtimeSyncService.instance.bindProvider(appData);
   runApp(MyApp(appData: appData));
 }
 
@@ -68,14 +70,12 @@ class MyApp extends StatelessWidget {
       child: ListenableBuilder(
         listenable: AppSettingsService.instance,
         builder: (context, _) {
-          final settings = AppSettingsService.instance;
           return MaterialApp(
             title: 'HUMAS POLINELA',
             scrollBehavior: const RigidScrollBehavior(),
             debugShowCheckedModeBanner: false,
-            themeMode: settings.darkModeEnabled ? ThemeMode.dark : ThemeMode.light,
+            themeMode: ThemeMode.light,
             theme: _buildTheme(Brightness.light),
-            darkTheme: _buildTheme(Brightness.dark),
             home: const SplashScreen(),
           );
         },

@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/layout/AdminLayout';
 import {
@@ -13,8 +13,10 @@ import {
   CustomModal,
   PaginationBar,
   UserAvatar,
+  CustomDatePicker,
+  CustomTimePicker,
+  TableSkeleton,
 } from '@/components/common';
-import DashboardSkeleton from '@/components/common/DashboardSkeleton';
 import {
   Plus,
   Eye,
@@ -35,19 +37,19 @@ import {
   ExternalLink,
   Send,
   FileCheck,
-  ClipboardCheck,
   Tag,
+  Smartphone,
 } from 'lucide-react';
 import { formatDateID, isValidImageSrc } from '@/utils/formatters';
 import { toast } from 'sonner';
 import { contentService, userService, activityService } from '@/services';
-import { contentPlanToItem } from '@/utils/api-helpers';
+import { contentPlanToItem, getFileViewUrl } from '@/utils/api-helpers';
 import { User, Activity } from '@/types';
 
 interface ContentItem {
   id: number;
   title: string;
-  platform: 'INSTAGRAM' | 'TIKTOK' | 'YOUTUBE' | 'WEBSITE' | 'FACEBOOK';
+  platform: string;
   contentType: string;
   deadline: string;
   time: string;
@@ -73,6 +75,7 @@ interface ContentItem {
   mediaUrl?: string;
   videoUrl?: string;
   draftUrl?: string;
+  rawMaterialUrl?: string;
   thumbnailUrl?: string;
   mediaType: 'image' | 'video';
   revisionNote?: string;
@@ -96,20 +99,169 @@ const JENIS_KONTEN_OPTIONS = [
   'Podcast',
 ];
 
+const DEFAULT_PLATFORM_SUGGESTIONS = [
+  'Instagram',
+  'TikTok',
+  'YouTube',
+  'Website',
+  'Facebook',
+];
+
 const PLATFORM_OPTIONS = [
   { value: 'INSTAGRAM', label: 'Instagram' },
   { value: 'TIKTOK', label: 'TikTok' },
   { value: 'YOUTUBE', label: 'YouTube' },
   { value: 'WEBSITE', label: 'Website' },
+  { value: 'FACEBOOK', label: 'Facebook' },
 ];
+
+function formatPlatformLabel(raw?: string): string {
+  if (!raw) return '';
+  const upper = raw.trim().toUpperCase();
+  switch (upper) {
+    case 'INSTAGRAM':
+      return 'Instagram';
+    case 'TIKTOK':
+      return 'TikTok';
+    case 'YOUTUBE':
+      return 'YouTube';
+    case 'WEBSITE':
+      return 'Website';
+    case 'FACEBOOK':
+      return 'Facebook';
+    default:
+      return raw.trim();
+  }
+}
+
+function normalizePlatformValue(raw?: string): string {
+  if (!raw || !raw.trim()) return 'INSTAGRAM';
+  const trimmed = raw.trim();
+  const upper = trimmed.toUpperCase();
+  if (['INSTAGRAM', 'TIKTOK', 'YOUTUBE', 'WEBSITE', 'FACEBOOK'].includes(upper)) {
+    return upper;
+  }
+  return trimmed;
+}
 
 const labelCls = 'block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5';
 const inputCls =
-  'w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all';
+  'w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#003D58] focus:ring-1 focus:ring-[#003D58]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all';
 const selectCls =
-  'w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all';
+  'w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#003D58] focus:ring-1 focus:ring-[#003D58]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all';
 const textareaCls =
-  'w-full min-h-[70px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] p-3 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all resize-none';
+  'w-full min-h-[70px] bg-white border border-[#E2E8F0] focus:border-[#003D58] focus:ring-1 focus:ring-[#003D58]/25 rounded-[8px] p-3 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all resize-none';
+
+interface SuggestInputProps {
+  value: string;
+  onChange: (val: string) => void;
+  placeholder: string;
+  historyItems: string[];
+  defaultItems: string[];
+  required?: boolean;
+}
+
+function SuggestInput({
+  value,
+  onChange,
+  placeholder,
+  historyItems,
+  defaultItems,
+  required = false,
+}: SuggestInputProps) {
+  const [open, setOpen] = useState(false);
+  const wrapperRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutside = (e: MouseEvent) => {
+      if (wrapperRef.current && !wrapperRef.current.contains(e.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleOutside);
+    return () => document.removeEventListener('mousedown', handleOutside);
+  }, []);
+
+  // Build deduplicated suggestions with history items prioritized at the top
+  const allSuggestions = React.useMemo(() => {
+    const seen = new Set<string>();
+    const list: { label: string; isHistory: boolean }[] = [];
+
+    for (const item of historyItems) {
+      const clean = (item || '').trim();
+      if (!clean) continue;
+      const key = clean.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push({ label: clean, isHistory: true });
+      }
+    }
+
+    for (const item of defaultItems) {
+      const clean = (item || '').trim();
+      if (!clean) continue;
+      const key = clean.toLowerCase();
+      if (!seen.has(key)) {
+        seen.add(key);
+        list.push({ label: clean, isHistory: false });
+      }
+    }
+
+    return list;
+  }, [historyItems, defaultItems]);
+
+  const query = (value || '').trim().toLowerCase();
+  const filtered = React.useMemo(() => {
+    if (!query) return allSuggestions;
+    const matches = allSuggestions.filter((s) => s.label.toLowerCase().includes(query));
+    return matches;
+  }, [allSuggestions, query]);
+
+  return (
+    <div className="relative" ref={wrapperRef}>
+      <input
+        type="text"
+        required={required}
+        autoComplete="off"
+        value={value}
+        onFocus={() => setOpen(true)}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        placeholder={placeholder}
+        className={inputCls}
+      />
+      {open && filtered.length > 0 && (
+        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-lg z-50 max-h-48 overflow-y-auto divide-y divide-slate-100">
+          <div className="px-3 py-1 bg-slate-50 text-[10px] font-bold text-slate-500 uppercase tracking-wider flex items-center justify-between">
+            <span>Rekomendasi</span>
+            <span className="font-normal text-slate-400">Klik untuk memilih</span>
+          </div>
+          {filtered.map((item) => (
+            <button
+              key={item.label}
+              type="button"
+              onMouseDown={(e) => {
+                e.preventDefault();
+                onChange(item.label);
+                setOpen(false);
+              }}
+              className="w-full text-left px-3 py-2 text-[12px] text-slate-700 hover:bg-sky-50 hover:text-[#003D58] transition-colors flex items-center justify-between cursor-pointer"
+            >
+              <span className="font-medium truncate">{item.label}</span>
+              {item.isHistory && (
+                <span className="shrink-0 ml-2 px-1.5 py-0.5 rounded text-[9px] font-semibold bg-blue-50 text-[#003D58] border border-blue-200">
+                  Pernah Diketik
+                </span>
+              )}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export default function ContentPlanPage() {
   const router = useRouter();
@@ -124,6 +276,7 @@ export default function ContentPlanPage() {
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+  const isInitializingRef = useRef(false);
 
   // Modals state
   const [selectedItem, setSelectedItem] = useState<ContentItem | null>(null);
@@ -132,12 +285,8 @@ export default function ContentPlanPage() {
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isRevisionOpen, setIsRevisionOpen] = useState(false);
-  const [isVerifyAdminOpen, setIsVerifyAdminOpen] = useState(false);
-  const [isRequestFixOpen, setIsRequestFixOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
   const [revisionText, setRevisionText] = useState('');
-  const [adminNotesText, setAdminNotesText] = useState('');
-  const [fixNotesText, setFixNotesText] = useState('');
 
   // Work modal form state (for PIC Creator)
   const [workForm, setWorkForm] = useState({
@@ -149,21 +298,85 @@ export default function ContentPlanPage() {
   // Admin Create / Edit Form state
   const [formData, setFormData] = useState({
     title: '',
-    platform: 'INSTAGRAM' as ContentItem['platform'],
-    contentType: 'Poster',
+    platform: '' as ContentItem['platform'],
+    contentType: '',
     activityName: '',
     deadline: new Date().toISOString().split('T')[0],
     time: '16:00',
     picId: 0,
+    rawMaterialUrl: '',
     caption: '',
     status: 'DITUGASKAN' as ContentItem['status'],
   });
+
+  // Saved history of typed platforms & content types for smart recommendations
+  const [typedPlatforms, setTypedPlatforms] = useState<string[]>([]);
+  const [typedContentTypes, setTypedContentTypes] = useState<string[]>([]);
+
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      try {
+        const sp = localStorage.getItem('humas_typed_platforms_v1');
+        if (sp) setTypedPlatforms(JSON.parse(sp));
+        const sc = localStorage.getItem('humas_typed_content_types_v1');
+        if (sc) setTypedContentTypes(JSON.parse(sc));
+      } catch {
+        // ignore
+      }
+    }
+  }, []);
+
+  const recordTypedValues = (plat: string, cType: string) => {
+    const cleanPlat = formatPlatformLabel(plat);
+    const cleanType = (cType || '').trim();
+
+    if (cleanPlat) {
+      setTypedPlatforms((prev) => {
+        const next = [
+          cleanPlat,
+          ...prev.filter((p) => p.toLowerCase() !== cleanPlat.toLowerCase()),
+        ].slice(0, 20);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('humas_typed_platforms_v1', JSON.stringify(next));
+          } catch {}
+        }
+        return next;
+      });
+    }
+
+    if (cleanType) {
+      setTypedContentTypes((prev) => {
+        const next = [
+          cleanType,
+          ...prev.filter((t) => t.toLowerCase() !== cleanType.toLowerCase()),
+        ].slice(0, 20);
+        if (typeof window !== 'undefined') {
+          try {
+            localStorage.setItem('humas_typed_content_types_v1', JSON.stringify(next));
+          } catch {}
+        }
+        return next;
+      });
+    }
+  };
+
+  // Combine localStorage history + existing database items
+  const platformHistorySuggestions = React.useMemo(() => {
+    const fromDb = contents.map((c) => formatPlatformLabel(c.platform)).filter(Boolean);
+    return [...typedPlatforms, ...fromDb];
+  }, [typedPlatforms, contents]);
+
+  const contentTypeHistorySuggestions = React.useMemo(() => {
+    const fromDb = contents.map((c) => (c.contentType || '').trim()).filter(Boolean);
+    return [...typedContentTypes, ...fromDb];
+  }, [typedContentTypes, contents]);
 
   const isSuperAdmin = currentUser?.role === 'SUPER_ADMIN'; // Kepala Humas
   const isAdmin = currentUser?.role === 'ADMIN' || (!isSuperAdmin && currentUser?.role !== 'USER'); // Admin Humas
   const isTimHumas = currentUser?.role === 'USER'; // PIC / Anggota Tim Humas
 
-  const picOptions = users.filter((u) => u.role === 'USER' || u.role === 'ADMIN');
+  const picOptions = users.filter((u) => u.role === 'USER' && u.status === 'AKTIF');
 
   const loadContents = async () => {
     setLoading(true);
@@ -189,7 +402,17 @@ export default function ContentPlanPage() {
     return picOptions[0]?.id || 1;
   };
 
+  const normalizeOptionalUrl = (raw: string) => {
+    const trimmed = raw.trim();
+    if (!trimmed) return '';
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+  };
+
   useEffect(() => {
+    if (isInitializingRef.current) return;
+    isInitializingRef.current = true;
+
     const userStr = typeof window !== 'undefined'
       ? localStorage.getItem('humass_user') || localStorage.getItem('auth_user') || localStorage.getItem('user')
       : null;
@@ -206,12 +429,12 @@ export default function ContentPlanPage() {
       try {
         const [staff, actRes] = await Promise.all([
           userService.getAll(),
-          activityService.getAll({ page: 1, pageSize: 100 }).catch(() => ({ items: [] })),
+          activityService.getAll({ page: 1, pageSize: 20 }).catch(() => ({ items: [] })),
         ]);
         const userList = Array.isArray(staff) ? staff : [];
         setUsers(userList);
         setActivities(actRes?.items || []);
-        const creators = userList.filter((u) => u.role === 'USER' || u.role === 'ADMIN');
+        const creators = userList.filter((u) => u.role === 'USER' && u.status === 'AKTIF');
         if (creators.length > 0) {
           setFormData((prev) => ({ ...prev, picId: creators[0].id }));
         }
@@ -287,65 +510,13 @@ export default function ContentPlanPage() {
       setIsWorkModalOpen(false);
       setIsViewerOpen(false);
       if (sendToReview) {
-        toast.success(`Hasil konten "${selectedItem.title}" berhasil dikirim untuk verifikasi Admin Humas!`);
+        toast.success(`Hasil konten "${selectedItem.title}" berhasil dikirim untuk persetujuan Kepala Humas!`);
       } else {
         toast.success(`Progress draf konten "${selectedItem.title}" berhasil disimpan.`);
       }
       await loadContents();
     } catch {
       toast.error('Gagal menyimpan hasil pekerjaan.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // 2B. Admin Humas: Verifikasi Lengkap & Ajukan ke Kepala Humas
-  const handleOpenVerifyAdmin = (item: ContentItem) => {
-    setSelectedItem(item);
-    setAdminNotesText(item.adminNotes || 'Verifikasi lengkap, visual & caption sesuai.');
-    setIsVerifyAdminOpen(true);
-  };
-
-  const handleSubmitVerifyAdmin = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedItem) return;
-    setSubmitting(true);
-    try {
-      await contentService.verifyAdmin(selectedItem.id, adminNotesText);
-      toast.success(`Konten "${selectedItem.title}" telah diverifikasi lengkap dan diajukan ke Kepala Humas!`);
-      setIsVerifyAdminOpen(false);
-      setIsViewerOpen(false);
-      await loadContents();
-    } catch {
-      toast.error('Gagal mengajukan konten ke Kepala Humas.');
-    } finally {
-      setSubmitting(false);
-    }
-  };
-
-  // 2C. Admin Humas: Kembalikan untuk Perbaikan Internal ke PIC
-  const handleOpenRequestFix = (item: ContentItem) => {
-    setSelectedItem(item);
-    setFixNotesText(item.revisionNote || '');
-    setIsRequestFixOpen(true);
-  };
-
-  const handleSubmitRequestFix = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!selectedItem) return;
-    if (!fixNotesText.trim()) {
-      toast.error('Catatan perbaikan wajib diisi.');
-      return;
-    }
-    setSubmitting(true);
-    try {
-      await contentService.requestFix(selectedItem.id, fixNotesText);
-      toast.warning(`Permintaan perbaikan telah dikembalikan kepada PIC ${selectedItem.picName}.`);
-      setIsRequestFixOpen(false);
-      setIsViewerOpen(false);
-      await loadContents();
-    } catch {
-      toast.error('Gagal mengirimkan catatan perbaikan.');
     } finally {
       setSubmitting(false);
     }
@@ -447,7 +618,25 @@ export default function ContentPlanPage() {
     }
   };
 
-  // 8. Admin Humas: Edit Content Modal
+  // 8. Admin Humas: Open Create Modal with clean empty form
+  const handleOpenCreate = () => {
+    setSelectedItem(null);
+    setFormData({
+      title: '',
+      platform: '',
+      contentType: '',
+      activityName: '',
+      deadline: new Date().toISOString().split('T')[0],
+      time: '16:00',
+      picId: picOptions[0]?.id || 0,
+      rawMaterialUrl: '',
+      caption: '',
+      status: 'DITUGASKAN',
+    });
+    setIsCreateOpen(true);
+  };
+
+  // 8B. Admin Humas: Edit Content Modal
   const handleOpenEdit = (item: ContentItem) => {
     setSelectedItem(item);
     const rawTime = (item.time || '16:00').replace(' WIB', '');
@@ -456,12 +645,13 @@ export default function ContentPlanPage() {
 
     setFormData({
       title: item.title,
-      platform: item.platform,
+      platform: formatPlatformLabel(item.platform),
       contentType: item.contentType,
       activityName: item.category || '',
       deadline: rawDate,
       time: rawTime,
       picId: matchingUser?.id || picOptions[0]?.id || 0,
+      rawMaterialUrl: item.rawMaterialUrl || '',
       caption: item.caption,
       status: item.status,
     });
@@ -471,6 +661,14 @@ export default function ContentPlanPage() {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedItem) return;
+    if (!formData.platform.trim()) {
+      toast.error('Harap isi platform konten!');
+      return;
+    }
+    if (!formData.contentType.trim()) {
+      toast.error('Harap isi jenis konten!');
+      return;
+    }
 
     const deadlineDate = new Date(formData.deadline);
     const timeMatch = formData.time.match(/(\d{2}):(\d{2})/);
@@ -478,19 +676,23 @@ export default function ContentPlanPage() {
       deadlineDate.setHours(parseInt(timeMatch[1], 10), parseInt(timeMatch[2], 10), 0, 0);
     }
     const deadlineIso = deadlineDate.toISOString();
+    const normalizedPlat = normalizePlatformValue(formData.platform);
+    const cleanType = formData.contentType.trim();
 
     setSubmitting(true);
     try {
       await contentService.update(selectedItem.id, {
         title: formData.title,
-        platform: formData.platform as any,
-        contentType: formData.contentType,
+        platform: normalizedPlat as any,
+        contentType: cleanType,
         category: formData.activityName || undefined,
         picId: formData.picId || resolvePicId(),
         deadline: deadlineIso,
         status: formData.status as any,
+        rawMaterialUrl: normalizeOptionalUrl(formData.rawMaterialUrl),
         description: formData.caption,
       });
+      recordTypedValues(formData.platform, cleanType);
       setIsEditOpen(false);
       toast.success('Content plan berhasil diperbarui!');
       await loadContents();
@@ -504,8 +706,16 @@ export default function ContentPlanPage() {
   // 9. Admin Humas: Create Content Plan
   const handleCreateSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.title) {
+    if (!formData.title.trim()) {
       toast.error('Harap lengkapi judul konten!');
+      return;
+    }
+    if (!formData.platform.trim()) {
+      toast.error('Harap isi platform konten!');
+      return;
+    }
+    if (!formData.contentType.trim()) {
+      toast.error('Harap isi jenis konten!');
       return;
     }
 
@@ -515,28 +725,33 @@ export default function ContentPlanPage() {
       deadlineDate.setHours(parseInt(timeMatch[1], 10), parseInt(timeMatch[2], 10), 0, 0);
     }
     const deadlineIso = deadlineDate.toISOString();
+    const normalizedPlat = normalizePlatformValue(formData.platform);
+    const cleanType = formData.contentType.trim();
 
     setSubmitting(true);
     try {
       await contentService.create({
-        title: formData.title,
-        platform: formData.platform as any,
-        contentType: formData.contentType,
+        title: formData.title.trim(),
+        platform: normalizedPlat as any,
+        contentType: cleanType,
         category: formData.activityName || undefined,
         picId: formData.picId || resolvePicId(),
         deadline: deadlineIso,
         status: 'PROSES', // Status DITUGASKAN
+        rawMaterialUrl: normalizeOptionalUrl(formData.rawMaterialUrl) || undefined,
         description: formData.caption || '',
       });
+      recordTypedValues(formData.platform, cleanType);
       setIsCreateOpen(false);
       setFormData({
         title: '',
-        platform: 'INSTAGRAM',
-        contentType: 'Poster',
+        platform: '',
+        contentType: '',
         activityName: '',
         deadline: new Date().toISOString().split('T')[0],
         time: '16:00',
         picId: picOptions[0]?.id || 0,
+        rawMaterialUrl: '',
         caption: '',
         status: 'PROSES',
       });
@@ -550,7 +765,7 @@ export default function ContentPlanPage() {
   };
 
   const getPlatformBadge = (platform: string) => {
-    switch (platform) {
+    switch ((platform || '').toUpperCase()) {
       case 'INSTAGRAM':
         return (
           <span className="inline-flex items-center gap-1.5 bg-pink-50 text-pink-700 font-bold px-2.5 py-1 rounded-lg text-xs border border-pink-200">
@@ -604,10 +819,9 @@ export default function ContentPlanPage() {
       case 'DISETUJUI':
         return <StatusBadge status="DISETUJUI" />;
       case 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS':
-        return <StatusBadge status="MENUNGGU_PERSETUJUAN_KEPALA_HUMAS" />;
       case 'MENUNGGU_VERIFIKASI_ADMIN':
       case 'MENUNGGU':
-        return <StatusBadge status="MENUNGGU_VERIFIKASI_ADMIN" />;
+        return <StatusBadge status="MENUNGGU_PERSETUJUAN_KEPALA_HUMAS" />;
       case 'REVISI':
         return <StatusBadge status="PERLU_REVISI" />;
       case 'DALAM_PENGERJAAN':
@@ -639,7 +853,7 @@ export default function ContentPlanPage() {
       render: (item) => (
         <div className="max-w-xs">
           <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-            <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded border border-teal-200">
+            <span className="bg-blue-50 text-[#003D58] text-[10px] font-bold px-2 py-0.5 rounded border border-blue-200">
               {item.contentType}
             </span>
             {item.category && (
@@ -650,7 +864,7 @@ export default function ContentPlanPage() {
             )}
           </div>
           <p className="font-bold text-slate-800 leading-snug">{item.title}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">{item.caption}</p>
+          <p className="text-[11px] text-slate-600 mt-0.5 line-clamp-1">{item.caption}</p>
         </div>
       ),
     },
@@ -665,7 +879,7 @@ export default function ContentPlanPage() {
       render: (item) => (
         <div className="text-xs whitespace-nowrap">
           <p className="font-semibold text-slate-700">{formatDateID(item.deadline)}</p>
-          <p className="text-slate-400 text-[11px] mt-0.5 flex items-center gap-1"><Clock className="w-3 h-3" /> {item.time}</p>
+          <p className="text-slate-600 text-[11px] mt-0.5 flex items-center gap-1"><Clock className="w-3 h-3 text-slate-500" /> {item.time}</p>
         </div>
       ),
     },
@@ -677,7 +891,7 @@ export default function ContentPlanPage() {
           <UserAvatar src={item.picAvatar} name={item.picName} size="sm" />
           <div>
             <p className="font-medium text-slate-700 text-xs">{item.picName}</p>
-            <p className="text-[10px] text-slate-400">{item.picRole || 'Tim Humas'}</p>
+            <p className="text-[10px] text-slate-600">{item.picRole || 'Tim Humas'}</p>
           </div>
         </div>
       ),
@@ -696,7 +910,7 @@ export default function ContentPlanPage() {
             setSelectedItem(item);
             setIsViewerOpen(true);
           }}
-          className="group relative w-16 h-11 rounded-lg overflow-hidden border border-slate-200 shadow-2xs hover:border-teal-500 transition-all cursor-pointer mx-auto block"
+          className="group relative w-16 h-11 rounded-lg overflow-hidden border border-slate-200 shadow-2xs hover:border-[#003D58] transition-all cursor-pointer mx-auto block"
           title="Lihat Detail & Media"
         >
           {isValidImageSrc(item.mediaUrl) ? (
@@ -722,7 +936,7 @@ export default function ContentPlanPage() {
           {isTimHumas && (
             <button
               onClick={() => handleOpenWorkModal(item)}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-teal-50 text-teal-700 hover:bg-teal-100 border border-teal-200 transition-colors cursor-pointer"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold bg-blue-50 text-[#003D58] hover:bg-blue-100 border border-blue-200 transition-colors cursor-pointer"
               title="Kerjakan & Kirim Draft"
             >
               <Edit3 className="w-3.5 h-3.5" />
@@ -741,7 +955,13 @@ export default function ContentPlanPage() {
               title="Review & Persetujuan Content Plan"
             >
               <FileCheck className="w-3.5 h-3.5 text-purple-600" />
-              <span>{item.status === 'MENUNGGU' ? 'Review' : 'Detail'}</span>
+              <span>
+                {item.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' ||
+                item.status === 'MENUNGGU' ||
+                item.status === 'MENUNGGU_VERIFIKASI_ADMIN'
+                  ? 'Review'
+                  : 'Detail'}
+              </span>
             </button>
           )}
 
@@ -751,23 +971,13 @@ export default function ContentPlanPage() {
               {item.status === 'DISETUJUI' && (
                 <button
                   onClick={() => handlePublish(item)}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white hover:bg-emerald-700 transition-all cursor-pointer shadow-sm hover:shadow"
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold bg-[#003D58] text-white hover:bg-[#002F44] active:bg-[#00263A] transition-all cursor-pointer shadow-xs shadow-[#003D58]/25"
                   title="Tandai Sudah Tayang / Publikasikan"
                 >
                   <CheckCircle2 className="w-4 h-4 text-white" />
                   <span>Publikasi</span>
                 </button>
               )}
-              <button
-                onClick={() => {
-                  setSelectedItem(item);
-                  setIsViewerOpen(true);
-                }}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors cursor-pointer"
-                title="Lihat Detail"
-              >
-                <Eye className="w-4 h-4" />
-              </button>
               <button
                 onClick={() => handleOpenEdit(item)}
                 className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors cursor-pointer"
@@ -793,7 +1003,7 @@ export default function ContentPlanPage() {
   if (loading) {
     return (
       <AdminLayout title="Content Plan">
-        <DashboardSkeleton />
+        <TableSkeleton rows={5} />
       </AdminLayout>
     );
   }
@@ -817,11 +1027,11 @@ export default function ContentPlanPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
             <h1 className="text-lg font-bold text-slate-900 tracking-tight">{pageTitle}</h1>
-            <p className="text-xs text-slate-400 mt-0.5">{pageSubtitle}</p>
+            <p className="text-xs text-slate-600 mt-0.5">{pageSubtitle}</p>
           </div>
           {/* Tombol Tambah HANYA untuk Admin Humas */}
           {isAdmin && (
-            <CustomButton variant="primary" icon={Plus} onClick={() => setIsCreateOpen(true)}>
+            <CustomButton variant="primary" icon={Plus} onClick={handleOpenCreate}>
               Tambah Content Plan
             </CustomButton>
           )}
@@ -858,7 +1068,6 @@ export default function ContentPlanPage() {
               options={[
                 { value: 'DITUGASKAN', label: 'Ditugaskan' },
                 { value: 'DALAM_PENGERJAAN', label: 'Sedang Dikerjakan' },
-                { value: 'MENUNGGU_VERIFIKASI_ADMIN', label: 'Menunggu Verifikasi Admin' },
                 { value: 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS', label: 'Menunggu Persetujuan' },
                 { value: 'REVISI', label: 'Perlu Revisi' },
                 { value: 'DISETUJUI', label: 'Disetujui' },
@@ -898,28 +1107,18 @@ export default function ContentPlanPage() {
         onClose={() => setIsViewerOpen(false)}
         title={isSuperAdmin ? 'Review & Persetujuan Content Plan' : 'Detail Content Plan'}
         subtitle={selectedItem ? `ID: #${selectedItem.id} • ${selectedItem.title}` : ''}
-        maxWidth="6xl"
+        maxWidth="3xl"
       >
         {selectedItem && (() => {
-          const isWaitingAdmin = selectedItem.status === 'MENUNGGU_VERIFIKASI_ADMIN' || selectedItem.status === 'MENUNGGU';
-          const isWaitingSuperAdmin = selectedItem.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' || selectedItem.status === 'MENUNGGU';
+          const isWaitingSuperAdmin =
+            selectedItem.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' ||
+            selectedItem.status === 'MENUNGGU' ||
+            selectedItem.status === 'MENUNGGU_VERIFIKASI_ADMIN';
           const isApproved = selectedItem.status === 'DISETUJUI' || selectedItem.status === 'SELESAI';
           const canWork = selectedItem.status === 'DITUGASKAN' || selectedItem.status === 'DALAM_PENGERJAAN' || selectedItem.status === 'REVISI' || selectedItem.status === 'PROSES' || selectedItem.status === 'DRAFT';
 
           return (
-            <div className="space-y-5">
-              {/* Banner Panduan Verifikasi Admin Humas */}
-              {isWaitingAdmin && isAdmin && (
-                <div className="p-3.5 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 flex items-start gap-2.5">
-                  <FileCheck className="w-5 h-5 text-amber-600 shrink-0 mt-0.5" />
-                  <div>
-                    <p className="font-bold text-amber-800">Menunggu Verifikasi Admin Humas</p>
-                    <p className="text-amber-700 mt-0.5 leading-relaxed">
-                      Periksa kelengkapan <strong>Visual Preview</strong>, <strong>Link Google Drive</strong>, dan <strong>Caption</strong> di bawah ini. Jika sudah lengkap, klik tombol <strong>"Verifikasi Lengkap & Ajukan ke Kepala Humas"</strong> di bagian bawah.
-                    </p>
-                  </div>
-                </div>
-              )}
+            <div className="space-y-4">
 
               {/* Alert jika ada catatan revisi dari Kepala Humas / Admin */}
               {selectedItem.revisionNote && (
@@ -956,69 +1155,150 @@ export default function ContentPlanPage() {
                 </div>
                 <div className="flex items-center gap-2 flex-wrap">
                   {getPlatformBadge(selectedItem.platform)}
-                  <span className="bg-teal-50 text-teal-700 border border-teal-200 text-xs font-bold px-2 py-0.5 rounded">
+                  <span className="bg-blue-50 text-[#003D58] border border-blue-200 text-xs font-bold px-2.5 py-0.5 rounded">
                     {selectedItem.contentType}
                   </span>
                   {getWorkflowBadge(selectedItem)}
                 </div>
               </div>
 
-              {/* Deadline & Kegiatan Terkait */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-700 p-1">
-                <div className="flex items-center gap-2.5">
-                  <Calendar className="w-4 h-4 text-teal-600 shrink-0" />
-                  <span className="flex items-center gap-1.5 flex-wrap"><strong>Deadline Tayang:</strong> {formatDateID(selectedItem.deadline)} <span className="inline-flex items-center gap-1 text-slate-500 font-normal"><Clock className="w-3 h-3 text-slate-400" /> {selectedItem.time}</span></span>
-                </div>
-                {selectedItem.category && (
-                  <div className="flex items-center gap-2.5">
-                    <Tag className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span><strong>Terkait Kegiatan:</strong> {selectedItem.category}</span>
+              {/* Main Content: 2-Kolom Layout (Kiri: Preview Portrait Mockup 9:16, Kanan: Metadata & Copywriting) */}
+              <div className="grid grid-cols-1 md:grid-cols-12 gap-5 items-stretch pt-1">
+                {/* Kolom Kiri: Visual / Thumbnail Preview Portrait Mockup */}
+                <div className="md:col-span-5 flex flex-col items-center">
+                  <div className="w-full flex items-center justify-between mb-2">
+                    <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider flex items-center gap-1.5">
+                      <Smartphone className="w-3.5 h-3.5 text-[#003D58]" />
+                      Preview Visual
+                    </h5>
+                    <span className="text-[10px] font-bold text-sky-700 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+                      9:16 Portrait
+                    </span>
                   </div>
-                )}
-              </div>
 
-              {/* Link Video / Google Drive Link */}
-              {selectedItem.videoUrl ? (
-                <div className="p-3.5 rounded-xl bg-sky-50 border border-sky-200">
-                  <h5 className="text-xs font-bold text-sky-800 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
-                    <ExternalLink className="w-4 h-4 text-sky-600" />
-                    Link Hasil Konten (Google Drive / Video URL)
-                  </h5>
-                  <a
-                    href={selectedItem.videoUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-xs text-sky-700 hover:text-sky-900 break-all underline font-semibold flex items-center gap-1.5"
-                  >
-                    {selectedItem.videoUrl}
-                  </a>
-                </div>
-              ) : (
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-xs text-slate-500 italic">
-                  Belum ada link hasil konten / Google Drive diunggah oleh PIC Kreator.
-                </div>
-              )}
+                  <div className="w-full flex-1 flex items-center justify-center p-3 bg-slate-50/80 rounded-2xl border border-slate-200 min-h-[360px]">
+                    <div className="relative w-[200px] sm:w-[220px] aspect-[9/16] rounded-[26px] overflow-hidden bg-slate-950 border-[5px] border-slate-800 shadow-xl flex flex-col items-center justify-center ring-1 ring-slate-900/10">
+                      {/* Dynamic Island / Speaker notch */}
+                      <div className="absolute top-2.5 w-14 h-1.5 bg-slate-800 rounded-full z-20 shadow-xs" />
 
-              {/* Thumbnail / Poster Preview */}
-              <div>
-                <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-2">Visual / Thumbnail Preview</h5>
-                <div className="relative rounded-2xl overflow-hidden bg-slate-900 border border-slate-200 max-h-[260px] flex items-center justify-center min-h-[140px]">
-                  {isValidImageSrc(selectedItem.mediaUrl) ? (
-                    <img src={selectedItem.mediaUrl} alt={selectedItem.title} className="w-full max-h-[260px] object-contain" />
-                  ) : (
-                    <div className="flex flex-col items-center gap-2 text-slate-400 py-6 px-4 text-center">
-                      <ImageIcon className="w-8 h-8" />
-                      <p className="text-xs">Belum ada file preview visual diunggah.</p>
+                      {isValidImageSrc(selectedItem.mediaUrl) ? (
+                        <a
+                          href={selectedItem.mediaUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="group relative w-full h-full block cursor-zoom-in"
+                          title="Klik untuk membuka ukuran penuh"
+                        >
+                          <img
+                            src={selectedItem.mediaUrl}
+                            alt={selectedItem.title}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                          />
+                          <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-medium backdrop-blur-[1px]">
+                            <Eye className="w-4 h-4" /> Buka Penuh
+                          </div>
+                        </a>
+                      ) : (
+                        <div className="flex flex-col items-center justify-center gap-2.5 text-slate-400 p-4 text-center select-none">
+                          <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center text-slate-300 shadow-inner">
+                            <ImageIcon className="w-6 h-6 text-[#51FCE4]" />
+                          </div>
+                          <p className="text-xs font-semibold text-slate-200">Belum Ada Visual</p>
+                          <p className="text-[11px] text-slate-400 leading-snug px-1">
+                            File preview visual belum diunggah oleh PIC Kreator.
+                          </p>
+                          <span className="text-[10px] text-slate-500 font-mono mt-1 bg-white/5 px-2 py-0.5 rounded border border-white/10">
+                            Format 9:16 (Portrait)
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Home indicator bar */}
+                      <div className="absolute bottom-2 w-16 h-1 bg-white/20 rounded-full z-20" />
+                    </div>
+                  </div>
+                </div>
+
+                {/* Kolom Kanan: Detail Jadwal, Link Drive, dan Caption & Copywriting */}
+                <div className="md:col-span-7 flex flex-col gap-3.5 justify-between">
+                  {/* Deadline & Kegiatan Terkait */}
+                  <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2 text-xs text-slate-700">
+                    <div className="flex items-center gap-2">
+                      <Calendar className="w-4 h-4 text-[#003D58] shrink-0" />
+                      <span className="flex items-center gap-1.5 flex-wrap">
+                        <strong>Deadline Tayang:</strong> {formatDateID(selectedItem.deadline)}
+                        <span className="inline-flex items-center gap-1 text-slate-600 font-normal">
+                          <Clock className="w-3 h-3 text-slate-500" /> {selectedItem.time}
+                        </span>
+                      </span>
+                    </div>
+                    {selectedItem.category && (
+                      <div className="flex items-center gap-2">
+                        <Tag className="w-4 h-4 text-amber-600 shrink-0" />
+                        <span><strong>Terkait Kegiatan:</strong> {selectedItem.category}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Link Bahan Mentahan (jika disediakan Admin) */}
+                  {selectedItem.rawMaterialUrl && (
+                    <div>
+                      <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                        <ExternalLink className="w-3.5 h-3.5 text-amber-600" />
+                        Link Bahan Mentahan
+                      </h5>
+                      <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between gap-2">
+                        <span className="text-xs text-amber-900 font-semibold truncate max-w-[220px] sm:max-w-xs">
+                          {selectedItem.rawMaterialUrl}
+                        </span>
+                        <a
+                          href={getFileViewUrl(selectedItem.rawMaterialUrl)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-700 transition-colors shrink-0"
+                        >
+                          Buka Bahan <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
                     </div>
                   )}
-                </div>
-              </div>
 
-              {/* Caption & Copywriting */}
-              <div>
-                <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">Caption & Copywriting</h5>
-                <div className="p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 leading-relaxed font-mono whitespace-pre-wrap">
-                  {selectedItem.caption || 'Caption belum dilengkapi oleh PIC Kreator.'}
+                  {/* Link Video / Google Drive Link */}
+                  <div>
+                    <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5 flex items-center gap-1.5">
+                      <ExternalLink className="w-3.5 h-3.5 text-[#003D58]" />
+                      Link Hasil Konten (Google Drive)
+                    </h5>
+                    {selectedItem.videoUrl ? (
+                      <div className="p-3 bg-sky-50 rounded-xl border border-sky-200 flex items-center justify-between gap-2">
+                        <span className="text-xs text-sky-800 font-semibold truncate max-w-[220px] sm:max-w-xs">
+                          {selectedItem.videoUrl}
+                        </span>
+                        <a
+                          href={selectedItem.videoUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 px-3 py-1 bg-sky-600 text-white rounded-lg text-xs font-bold hover:bg-sky-700 transition-colors shrink-0"
+                        >
+                          Buka Drive <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
+                    ) : (
+                      <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-600 italic">
+                        Belum ada link hasil konten / Google Drive diunggah oleh PIC Kreator.
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Caption & Copywriting */}
+                  <div className="flex-1 flex flex-col min-h-[140px]">
+                    <h5 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-1.5">
+                      Caption & Copywriting
+                    </h5>
+                    <div className="flex-1 min-h-[140px] max-h-[220px] overflow-y-auto p-3.5 bg-slate-50 rounded-xl border border-slate-200 text-xs text-slate-700 leading-relaxed font-mono whitespace-pre-wrap">
+                      {selectedItem.caption || 'Caption belum dilengkapi oleh PIC Kreator.'}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -1046,19 +1326,6 @@ export default function ContentPlanPage() {
                 {/* ADMIN ACTIONS */}
                 {isAdmin && (
                   <>
-                    {isWaitingAdmin && (
-                      <CustomButton
-                        variant="secondary"
-                        size="sm"
-                        icon={ClipboardCheck}
-                        onClick={() => {
-                          setIsViewerOpen(false);
-                          router.push('/verifikasi-kegiatan');
-                        }}
-                      >
-                        Buka Menu Verifikasi Kelengkapan
-                      </CustomButton>
-                    )}
                     {isApproved && (
                       <CustomButton
                         variant="primary"
@@ -1135,7 +1402,7 @@ export default function ContentPlanPage() {
         onClose={() => setIsWorkModalOpen(false)}
         title="Pengerjaan & Pengiriman Konten"
         subtitle={selectedItem ? `Tugas: "${selectedItem.title}"` : ''}
-        maxWidth="6xl"
+        maxWidth="xl"
       >
         {selectedItem && (
           <div className="space-y-4">
@@ -1152,7 +1419,7 @@ export default function ContentPlanPage() {
               </div>
               <div className="text-slate-600 flex items-center gap-1.5 flex-wrap">
                 <span>Deadline: <strong>{formatDateID(selectedItem.deadline)}</strong></span>
-                <span className="inline-flex items-center gap-1 text-slate-500 font-normal"><Clock className="w-3 h-3 text-slate-400" /> {selectedItem.time}</span>
+                <span className="inline-flex items-center gap-1 text-slate-600 font-normal"><Clock className="w-3 h-3 text-slate-500" /> {selectedItem.time}</span>
               </div>
             </div>
 
@@ -1160,6 +1427,23 @@ export default function ContentPlanPage() {
               <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 text-xs text-rose-900">
                 <p className="font-bold mb-0.5">Catatan Revisi dari Kepala Humas:</p>
                 <p>{selectedItem.revisionNote}</p>
+              </div>
+            )}
+
+            {selectedItem.rawMaterialUrl && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 flex items-center justify-between gap-3 text-xs">
+                <div className="min-w-0 flex-1">
+                  <p className="font-bold text-amber-900">Link Bahan Mentahan (Poster / Aset)</p>
+                  <p className="text-amber-800 font-mono truncate mt-0.5">{selectedItem.rawMaterialUrl}</p>
+                </div>
+                <a
+                  href={getFileViewUrl(selectedItem.rawMaterialUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-1 px-3 py-1.5 bg-amber-600 text-white rounded-lg text-xs font-bold hover:bg-amber-700 transition-colors shrink-0"
+                >
+                  Buka Link <ExternalLink className="w-3 h-3" />
+                </a>
               </div>
             )}
 
@@ -1174,7 +1458,7 @@ export default function ContentPlanPage() {
                 placeholder="https://drive.google.com/drive/folders/... atau https://youtu.be/..."
                 className={`${inputCls} font-mono`}
               />
-              <p className="text-[11px] text-slate-400 mt-1">
+              <p className="text-[11px] text-slate-600 mt-1">
                 Pastikan link Google Drive atau video dapat diakses oleh reviewer.
               </p>
             </div>
@@ -1255,7 +1539,7 @@ export default function ContentPlanPage() {
               value={revisionText}
               onChange={(e) => setRevisionText(e.target.value)}
               placeholder="Jelaskan secara detail bagian visual, caption, atau jadwal yang harus diperbaiki oleh PIC..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
+              className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-[#003D58]/20 focus:border-[#003D58] transition-all"
             />
           </div>
           <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
@@ -1269,89 +1553,21 @@ export default function ContentPlanPage() {
         </form>
       </CustomModal>
 
-      {/* ── MODAL 3B: Admin Humas Verifikasi & Ajukan ke Kepala Humas ── */}
-      <CustomModal
-        isOpen={isVerifyAdminOpen}
-        onClose={() => setIsVerifyAdminOpen(false)}
-        title="Verifikasi Lengkap & Ajukan ke Kepala Humas"
-        subtitle={selectedItem ? `Konten: "${selectedItem.title}"` : ''}
-        maxWidth="md"
-      >
-        <form onSubmit={handleSubmitVerifyAdmin} className="space-y-4">
-          <div className="p-3 bg-teal-50 rounded-xl border border-teal-200 text-xs text-teal-800">
-            <p className="font-bold mb-1">Konfirmasi Verifikasi Admin:</p>
-            <p>Pastikan Anda telah memeriksa Visual Preview, Link Google Drive, dan Caption dari PIC Kreator sebelum mengajukan ke Kepala Humas.</p>
-          </div>
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Catatan Verifikasi Admin (Opsional)
-            </label>
-            <textarea
-              rows={3}
-              value={adminNotesText}
-              onChange={(e) => setAdminNotesText(e.target.value)}
-              placeholder="Contoh: Visual dan caption sudah diperiksa, siap disetujui Kepala Humas..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
-            />
-          </div>
-          <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
-            <CustomButton type="button" variant="outline" onClick={() => setIsVerifyAdminOpen(false)}>
-              Batal
-            </CustomButton>
-            <CustomButton type="submit" variant="primary" icon={Send} disabled={submitting}>
-              Ajukan ke Kepala Humas
-            </CustomButton>
-          </div>
-        </form>
-      </CustomModal>
-
-      {/* ── MODAL 3C: Admin Humas Kembalikan untuk Perbaikan ── */}
-      <CustomModal
-        isOpen={isRequestFixOpen}
-        onClose={() => setIsRequestFixOpen(false)}
-        title="Kembalikan untuk Perbaikan Internal"
-        subtitle={selectedItem ? `PIC: ${selectedItem.picName} • "${selectedItem.title}"` : ''}
-        maxWidth="md"
-      >
-        <form onSubmit={handleSubmitRequestFix} className="space-y-4">
-          <div>
-            <label className="block text-xs font-semibold text-slate-700 mb-1.5">
-              Catatan Perbaikan dari Admin Humas *
-            </label>
-            <textarea
-              rows={4}
-              required
-              value={fixNotesText}
-              onChange={(e) => setFixNotesText(e.target.value)}
-              placeholder="Jelaskan bagian visual, copywriting, atau link yang belum lengkap atau perlu diperbaiki oleh PIC..."
-              className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm text-slate-800 py-2.5 px-3.5 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 focus:border-teal-600 transition-all"
-            />
-          </div>
-          <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
-            <CustomButton type="button" variant="outline" onClick={() => setIsRequestFixOpen(false)}>
-              Batal
-            </CustomButton>
-            <CustomButton type="submit" variant="secondary" icon={RotateCcw} disabled={submitting}>
-              Kembalikan ke PIC
-            </CustomButton>
-          </div>
-        </form>
-      </CustomModal>
-
       {/* ── MODAL 4: Create Content Plan (Admin Humas) ───────── */}
       <CustomModal
         isOpen={isCreateOpen}
         onClose={() => setIsCreateOpen(false)}
         title="Tambah Content Plan Baru"
         subtitle="Rencanakan konten editorial, platform, deadline, dan tentukan PIC."
-        maxWidth="6xl"
+        maxWidth="2xl"
       >
-        <form onSubmit={handleCreateSubmit} className="space-y-4 text-[12px]">
+        <form onSubmit={handleCreateSubmit} autoComplete="off" className="space-y-5 text-[12px]">
           <div>
             <label className={labelCls}>Judul Konten *</label>
             <input
               type="text"
               required
+              autoComplete="off"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               placeholder="Contoh: Dokumentasi PKKMB 2026"
@@ -1362,31 +1578,25 @@ export default function ContentPlanPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Platform *</label>
-              <select
+              <SuggestInput
+                required
                 value={formData.platform}
-                onChange={(e) => setFormData({ ...formData, platform: e.target.value as ContentItem['platform'] })}
-                className={selectCls}
-              >
-                {PLATFORM_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setFormData({ ...formData, platform: val })}
+                placeholder="Ketik platform (cth: Instagram, TikTok)..."
+                historyItems={platformHistorySuggestions}
+                defaultItems={DEFAULT_PLATFORM_SUGGESTIONS}
+              />
             </div>
             <div>
               <label className={labelCls}>Jenis Konten *</label>
-              <select
+              <SuggestInput
+                required
                 value={formData.contentType}
-                onChange={(e) => setFormData({ ...formData, contentType: e.target.value })}
-                className={selectCls}
-              >
-                {JENIS_KONTEN_OPTIONS.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setFormData({ ...formData, contentType: val })}
+                placeholder="Ketik jenis konten (cth: Reels, Podcast)..."
+                historyItems={contentTypeHistorySuggestions}
+                defaultItems={JENIS_KONTEN_OPTIONS}
+              />
             </div>
           </div>
 
@@ -1406,51 +1616,60 @@ export default function ContentPlanPage() {
             </select>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className={labelCls}>Deadline Tayang *</label>
-              <input
-                type="date"
-                required
-                value={formData.deadline}
-                onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Jam Publish</label>
-              <input
-                type="time"
-                required
-                value={formData.time}
-                onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>PIC / Creator *</label>
-              <select
-                value={formData.picId}
-                onChange={(e) => setFormData({ ...formData, picId: Number(e.target.value) })}
-                className={selectCls}
-              >
-                {picOptions.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.fullName} ({u.role === 'USER' ? 'Anggota Tim Humas' : 'Admin Humas'})
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <CustomDatePicker
+              label="Deadline Tayang"
+              required
+              value={formData.deadline}
+              onChange={(val) => setFormData({ ...formData, deadline: val })}
+            />
+            <CustomTimePicker
+              label="Jam Publish"
+              required
+              value={formData.time}
+              onChange={(val) => setFormData({ ...formData, time: val })}
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>PIC / Creator *</label>
+            <select
+              value={formData.picId}
+              onChange={(e) => setFormData({ ...formData, picId: Number(e.target.value) })}
+              className={selectCls}
+            >
+              {picOptions.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.fullName} ({u.roleLabel || 'Anggota Tim Humas'})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className={labelCls}>Link Bahan Mentahan (Opsional)</label>
+            <input
+              type="text"
+              autoComplete="off"
+              value={formData.rawMaterialUrl}
+              onChange={(e) => setFormData({ ...formData, rawMaterialUrl: e.target.value })}
+              placeholder="Contoh: https://drive.google.com/drive/folders/... (aset foto, video, Canva, poster)"
+              className={inputCls}
+            />
+            <p className="text-[11px] text-slate-500 mt-1">
+              Sertakan link bahan mentahan (Google Drive, Canva, dll.) jika ada arahan edit poster, video, atau aset lainnya.
+            </p>
           </div>
 
           <div>
             <label className={labelCls}>Brief / Deskripsi Konten</label>
             <textarea
-              rows={3}
+              rows={4}
+              autoComplete="off"
               value={formData.caption}
               onChange={(e) => setFormData({ ...formData, caption: e.target.value })}
               placeholder="Tuliskan arahan konsep konten atau draft caption awal..."
-              className={textareaCls}
+              className={`${textareaCls} min-h-[110px]`}
             />
           </div>
 
@@ -1465,7 +1684,7 @@ export default function ContentPlanPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-gradient-to-r from-[#0D9488] to-[#14B8A6] hover:from-[#0F766E] hover:to-[#0D9488] text-white text-[12px] font-semibold rounded-[8px] shadow-xs transition-all cursor-pointer"
+              className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-[8px] shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
             >
               Simpan Content Plan
             </button>
@@ -1479,14 +1698,15 @@ export default function ContentPlanPage() {
         onClose={() => setIsEditOpen(false)}
         title="Edit Content Plan"
         subtitle="Perbarui jadwal, platform, jenis, kegiatan terkait, atau ubah PIC."
-        maxWidth="6xl"
+        maxWidth="2xl"
       >
-        <form onSubmit={handleEditSubmit} className="space-y-4 text-[12px]">
+        <form onSubmit={handleEditSubmit} autoComplete="off" className="space-y-5 text-[12px]">
           <div>
             <label className={labelCls}>Judul Konten *</label>
             <input
               type="text"
               required
+              autoComplete="off"
               value={formData.title}
               onChange={(e) => setFormData({ ...formData, title: e.target.value })}
               className={inputCls}
@@ -1496,31 +1716,25 @@ export default function ContentPlanPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className={labelCls}>Platform *</label>
-              <select
+              <SuggestInput
+                required
                 value={formData.platform}
-                onChange={(e) => setFormData({ ...formData, platform: e.target.value as ContentItem['platform'] })}
-                className={selectCls}
-              >
-                {PLATFORM_OPTIONS.map((opt) => (
-                  <option key={opt.value} value={opt.value}>
-                    {opt.label}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setFormData({ ...formData, platform: val })}
+                placeholder="Ketik platform (cth: Instagram, TikTok)..."
+                historyItems={platformHistorySuggestions}
+                defaultItems={DEFAULT_PLATFORM_SUGGESTIONS}
+              />
             </div>
             <div>
               <label className={labelCls}>Jenis Konten *</label>
-              <select
+              <SuggestInput
+                required
                 value={formData.contentType}
-                onChange={(e) => setFormData({ ...formData, contentType: e.target.value })}
-                className={selectCls}
-              >
-                {JENIS_KONTEN_OPTIONS.map((type) => (
-                  <option key={type} value={type}>
-                    {type}
-                  </option>
-                ))}
-              </select>
+                onChange={(val) => setFormData({ ...formData, contentType: val })}
+                placeholder="Ketik jenis konten (cth: Reels, Podcast)..."
+                historyItems={contentTypeHistorySuggestions}
+                defaultItems={JENIS_KONTEN_OPTIONS}
+              />
             </div>
           </div>
 
@@ -1540,50 +1754,58 @@ export default function ContentPlanPage() {
             </select>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className={labelCls}>Deadline Tayang *</label>
-              <input
-                type="date"
-                required
-                value={formData.deadline}
-                onChange={(e) => setFormData({ ...formData, deadline: e.target.value })}
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>Jam Publish</label>
-              <input
-                type="time"
-                required
-                value={formData.time}
-                onChange={(e) => setFormData({ ...formData, time: e.target.value })}
-                className={inputCls}
-              />
-            </div>
-            <div>
-              <label className={labelCls}>PIC / Creator *</label>
-              <select
-                value={formData.picId}
-                onChange={(e) => setFormData({ ...formData, picId: Number(e.target.value) })}
-                className={selectCls}
-              >
-                {picOptions.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.fullName} ({u.role === 'USER' ? 'Anggota Tim Humas' : 'Admin Humas'})
-                  </option>
-                ))}
-              </select>
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <CustomDatePicker
+              label="Deadline Tayang"
+              required
+              value={formData.deadline}
+              onChange={(val) => setFormData({ ...formData, deadline: val })}
+            />
+            <CustomTimePicker
+              label="Jam Publish"
+              required
+              value={formData.time}
+              onChange={(val) => setFormData({ ...formData, time: val })}
+            />
+          </div>
+
+          <div>
+            <label className={labelCls}>PIC / Creator *</label>
+            <select
+              value={formData.picId}
+              onChange={(e) => setFormData({ ...formData, picId: Number(e.target.value) })}
+              className={selectCls}
+            >
+              {picOptions.map((u) => (
+                <option key={u.id} value={u.id}>
+                  {u.fullName} ({u.roleLabel || 'Anggota Tim Humas'})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className={labelCls}>Link Bahan Mentahan (Opsional)</label>
+            <input
+              type="text"
+              autoComplete="off"
+              value={formData.rawMaterialUrl}
+              onChange={(e) => setFormData({ ...formData, rawMaterialUrl: e.target.value })}
+              placeholder="Contoh: https://drive.google.com/drive/folders/... (aset foto, video, Canva, poster)"
+              className={inputCls}
+            />
+            <p className="text-[11px] text-slate-500 mt-1">
+              Sertakan link bahan mentahan (Google Drive, Canva, dll.) jika ada arahan edit poster, video, atau aset lainnya.
+            </p>
           </div>
 
           <div>
             <label className={labelCls}>Caption / Copywriting</label>
             <textarea
-              rows={3}
+              rows={4}
               value={formData.caption}
               onChange={(e) => setFormData({ ...formData, caption: e.target.value })}
-              className={textareaCls}
+              className={`${textareaCls} min-h-[110px]`}
             />
           </div>
 
@@ -1598,7 +1820,7 @@ export default function ContentPlanPage() {
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-gradient-to-r from-[#0D9488] to-[#14B8A6] hover:from-[#0F766E] hover:to-[#0D9488] text-white text-[12px] font-semibold rounded-[8px] shadow-xs transition-all cursor-pointer"
+              className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-[8px] shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
             >
               Simpan Perubahan
             </button>

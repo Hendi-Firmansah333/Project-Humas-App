@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart';
+import '../config/api_config.dart';
 
 class MapMarkerData {
   const MapMarkerData({
@@ -95,9 +96,11 @@ class _AppMapViewState extends State<AppMapView> {
                 ),
               ),
               children: [
-                // Google Maps Tiles
+                // Map Tiles (Mapbox Satellite Streets Hybrid with Esri Satellite fallback)
                 TileLayer(
-                  urlTemplate: 'https://mt1.google.com/vt/lyrs=m&x={x}&y={y}&z={z}&key=AIzaSyAspkC4V1-LjBsDLsWj06GrdkrPhXX2v8g',
+                  urlTemplate: ApiConfig.mapboxAccessToken.isNotEmpty
+                      ? 'https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}@2x?access_token=${ApiConfig.mapboxAccessToken}'
+                      : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
                   userAgentPackageName: 'com.example.poli_humas',
                   maxZoom: 20,
                 ),
@@ -166,11 +169,11 @@ class _AppMapViewState extends State<AppMapView> {
                                       height: 44,
                                       decoration: BoxDecoration(
                                         shape: BoxShape.circle,
-                                        color: const Color(0xFF14B8A6).withValues(alpha: 0.25),
+                                        color: const Color(0xFF0284C7).withValues(alpha: 0.25),
                                       ),
                                     ),
 
-                                  // Main Avatar Badge Circle (Matching Web: teal gradient, white border, bold initials)
+                                  // Main Avatar Badge Circle (Polinela Navy/Cyan gradient, white border, bold initials)
                                   Container(
                                     width: 36,
                                     height: 36,
@@ -178,7 +181,7 @@ class _AppMapViewState extends State<AppMapView> {
                                       shape: BoxShape.circle,
                                       gradient: m.isActive
                                           ? const LinearGradient(
-                                              colors: [Color(0xFF0F766E), Color(0xFF14B8A6)],
+                                              colors: [Color(0xFF003D58), Color(0xFF0284C7)],
                                               begin: Alignment.topLeft,
                                               end: Alignment.bottomRight,
                                             )
@@ -188,12 +191,12 @@ class _AppMapViewState extends State<AppMapView> {
                                               end: Alignment.bottomRight,
                                             ),
                                       border: Border.all(
-                                        color: m.isSelected ? const Color(0xFF2DD4BF) : Colors.white,
+                                        color: m.isSelected ? const Color(0xFF38BDF8) : Colors.white,
                                         width: m.isSelected ? 3.0 : 2.0,
                                       ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: (m.isActive ? const Color(0xFF0F766E) : Colors.black)
+                                          color: (m.isActive ? const Color(0xFF003D58) : Colors.black)
                                               .withValues(alpha: 0.4),
                                           blurRadius: 8,
                                           offset: const Offset(0, 3),

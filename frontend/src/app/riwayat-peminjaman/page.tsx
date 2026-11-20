@@ -11,8 +11,8 @@ import {
   CustomButton,
   CustomModal,
   PaginationBar,
+  TableSkeleton,
 } from '@/components/common';
-import DashboardSkeleton from '@/components/common/DashboardSkeleton';
 import {
   Eye,
   RotateCcw,
@@ -196,7 +196,7 @@ export default function EquipmentLoanHistoryPage() {
   if (loading) {
     return (
       <AdminLayout title="Riwayat Peminjaman Inventaris">
-        <DashboardSkeleton />
+        <TableSkeleton rows={5} />
       </AdminLayout>
     );
   }

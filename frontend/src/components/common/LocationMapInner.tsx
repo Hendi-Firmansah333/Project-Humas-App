@@ -20,6 +20,7 @@ import {
   Lightbulb,
 } from 'lucide-react';
 import type * as GeoJSON from 'geojson';
+import { toast } from 'sonner';
 
 export interface LocationMapInnerProps {
   latitude: number;
@@ -27,6 +28,9 @@ export interface LocationMapInnerProps {
   radius: number;
   onLocationChange: (lat: number, lng: number) => void;
   onAddressResolved?: (address: string) => void;
+  hideInternalSearch?: boolean;
+  hideBottomGuide?: boolean;
+  pinLabel?: string;
 }
 
 // Generate circular GeoJSON polygon for radius visualization
@@ -149,8 +153,8 @@ function RadiusGeofenceLayer({
               type: 'fill',
               source: sourceId,
               paint: {
-                'fill-color': '#0d9488', // teal-600
-                'fill-opacity': 0.18,
+                'fill-color': '#35C6D4',
+                'fill-opacity': 0.22,
               },
             });
           }
@@ -161,8 +165,8 @@ function RadiusGeofenceLayer({
               type: 'line',
               source: sourceId,
               paint: {
-                'line-color': '#0f766e', // teal-700
-                'line-width': 2,
+                'line-color': '#007985',
+                'line-width': 2.5,
                 'line-dasharray': [2, 2],
               },
             });
@@ -199,6 +203,9 @@ export default function LocationMapInner({
   radius,
   onLocationChange,
   onAddressResolved,
+  hideInternalSearch = false,
+  hideBottomGuide = false,
+  pinLabel = 'Titik Lokasi',
 }: LocationMapInnerProps) {
   const [isLocating, setIsLocating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -206,9 +213,9 @@ export default function LocationMapInner({
   const [searchResults, setSearchResults] = useState<any[]>([]);
   const [showResults, setShowResults] = useState(false);
 
-  // Debounced search via OpenStreetMap Nominatim
+  // Debounced search via Google Places Text Search + Nominatim / Photon Indonesia Fallback
   useEffect(() => {
-    if (!searchQuery.trim() || searchQuery.length < 3) {
+    if (hideInternalSearch || !searchQuery.trim() || searchQuery.length < 2) {
       setSearchResults([]);
       setIsSearching(false);
       return;
@@ -217,32 +224,85 @@ export default function LocationMapInner({
     const timer = setTimeout(async () => {
       setIsSearching(true);
       try {
-        const queryWithContext = `${searchQuery.trim()}, Lampung, Indonesia`;
-        const res = await fetch(
-          `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-            queryWithContext
-          )}&limit=5&addressdetails=1`
+        const trimmed = searchQuery.trim();
+        // 1. Google Places Text Search (New)
+        const textRes = await fetch('https://places.googleapis.com/v1/places:searchText', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Goog-Api-Key': 'AIzaSyAspkC4V1-LjBsDLsWj06GrdkrPhXX2v8g',
+            'X-Goog-FieldMask':
+              'places.id,places.displayName,places.formattedAddress,places.location',
+          },
+          body: JSON.stringify({
+            textQuery: trimmed,
+            languageCode: 'id',
+            regionCode: 'ID',
+            locationBias: {
+              circle: {
+                center: { latitude: -5.3585, longitude: 105.2345 },
+                radius: 50000.0,
+              },
+            },
+          }),
+        });
+
+        if (textRes.ok) {
+          const data = await textRes.json();
+          const items = (data.places || [])
+            .filter((p: any) => p.location?.latitude && p.location?.longitude)
+            .map((p: any) => ({
+              placeId: p.id,
+              name: p.displayName?.text || trimmed,
+              display_name: p.formattedAddress
+                ? `${p.displayName?.text || trimmed}, ${p.formattedAddress}`
+                : p.displayName?.text || trimmed,
+              lat: String(p.location.latitude),
+              lon: String(p.location.longitude),
+            }));
+          if (items.length > 0) {
+            setSearchResults(items);
+            setShowResults(true);
+            return;
+          }
+        }
+
+        // 2. Fallback to Photon bounded strictly to Indonesia
+        const pRes = await fetch(
+          `https://photon.komoot.io/api/?q=${encodeURIComponent(
+            trimmed
+          )}&lat=-5.3585&lon=105.2345&bbox=94.5,-11.2,141.1,6.2&limit=5`
         );
-        if (res.ok) {
-          const data = await res.json();
-          setSearchResults(data || []);
+        if (pRes.ok) {
+          const pData = await pRes.json();
+          const items = (pData.features || []).map((f: any) => {
+            const p = f.properties || {};
+            const coords = f.geometry?.coordinates || [0, 0];
+            const parts = [p.street, p.city, p.country].filter(Boolean);
+            return {
+              display_name: parts.length > 0 ? `${p.name || ''}, ${parts.join(', ')}` : p.name,
+              name: p.name,
+              lat: String(coords[1]),
+              lon: String(coords[0]),
+            };
+          });
+          setSearchResults(items);
           setShowResults(true);
         }
       } catch (err) {
-        // Fallback silently if offline or blocked
         setSearchResults([]);
       } finally {
         setIsSearching(false);
       }
-    }, 500);
+    }, 350);
 
     return () => clearTimeout(timer);
-  }, [searchQuery]);
+  }, [searchQuery, hideInternalSearch]);
 
   // Handle GPS location click
   const handleGetLocation = () => {
     if (!navigator.geolocation) {
-      alert('Browser Anda tidak mendukung geolokasi GPS.');
+      toast.error('Browser Anda tidak mendukung geolokasi GPS.');
       return;
     }
 
@@ -258,103 +318,128 @@ export default function LocationMapInner({
       },
       (err) => {
         setIsLocating(false);
-        alert('Gagal mendeteksi lokasi: ' + (err.message || 'Izin akses lokasi ditolak.'));
+        toast.error('Gagal mendeteksi lokasi: ' + (err.message || 'Izin akses lokasi ditolak.'));
       },
       { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
     );
   };
 
-  // Reverse geocoding helper
+  // Reverse geocoding helper via Photon
   const reverseGeocode = async (lat: number, lng: number) => {
     try {
-      const res = await fetch(
-        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
-      );
+      const res = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`);
       if (res.ok) {
         const data = await res.json();
-        if (data?.display_name && onAddressResolved) {
-          // Provide clean readable name
-          const parts = data.display_name.split(',');
-          const cleanName = parts.slice(0, 3).join(',').trim();
-          onAddressResolved(cleanName || data.display_name);
+        const first = data.features?.[0]?.properties;
+        if (first && onAddressResolved) {
+          const parts = [first.name, first.street, first.city, first.state].filter(Boolean);
+          const cleanName = parts.join(', ');
+          onAddressResolved(cleanName || first.name);
+          return;
         }
       }
     } catch (_) {}
   };
 
-  const handleSelectSearchResult = (item: any) => {
-    const lat = parseFloat(item.lat);
-    const lon = parseFloat(item.lon);
+  const handleSelectSearchResult = async (item: any) => {
+    let lat = parseFloat(item.lat);
+    let lon = parseFloat(item.lon);
+
+    if (item.placeId && (isNaN(lat) || isNaN(lon))) {
+      try {
+        const detailRes = await fetch(
+          `https://places.googleapis.com/v1/places/${item.placeId}?fields=id,displayName,formattedAddress,location`,
+          {
+            headers: {
+              'X-Goog-Api-Key': 'AIzaSyAspkC4V1-LjBsDLsWj06GrdkrPhXX2v8g',
+            },
+          }
+        );
+        if (detailRes.ok) {
+          const detail = await detailRes.json();
+          if (detail.location) {
+            lat = detail.location.latitude;
+            lon = detail.location.longitude;
+          }
+          if (detail.formattedAddress && onAddressResolved) {
+            onAddressResolved(detail.formattedAddress);
+          }
+        }
+      } catch (_) {}
+    }
+
     if (!isNaN(lat) && !isNaN(lon)) {
       onLocationChange(lat, lon);
-      if (onAddressResolved) {
+      if (onAddressResolved && !item.placeId) {
         const parts = (item.display_name || '').split(',');
         const cleanName = parts.slice(0, 3).join(',').trim();
         onAddressResolved(cleanName || item.display_name);
       }
-      setShowResults(false);
-      setSearchQuery('');
     }
+    setShowResults(false);
+    setSearchQuery('');
   };
 
   return (
     <div className="w-full h-full relative rounded-2xl overflow-hidden border border-slate-200">
-      {/* ── Search Bar Overlay (Shopee Style) ── */}
-      <div className="absolute top-3 left-3 right-14 z-20">
-        <div className="relative shadow-md">
-          <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            onFocus={() => searchResults.length > 0 && setShowResults(true)}
-            placeholder="Cari jalan / gedung / alamat di peta..."
-            className="w-full bg-white/95 backdrop-blur-md border border-slate-200/80 rounded-xl pl-9 pr-8 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 shadow-sm transition-all"
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              onClick={() => {
-                setSearchQuery('');
-                setShowResults(false);
-              }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
-            >
-              <X className="w-3.5 h-3.5" />
-            </button>
-          )}
+      {/* ── Search Bar Overlay (Only when not hidden) ── */}
+      {!hideInternalSearch && (
+        <div className="absolute top-3 left-3 right-14 z-20">
+          <div className="relative shadow-md">
+            <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2" />
+            <input
+              type="text"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onFocus={() => searchResults.length > 0 && setShowResults(true)}
+              placeholder="Cari jalan / gedung / alamat di peta..."
+              className="w-full bg-white/95 backdrop-blur-md border border-slate-200/80 rounded-xl pl-9 pr-8 py-2 text-xs text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-teal-500/30 focus:border-teal-600 shadow-sm transition-all"
+            />
+            {searchQuery && (
+              <button
+                type="button"
+                onClick={() => {
+                  setSearchQuery('');
+                  setShowResults(false);
+                }}
+                className="absolute right-2.5 top-1/2 -translate-y-1/2 text-slate-400 hover:text-slate-600 p-0.5"
+              >
+                <X className="w-3.5 h-3.5" />
+              </button>
+            )}
 
-          {isSearching && (
-            <div className="absolute right-8 top-1/2 -translate-y-1/2">
-              <Loader2 className="w-3.5 h-3.5 text-teal-600 animate-spin" />
-            </div>
-          )}
+            {isSearching && (
+              <div className="absolute right-8 top-1/2 -translate-y-1/2">
+                <Loader2 className="w-3.5 h-3.5 text-[#005CDB] animate-spin" />
+              </div>
+            )}
 
-          {/* Search Dropdown Results */}
-          {showResults && searchResults.length > 0 && (
-            <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100 z-50">
-              {searchResults.map((item, idx) => (
-                <button
-                  key={idx}
-                  type="button"
-                  onClick={() => handleSelectSearchResult(item)}
-                  className="w-full text-left px-3.5 py-2.5 text-xs hover:bg-teal-50 text-slate-700 hover:text-teal-900 flex items-start gap-2.5 transition-colors"
-                >
-                  <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
-                  <div className="truncate">
-                    <p className="font-semibold text-slate-800 truncate">
-                      {item.display_name?.split(',')[0]}
-                    </p>
-                    <p className="text-[11px] text-slate-500 truncate">
-                      {item.display_name}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-          )}
+            {/* Search Dropdown Results */}
+            {showResults && searchResults.length > 0 && (
+              <div className="absolute top-full left-0 right-0 mt-1 bg-white border border-slate-200 rounded-xl shadow-xl max-h-48 overflow-y-auto divide-y divide-slate-100 z-50">
+                {searchResults.map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleSelectSearchResult(item)}
+                    className="w-full text-left px-3.5 py-2.5 text-xs hover:bg-blue-50 text-slate-700 hover:text-blue-900 flex items-start gap-2.5 transition-colors"
+                  >
+                    <MapPin className="w-4 h-4 text-rose-500 shrink-0 mt-0.5" />
+                    <div className="truncate">
+                      <p className="font-semibold text-slate-800 truncate">
+                        {item.display_name?.split(',')[0]}
+                      </p>
+                      <p className="text-[11px] text-slate-500 truncate">
+                        {item.display_name}
+                      </p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
         </div>
-      </div>
+      )}
 
       {/* ── Main MapLibre Map ── */}
       <Map
@@ -418,10 +503,12 @@ export default function LocationMapInner({
           <MarkerContent>
             <div className="relative flex flex-col items-center group -translate-y-full cursor-grab active:cursor-grabbing select-none">
               {/* Badge label above pin */}
-              <div className="bg-slate-900/90 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg border border-slate-700/60 mb-1 flex items-center gap-1.5 whitespace-nowrap animate-bounce">
-                <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-ping" />
-                <span>Titik Presensi Humas</span>
-              </div>
+              {pinLabel && (
+                <div className="bg-slate-900/90 backdrop-blur-md text-white text-[10px] font-bold px-2.5 py-1 rounded-full shadow-lg border border-slate-700/60 mb-1 flex items-center gap-1.5 whitespace-nowrap">
+                  <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-ping" />
+                  <span>{pinLabel}</span>
+                </div>
+              )}
 
               {/* Pin Head & Icon */}
               <div className="relative filter drop-shadow-md">
@@ -447,26 +534,28 @@ export default function LocationMapInner({
         className="absolute top-3 right-3 z-20 bg-white/95 hover:bg-white text-slate-700 hover:text-teal-700 border border-slate-200/90 p-2.5 rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center disabled:opacity-50"
       >
         {isLocating ? (
-          <Loader2 className="w-4 h-4 text-teal-600 animate-spin" />
+          <Loader2 className="w-4 h-4 text-[#005CDB] animate-spin" />
         ) : (
-          <Locate className="w-4 h-4 text-teal-600" />
+          <Locate className="w-4 h-4 text-[#005CDB]" />
         )}
       </button>
 
-      {/* ── Floating Helper Guide (Shopee Style) ── */}
-      <div className="absolute bottom-2.5 left-14 right-3 z-10 pointer-events-none">
-        <div className="bg-white/90 backdrop-blur-md border border-slate-200/80 px-3 py-1.5 rounded-xl shadow-sm flex items-center justify-between text-[11px] text-slate-600">
-          <div className="flex items-center gap-1.5 truncate">
-            <span className="text-teal-600 font-bold inline-flex items-center gap-1">
-              <Lightbulb className="w-3.5 h-3.5 shrink-0" /> Tips:
+      {/* ── Floating Helper Guide (Only when not hidden) ── */}
+      {!hideBottomGuide && (
+        <div className="absolute bottom-2.5 left-14 right-3 z-10 pointer-events-none">
+          <div className="bg-white/90 backdrop-blur-md border border-slate-200/80 px-3 py-1.5 rounded-xl shadow-sm flex items-center justify-between text-[11px] text-slate-600">
+            <div className="flex items-center gap-1.5 truncate">
+              <span className="text-[#005CDB] font-bold inline-flex items-center gap-1">
+                <Lightbulb className="w-3.5 h-3.5 shrink-0" /> Tips:
+              </span>
+              <span className="truncate">Klik peta atau geser pin merah untuk memindahkan titik.</span>
+            </div>
+            <span className="hidden sm:inline-block font-mono font-medium text-slate-500 shrink-0 text-[10px] pl-2">
+              Radius: {radius}m
             </span>
-            <span className="truncate">Klik peta atau geser pin merah untuk memindahkan titik.</span>
           </div>
-          <span className="hidden sm:inline-block font-mono font-medium text-slate-500 shrink-0 text-[10px] pl-2">
-            Radius: {radius}m
-          </span>
         </div>
-      </div>
+      )}
     </div>
   );
 }
