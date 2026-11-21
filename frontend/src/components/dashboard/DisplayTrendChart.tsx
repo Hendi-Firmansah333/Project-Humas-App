@@ -45,7 +45,7 @@ export default function DisplayTrendChart({ data }: DisplayTrendChartProps) {
           <Bar
             dataKey="kegiatan"
             name="Kegiatan Diliput"
-            fill="#005CDB"
+            fill="#003D58"
             radius={[4, 4, 0, 0]}
             maxBarSize={18}
           />

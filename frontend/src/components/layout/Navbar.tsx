@@ -24,6 +24,8 @@ import {
 } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import UserAvatar from '@/components/common/UserAvatar';
+import ConfirmModal from '@/components/common/ConfirmModal';
+import { toast } from 'sonner';
 import { authService, notificationService, activityService, incomingLetterService, userService } from '@/services';
 import { getStoredUser, syncUserSession } from '@/utils/session';
 import { Notification } from '@/types';
@@ -359,9 +361,13 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
     };
   }, [pathname, loadNotifications]);
 
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
   const handleLogout = () => {
+    setShowLogoutConfirm(false);
     localStorage.removeItem('humass_token');
     localStorage.removeItem('humass_user');
+    toast.success('Anda berhasil keluar dari sesi.');
     router.push('/login');
   };
 
@@ -749,7 +755,11 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
               </button>
               <div className="border-t border-slate-100 my-1" />
               <button
-                onClick={handleLogout}
+                type="button"
+                onClick={() => {
+                  setShowProfileMenu(false);
+                  setShowLogoutConfirm(true);
+                }}
                 className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 rounded-xl transition-colors cursor-pointer"
               >
                 <LogOut className="w-4 h-4 text-red-500 rotate-180" />
@@ -759,6 +769,18 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
           )}
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+        title="Konfirmasi Keluar"
+        message="Apakah Anda yakin ingin keluar dari sesi aplikasi HUMASS Polinela?"
+        confirmText="Ya, Keluar"
+        cancelText="Batal"
+        variant="danger"
+        icon={LogOut}
+      />
     </header>
   );
 }

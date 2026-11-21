@@ -7,14 +7,14 @@ import { useRouter } from 'next/navigation';
 import {
   Tv, Maximize2, Minimize2, RefreshCw, Play, Pause,
   Clock, Calendar, MapPin, Users, Radio, CheckCircle2,
-  AlertTriangle, AlertCircle, Camera, Package, TrendingUp,
-  ArrowLeft, ChevronDown, LocateFixed, ZoomIn, ZoomOut,
-  CalendarCheck2, FileText, CheckCircle, Info, ChevronRight,
-  ExternalLink,
+  AlertTriangle, AlertCircle, Camera, TrendingUp,
+  ArrowLeft, LocateFixed, ZoomIn, ZoomOut,
+  CalendarCheck2, FileText, BarChart3, X,
 } from 'lucide-react';
-import { dashboardService, locationService, scheduleService } from '@/services';
+import { dashboardService, locationService, activityService, scheduleService } from '@/services';
 import { getStoredUser, clearUserSession } from '@/utils/session';
 import { LocationData } from '@/types';
+import StatCard from '@/components/common/StatCard';
 import { toast } from 'sonner';
 
 const CampusMap = dynamic(() => import('@/components/common/CampusMap'), {
@@ -22,22 +22,48 @@ const CampusMap = dynamic(() => import('@/components/common/CampusMap'), {
   loading: () => <div className="w-full h-full bg-slate-50 animate-pulse rounded-xl" />,
 });
 
-const DisplayTrendChart = dynamic(() => import('@/components/dashboard/DisplayTrendChart'), {
-  ssr: false,
-  loading: () => <div className="h-44 w-full mt-1 bg-slate-50 rounded-xl animate-pulse" />,
-});
+const DashboardMonthlyChart = dynamic(
+  () => import('@/components/dashboard/DashboardMonthlyChart'),
+  {
+    ssr: false,
+    loading: () => <div className="h-36 sm:h-40 w-full bg-slate-50 rounded-xl animate-pulse" />,
+  }
+);
+
+const DashboardAgendaMonthlyChart = dynamic(
+  () => import('@/components/dashboard/DashboardAgendaCharts').then((m) => m.DashboardAgendaMonthlyChart),
+  {
+    ssr: false,
+    loading: () => <div className="h-36 sm:h-40 w-full bg-slate-50 rounded-xl animate-pulse" />,
+  }
+);
+
+const DashboardServiceFreqChart = dynamic(
+  () => import('@/components/dashboard/DashboardAgendaCharts').then((m) => m.DashboardServiceFreqChart),
+  {
+    ssr: false,
+    loading: () => <div className="h-36 sm:h-40 w-full bg-slate-50 rounded-xl animate-pulse" />,
+  }
+);
+
+const DashboardServiceCompChart = dynamic(
+  () => import('@/components/dashboard/DashboardAgendaCharts').then((m) => m.DashboardServiceCompChart),
+  {
+    ssr: false,
+    loading: () => <div className="h-36 sm:h-40 w-full bg-slate-50 rounded-xl animate-pulse" />,
+  }
+);
 
 /* ─── Default Campus Coordinates (Polinela) ─── */
 const POLINELA_CAMPUS_CENTER: [number, number] = [105.2345, -5.3585];
 
-/* ─── Avatar Palette (Harmonized with main Dashboard) ─── */
 const AVATAR_COLORS = [
-  { bg: '#006876', text: '#FFFFFF' },
-  { bg: '#6366F1', text: '#FFFFFF' },
+  { bg: '#003D58', text: '#FFFFFF' },
+  { bg: '#0F766E', text: '#FFFFFF' },
+  { bg: '#0284C7', text: '#FFFFFF' },
   { bg: '#059669', text: '#FFFFFF' },
-  { bg: '#D97706', text: '#FFFFFF' },
-  { bg: '#64748B', text: '#FFFFFF' },
-  { bg: '#24BAC4', text: '#FFFFFF' },
+  { bg: '#475569', text: '#FFFFFF' },
+  { bg: '#0891B2', text: '#FFFFFF' },
 ];
 
 function getInitials(name?: string) {
@@ -52,7 +78,6 @@ function getAvatarColor(idx: number) {
   return AVATAR_COLORS[idx % AVATAR_COLORS.length];
 }
 
-/* ─── Jam Waktu Biasa (Local Clock Helper) ─── */
 function formatRegularTime(date: Date) {
   const pad = (n: number) => n.toString().padStart(2, '0');
   return `${pad(date.getHours())}:${pad(date.getMinutes())}:${pad(date.getSeconds())}`;
@@ -67,17 +92,74 @@ function formatRegularDate(date: Date) {
   });
 }
 
+function getActivityBadge(status?: string) {
+  switch (status) {
+    case 'MENUNGGU_PERSETUJUAN_AKHIR':
+      return {
+        label: 'Menunggu Persetujuan',
+        bg: 'bg-sky-50 border border-sky-200',
+        text: 'text-sky-700',
+        dot: 'bg-sky-500',
+      };
+    case 'SEDANG_BERLANGSUNG':
+      return {
+        label: 'Sedang Berlangsung',
+        bg: 'bg-[#C0FFEA]/70 border border-[#51FCE4]',
+        text: 'text-[#0F766E]',
+        dot: 'bg-[#0F766E]',
+      };
+    case 'DITUGASKAN':
+      return {
+        label: 'Ditugaskan',
+        bg: 'bg-sky-50 border border-sky-200',
+        text: 'text-[#003D58]',
+        dot: 'bg-[#003D58]',
+      };
+    case 'DISETUJUI':
+      return {
+        label: 'Disetujui',
+        bg: 'bg-emerald-50 border border-emerald-200',
+        text: 'text-emerald-700',
+        dot: 'bg-emerald-500',
+      };
+    case 'AKAN_DATANG':
+      return {
+        label: 'Akan Datang',
+        bg: 'bg-amber-50 border border-amber-200',
+        text: 'text-amber-700',
+        dot: 'bg-amber-500',
+      };
+    case 'SELESAI':
+      return {
+        label: 'Selesai',
+        bg: 'bg-slate-100 border border-slate-200',
+        text: 'text-slate-600',
+        dot: 'bg-slate-400',
+      };
+    default:
+      return {
+        label: status?.replace(/_/g, ' ') || 'Aktif',
+        bg: 'bg-slate-100 border border-slate-200',
+        text: 'text-slate-600',
+        dot: 'bg-slate-400',
+      };
+  }
+}
+
 export default function DashboardDisplayPage() {
   const router = useRouter();
 
-  // Core Data States
+  // Core Data States (Synced with /dashboard)
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [error, setError] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
   const [dashboardData, setDashboardData] = useState<any>(null);
   const [locations, setLocations] = useState<LocationData[]>([]);
+  const [realActivities, setRealActivities] = useState<any[]>([]);
   const [dutySchedules, setDutySchedules] = useState<any[]>([]);
+  const [agendaAnalytics, setAgendaAnalytics] = useState<any>(null);
+  const [agendaPeriod, setAgendaPeriod] = useState<'3m' | '6m' | 'year' | 'all'>('3m');
+  const [agendaLoading, setAgendaLoading] = useState(false);
 
   // Time & Clock State
   const [mounted, setMounted] = useState(false);
@@ -85,12 +167,12 @@ export default function DashboardDisplayPage() {
 
   // UI & Auto-refresh Controls
   const [isFullscreen, setIsFullscreen] = useState<boolean>(false);
-  const [autoRefreshInterval] = useState<number>(30); // 30 seconds
+  const [autoRefreshInterval] = useState<number>(30);
   const [countdown, setCountdown] = useState<number>(30);
   const [isPaused, setIsPaused] = useState<boolean>(false);
   const [showPersonnelModal, setShowPersonnelModal] = useState<boolean>(false);
 
-  // Splash Screen States (Simple Logo + Loading)
+  // Splash Screen States
   const [splashVisible, setSplashVisible] = useState<boolean>(true);
   const [splashRendered, setSplashRendered] = useState<boolean>(true);
 
@@ -101,50 +183,82 @@ export default function DashboardDisplayPage() {
   const [zoomInTrigger, setZoomInTrigger] = useState<number>(0);
   const [zoomOutTrigger, setZoomOutTrigger] = useState<number>(0);
 
-  // Load Dashboard Data
-  const loadData = useCallback(async (isSilent = false) => {
-    if (!isSilent) setRefreshing(true);
+  const loadData = useCallback(
+    async (isSilent = false, periodOverride?: '3m' | '6m' | 'year' | 'all') => {
+      if (!isSilent) setRefreshing(true);
+      const activePeriod = periodOverride ?? agendaPeriod;
+      try {
+        const [sumRes, locRes, actRes, schedRes, agendaRes] = await Promise.allSettled([
+          dashboardService.summary(),
+          locationService.getAll(),
+          activityService.getAll({ pageSize: 10 }),
+          scheduleService.getAll(),
+          dashboardService.agendaAnalytics(activePeriod),
+        ]);
+
+        if (sumRes.status === 'fulfilled') {
+          const sumData = sumRes.value;
+          setDashboardData(sumData);
+          setError(false);
+
+          if (Array.isArray(sumData.todaySchedules) && sumData.todaySchedules.length > 0) {
+            setDutySchedules(sumData.todaySchedules);
+          }
+        }
+
+        if (locRes.status === 'fulfilled' && Array.isArray(locRes.value)) {
+          setLocations(locRes.value.filter((l: any) => l.user?.role === 'USER'));
+        }
+
+        if (actRes.status === 'fulfilled') {
+          const list = Array.isArray(actRes.value)
+            ? actRes.value
+            : (actRes.value as any)?.data || [];
+          const activeList = list.filter((a: any) =>
+            ['SEDANG_BERLANGSUNG', 'DITUGASKAN', 'DISETUJUI', 'AKAN_DATANG', 'MENUNGGU_PERSETUJUAN_AKHIR'].includes(
+              a.status
+            )
+          );
+          setRealActivities(activeList);
+        }
+
+        if (schedRes.status === 'fulfilled') {
+          const schedList = (schedRes.value as any)?.data || schedRes.value;
+          if (Array.isArray(schedList) && schedList.length > 0) {
+            setDutySchedules((prev) => (prev.length > 0 ? prev : (schedList as any[])));
+          }
+        }
+
+        if (agendaRes.status === 'fulfilled') {
+          setAgendaAnalytics(agendaRes.value);
+        }
+      } catch (err) {
+        console.error('TV Display fetch error:', err);
+        if (!isSilent) {
+          setError(true);
+          toast.error('Gagal memperbarui data monitoring TV');
+        }
+      } finally {
+        setLoading(false);
+        setRefreshing(false);
+        setCountdown(autoRefreshInterval);
+      }
+    },
+    [autoRefreshInterval, agendaPeriod]
+  );
+
+  const handleAgendaPeriodChange = async (period: '3m' | '6m' | 'year' | 'all') => {
+    setAgendaPeriod(period);
+    setAgendaLoading(true);
     try {
-      const [sumRes, locRes, schedRes] = await Promise.allSettled([
-        dashboardService.summary(),
-        locationService.getAll(),
-        scheduleService.getAll(),
-      ]);
-
-      if (sumRes.status === 'fulfilled') {
-        const sumData = sumRes.value;
-        setDashboardData(sumData);
-        setError(false);
-
-        if (Array.isArray(sumData.todaySchedules) && sumData.todaySchedules.length > 0) {
-          setDutySchedules(sumData.todaySchedules);
-        }
-      } else {
-        console.warn('Dashboard summary rejected:', sumRes.reason);
-      }
-
-      if (locRes.status === 'fulfilled' && Array.isArray(locRes.value)) {
-        setLocations(locRes.value.filter((l: any) => l.user?.role === 'USER'));
-      }
-
-      if (schedRes.status === 'fulfilled') {
-        const schedList = (schedRes.value as any)?.data || schedRes.value;
-        if (Array.isArray(schedList) && schedList.length > 0) {
-          setDutySchedules((prev) => (prev.length > 0 ? prev : (schedList as any[])));
-        }
-      }
-    } catch (err) {
-      console.error('TV Display fetch error:', err);
-      if (!isSilent) {
-        setError(true);
-        toast.error('Gagal memperbarui data monitoring TV');
-      }
+      const res = await dashboardService.agendaAnalytics(period);
+      setAgendaAnalytics(res);
+    } catch {
+      toast.error('Gagal memuat statistik agenda periode tersebut');
     } finally {
-      setLoading(false);
-      setRefreshing(false);
-      setCountdown(autoRefreshInterval);
+      setAgendaLoading(false);
     }
-  }, [autoRefreshInterval]);
+  };
 
   // Session & Auth Check
   useEffect(() => {
@@ -158,15 +272,13 @@ export default function DashboardDisplayPage() {
       router.replace('/login?error=unauthorized');
       return;
     }
-    setCurrentUser(user);
     loadData(false);
   }, [router, loadData]);
 
-  // Clock Ticker (Runs every 1s, synced to current client time)
+  // Clock Ticker
   useEffect(() => {
     setMounted(true);
     setCurrentTime(new Date());
-
     const clockInterval = setInterval(() => {
       setCurrentTime(new Date());
     }, 1000);
@@ -176,7 +288,6 @@ export default function DashboardDisplayPage() {
   // Auto-refresh Countdown Timer
   useEffect(() => {
     if (isPaused) return;
-
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
@@ -186,7 +297,6 @@ export default function DashboardDisplayPage() {
         return prev - 1;
       });
     }, 1000);
-
     return () => clearInterval(timer);
   }, [isPaused, autoRefreshInterval, loadData]);
 
@@ -199,7 +309,7 @@ export default function DashboardDisplayPage() {
     return () => document.removeEventListener('fullscreenchange', handleFsChange);
   }, []);
 
-  // Keyboard shortcut: F11 / F for fullscreen, R for refresh, Space for pause
+  // Keyboard shortcuts: F fullscreen, R refresh, Space pause
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) return;
@@ -216,16 +326,16 @@ export default function DashboardDisplayPage() {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [loadData]);
 
-  // Simple Splash Screen Lifecycle (Logo + Loading)
+  // Splash Screen Lifecycle
   useEffect(() => {
     if (!loading) {
       const tFade = setTimeout(() => {
         setSplashVisible(false);
         const tUnmount = setTimeout(() => {
           setSplashRendered(false);
-        }, 500);
-      }, 700);
-
+        }, 450);
+        return () => clearTimeout(tUnmount);
+      }, 500);
       return () => clearTimeout(tFade);
     }
   }, [loading]);
@@ -248,11 +358,14 @@ export default function DashboardDisplayPage() {
     setRecenterTrigger((prev) => prev + 1);
   };
 
-  // Calculations & Parsing
+  // Parsed Data (Synced with /dashboard)
   const stats = dashboardData?.statistics || {};
-  const liveActivities: any[] = dashboardData?.upcomingActivitiesList || [];
   const overdueLoansCount = stats.overdueLoans || 0;
-  const pendingVerificationsCount = stats.pendingVerificationActivities || 0;
+  const pendingApprovalCount = stats.pendingApprovalActivities ?? 0;
+  const activeActivitiesCount =
+    realActivities.length > 0 ? realActivities.length : (stats.activeActivities ?? 0);
+  const activeContentCount = stats.activeContentPlans ?? 0;
+
   const onlinePersonnel = locations.filter((l) => l.isOnline);
   const offlinePersonnel = locations.filter((l) => !l.isOnline);
 
@@ -267,39 +380,63 @@ export default function DashboardDisplayPage() {
       )
     : currentTime.getHours();
 
-  const activeShiftName = currentHourWIB < 13 ? 'SHIFT 1 (07:30 - 12:30 WIB)' : 'SHIFT 2 (12:30 - 17:00 WIB)';
+  const activeShiftName =
+    currentHourWIB < 13 ? 'SHIFT 1 (07:30 - 12:30 WIB)' : 'SHIFT 2 (12:30 - 17:00 WIB)';
 
-  // Filter duty schedules for today
   const todaySchedules = dutySchedules.filter((s) => {
     if (!s.date) return false;
     const d = new Date(s.date);
     const now = new Date();
-    return d.getDate() === now.getDate() && d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+    return (
+      d.getDate() === now.getDate() &&
+      d.getMonth() === now.getMonth() &&
+      d.getFullYear() === now.getFullYear()
+    );
   });
   const displayDutySchedules = todaySchedules.length > 0 ? todaySchedules : dutySchedules;
 
-  const totalContent = stats.totalContentPlans || 0;
-  const activeContent = stats.activeContentPlans || 0;
-  const contentPct = totalContent > 0 ? Math.round((activeContent / totalContent) * 100) : (activeContent > 0 ? 100 : 0);
+  const monthlyData =
+    dashboardData?.monthlyStats && dashboardData.monthlyStats.length > 0
+      ? dashboardData.monthlyStats.map((m: any) => ({
+          month: m.month,
+          kegiatan: Number(m.kegiatan) || 0,
+          konten: Number(m.konten) || 0,
+        }))
+      : [
+          { month: 'Jun', kegiatan: 0, konten: 0 },
+          { month: 'Jul', kegiatan: 0, konten: 0 },
+          { month: 'Agu', kegiatan: 0, konten: 0 },
+          { month: 'Sep', kegiatan: 0, konten: 0 },
+          { month: 'Okt', kegiatan: 0, konten: 0 },
+          { month: 'Nov', kegiatan: realActivities.length, konten: activeContentCount },
+        ];
 
-  const monthlyData = dashboardData?.monthlyStats?.length
-    ? dashboardData.monthlyStats
-    : [
-        { month: 'Mei', kegiatan: 0, konten: 0 },
-        { month: 'Jun', kegiatan: 0, konten: 0 },
-        { month: 'Jul', kegiatan: 0, konten: 0 },
-        { month: 'Agu', kegiatan: 0, konten: 0 },
-        { month: 'Sep', kegiatan: 0, konten: 0 },
-        { month: 'Okt', kegiatan: 0, konten: 0 },
-      ];
+  const maxChartVal = Math.max(
+    4,
+    ...monthlyData.map((d: any) => Math.max(d.kegiatan, d.konten))
+  );
 
-  // Jam & tanggal waktu biasa (langsung dari waktu lokal perangkat)
+  const agenda = agendaAnalytics || {
+    periodLabel: '3 BULAN TERAKHIR',
+    totalActivities: stats.totalActivities ?? 0,
+    monthsCovered: 3,
+    monthsRangeLabel: '-',
+    busiestMonth: { month: '-', count: 0 },
+    serviceFrequencies: [],
+    monthlyTotals: [],
+    serviceComparison: [],
+    totalInternal: 0,
+    totalEksternal: 0,
+  };
+  const serviceFreqData = (agenda.serviceFrequencies || []).slice(0, 8);
+  const monthlyAgendaData = agenda.monthlyTotals || [];
+  const serviceComparisonData = agenda.serviceComparison || [];
+
   const formattedTime = mounted ? formatRegularTime(currentTime) : '--:--:--';
   const formattedDate = mounted ? formatRegularDate(currentTime) : 'Memuat tanggal...';
 
   return (
-    <div className="min-h-screen bg-[#F8FAFC] flex flex-col text-slate-800 selection:bg-[#005CDB] selection:text-white relative">
-      
+    <div className="min-h-screen bg-[#F8FAFC] flex flex-col text-slate-800 font-['Poppins'] selection:bg-[#003D58] selection:text-white relative">
       {/* ═══════════════════════════════════════════════════════════════ */}
       {/* SIMPLE SPLASH SCREEN (LOGO HUMAS + LOADING)                    */}
       {/* ═══════════════════════════════════════════════════════════════ */}
@@ -316,9 +453,8 @@ export default function DashboardDisplayPage() {
               alt="Logo Humas Polinela"
               className="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-sm animate-pulse"
             />
-            {/* Simple Loading Spinner */}
             <div className="flex items-center gap-2.5 mt-2">
-              <div className="w-5 h-5 border-2 border-[#005CDB] border-t-transparent rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-[#003D58] border-t-transparent rounded-full animate-spin" />
               <span className="text-xs font-semibold text-slate-500 tracking-wider uppercase">
                 Memuat...
               </span>
@@ -328,10 +464,9 @@ export default function DashboardDisplayPage() {
       )}
 
       {/* ═══════════════════════════════════════════════════════════════ */}
-      {/* 1. TOP NAVBAR / FULLSCREEN COMPACT STRIP                       */}
+      {/* 1. TOP NAVBAR / FULLSCREEN COMPACT STRIP (ORIGINAL WHITE BAR)  */}
       {/* ═══════════════════════════════════════════════════════════════ */}
       {isFullscreen ? (
-        /* Fullscreen Minimal Strip (Hanya menampilkan yang dibutuhkan) */
         <header className="h-11 bg-white/95 backdrop-blur-md border-b border-slate-200/90 px-4 sm:px-6 flex items-center justify-between shrink-0 shadow-xs z-40">
           <div className="flex items-center gap-2.5">
             {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -346,35 +481,35 @@ export default function DashboardDisplayPage() {
           </div>
 
           <div className="flex items-center gap-3">
-            {/* Digital Clock */}
-            <div className="flex items-center gap-1.5 font-mono font-bold text-xs text-[#005CDB]" suppressHydrationWarning>
+            <div
+              className="flex items-center gap-1.5 font-mono font-bold text-xs text-[#003D58]"
+              suppressHydrationWarning
+            >
               <Clock className="w-3.5 h-3.5" />
               <span suppressHydrationWarning>{formattedTime} WIB</span>
             </div>
 
-            <div className="h-4 w-[1px] bg-slate-200" />
+            <div className="h-4 w-px bg-slate-200" />
 
-            {/* Refresh Countdown & Button */}
             <div className="flex items-center gap-1.5 text-xs font-mono text-slate-600">
               <span className="font-semibold">{isPaused ? 'Jeda' : `${countdown}s`}</span>
               <button
                 type="button"
                 onClick={() => loadData(false)}
                 disabled={refreshing}
-                className="p-1 hover:text-[#005CDB] text-slate-500 transition-colors cursor-pointer disabled:opacity-50"
+                className="p-1 hover:text-[#003D58] text-slate-500 transition-colors cursor-pointer disabled:opacity-50"
                 title="Perbarui data"
               >
                 <RefreshCw className={`w-3 h-3 ${refreshing ? 'animate-spin' : ''}`} />
               </button>
             </div>
 
-            <div className="h-4 w-[1px] bg-slate-200" />
+            <div className="h-4 w-px bg-slate-200" />
 
-            {/* Exit Fullscreen */}
             <button
               type="button"
               onClick={toggleFullscreen}
-              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#005CDB] text-xs font-bold transition-colors cursor-pointer border border-blue-200"
+              className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-sky-50 hover:bg-sky-100 text-[#003D58] text-xs font-bold transition-colors cursor-pointer border border-sky-200"
               title="Keluar dari Layar Penuh"
             >
               <Minimize2 className="w-3.5 h-3.5" />
@@ -383,9 +518,7 @@ export default function DashboardDisplayPage() {
           </div>
         </header>
       ) : (
-        /* Standard Navbar when not in Fullscreen */
         <header className="h-16 bg-white border-b border-slate-200 sticky top-0 z-40 px-4 sm:px-6 lg:px-8 flex items-center justify-between shrink-0 shadow-xs">
-          
           {/* Left: Branding with Official Humas Logo & Breadcrumb Style */}
           <div className="flex items-center gap-3 sm:gap-4 shrink-0">
             <Link
@@ -408,25 +541,30 @@ export default function DashboardDisplayPage() {
                   <span>&gt;</span>
                   <span>Dashboard</span>
                   <span>&gt;</span>
-                  <span className="text-[#005CDB] font-semibold">Monitoring</span>
+                  <span className="text-[#003D58] font-semibold">Monitoring</span>
                 </div>
               </div>
             </Link>
           </div>
 
-          {/* Middle: Live Status Indicators (Clean Pills, No Emojis) */}
+          {/* Middle: Live Status Indicators */}
           <div className="hidden xl:flex items-center gap-3">
-            <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">
+            <button
+              type="button"
+              onClick={() => setShowPersonnelModal(true)}
+              className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200/80 text-xs transition-colors cursor-pointer"
+              title="Lihat detail status GPS tim humas"
+            >
               <Radio className="w-3.5 h-3.5 text-emerald-600 animate-pulse" />
               <span className="text-slate-600 font-medium">
                 GPS Tim: <strong className="text-emerald-700">{onlinePersonnel.length} Online</strong>
               </span>
-            </div>
+            </button>
 
             <div className="flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 border border-slate-200/80 text-xs">
-              <CalendarCheck2 className="w-3.5 h-3.5 text-[#005CDB]" />
+              <CalendarCheck2 className="w-3.5 h-3.5 text-[#003D58]" />
               <span className="text-slate-600 font-medium">
-                Kegiatan Aktif: <strong className="text-[#005CDB]">{stats.activeActivities || 0}</strong>
+                Kegiatan Aktif: <strong className="text-[#003D58]">{activeActivitiesCount}</strong>
               </span>
             </div>
 
@@ -440,20 +578,21 @@ export default function DashboardDisplayPage() {
 
           {/* Right: Digital Clock, Auto-refresh Controls & Fullscreen */}
           <div className="flex items-center gap-2 sm:gap-3 shrink-0">
-            
-            {/* Digital Clock Box */}
             <div className="text-right hidden sm:block" suppressHydrationWarning>
-              <div className="text-base sm:text-lg font-black font-mono tracking-wider text-[#005CDB] leading-tight" suppressHydrationWarning>
-                {formattedTime} <span className="text-[10px] font-sans font-bold text-slate-400">WIB</span>
+              <div
+                className="text-base sm:text-lg font-black font-mono tracking-wider text-[#003D58] leading-tight"
+                suppressHydrationWarning
+              >
+                {formattedTime}{' '}
+                <span className="text-[10px] font-sans font-bold text-slate-400">WIB</span>
               </div>
               <div className="text-[10px] text-slate-500 font-medium" suppressHydrationWarning>
                 {formattedDate}
               </div>
             </div>
 
-            <div className="h-7 w-[1px] bg-slate-200 hidden sm:block mx-1" />
+            <div className="h-7 w-px bg-slate-200 hidden sm:block mx-1" />
 
-            {/* Auto Refresh Countdown Pill */}
             <div
               className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-slate-50 border border-slate-200 text-xs font-mono font-medium text-slate-700"
               title="Hitung mundur pembaruan otomatis data"
@@ -464,40 +603,43 @@ export default function DashboardDisplayPage() {
                 className="p-1 rounded hover:bg-slate-200 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
                 title={isPaused ? 'Lanjutkan Auto-Refresh' : 'Jeda Auto-Refresh'}
               >
-                {isPaused ? <Play className="w-3 h-3 text-[#E99710]" /> : <Pause className="w-3 h-3 text-slate-500" />}
+                {isPaused ? (
+                  <Play className="w-3 h-3 text-amber-500" />
+                ) : (
+                  <Pause className="w-3 h-3 text-slate-500" />
+                )}
               </button>
               <span className="text-[11px] font-semibold">
                 {isPaused ? (
-                  <span className="text-[#E99710] font-bold">JEDA</span>
+                  <span className="text-amber-600 font-bold">JEDA</span>
                 ) : (
                   `${countdown}s`
                 )}
               </span>
             </div>
 
-            {/* Manual Refresh Button */}
             <button
               type="button"
               onClick={() => loadData(false)}
               disabled={refreshing}
-              className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[#005CDB] transition-all cursor-pointer disabled:opacity-50"
+              className="p-2 rounded-xl bg-slate-50 hover:bg-slate-100 border border-slate-200 text-[#003D58] transition-all cursor-pointer disabled:opacity-50"
               title="Perbarui data sekarang (Tombol R)"
             >
               <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
             </button>
 
-            {/* Fullscreen Button */}
             <button
               type="button"
               onClick={toggleFullscreen}
-              className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#005CDB] hover:bg-[#004FBD] active:bg-[#0044A5] text-white text-xs font-bold shadow-xs shadow-[#005CDB]/25 transition-all cursor-pointer"
+              className="flex items-center gap-1.5 px-3.5 py-2 rounded-full bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-xs font-bold shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
               title="Layar Penuh TV (Tombol F atau F11)"
             >
               {isFullscreen ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
-              <span className="hidden md:inline">{isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh TV'}</span>
+              <span className="hidden md:inline">
+                {isFullscreen ? 'Keluar Layar Penuh' : 'Layar Penuh TV'}
+              </span>
             </button>
 
-            {/* Exit / Return to standard Dashboard */}
             <Link
               href="/dashboard"
               className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-bold shadow-xs transition-colors"
@@ -506,587 +648,533 @@ export default function DashboardDisplayPage() {
               <ArrowLeft className="w-4 h-4" />
               <span className="hidden lg:inline">Kembali</span>
             </Link>
-
           </div>
-
         </header>
       )}
 
-      {/* ═══════════════════════════════════════════════════════════════ */}
-      {/* 2. MAIN TV MONITORING BODY                                      */}
-      {/* ═══════════════════════════════════════════════════════════════ */}
-      <main className="flex-1 p-3 sm:p-5 flex flex-col gap-4 max-w-[2100px] mx-auto w-full">
+      {/* ─── MAIN CONTENT (Balanced Widescreen TV Grid, 100% Synced with /dashboard) ─── */}
+      <main className="flex-1 w-full max-w-[1920px] mx-auto px-4 sm:px-6 py-4 space-y-4">
+        {error && (
+          <div className="bg-rose-50 border border-rose-200 text-rose-700 rounded-xl px-4 py-2.5 text-xs font-medium flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <AlertCircle className="w-4 h-4 shrink-0" />
+              <span>Koneksi data monitoring sempat terganggu. Sistem akan mencoba menyinkronkan ulang otomatis.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => loadData(false)}
+              className="px-2.5 py-1 rounded-lg bg-rose-600 text-white font-semibold text-[11px] hover:bg-rose-700 cursor-pointer"
+            >
+              Coba Lagi
+            </button>
+          </div>
+        )}
 
-        {/* ─── ROW 1: TOP 5 KPI SUMMARY CARDS ─── */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-3">
-          
-          {/* KPI 1: Status Tindakan / Alert Banner */}
-          <div
-            className={`col-span-2 md:col-span-1 rounded-2xl p-4 border flex flex-col justify-between transition-all ${
-              overdueLoansCount > 0 || pendingVerificationsCount > 0
-                ? 'bg-rose-50/90 border-rose-200 text-[#B8484A] shadow-xs'
-                : 'bg-emerald-50/90 border-emerald-200 text-emerald-900 shadow-xs'
-            }`}
-          >
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-extrabold uppercase tracking-wider">
-                Status Operasional
-              </span>
-              {overdueLoansCount > 0 || pendingVerificationsCount > 0 ? (
-                <AlertTriangle className="w-4 h-4 text-[#B8484A] animate-pulse" />
+        {/* ROW 1: TOP 4 KPI WAVE CARDS (Synced with /dashboard) */}
+        <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5">
+          <StatCard
+            title="Jumlah Tim Humas"
+            value={stats.timHumasUsers ?? 0}
+            subtitle={`Total Personel : ${stats.totalUsers ?? 0}`}
+            icon={Users}
+          />
+          <StatCard
+            title="Menunggu Persetujuan"
+            value={pendingApprovalCount}
+            subtitle="Perlu review Kepala Humas"
+            icon={Clock}
+          />
+          <StatCard
+            title="Kegiatan Aktif"
+            value={activeActivitiesCount}
+            subtitle="Ditugaskan & berlangsung"
+            icon={CalendarCheck2}
+          />
+          <StatCard
+            title="Content Plan Aktif"
+            value={activeContentCount}
+            subtitle="Draft, proses & revisi"
+            icon={FileText}
+          />
+        </section>
+
+        {/* ROW 2: HERO MONITORING ROW (Equal-Height Map Left | Active Agenda + Piket Right) */}
+        <section className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-stretch">
+          {/* Left (7 cols): Peta Monitoring Kampus Polinela */}
+          <div className="xl:col-span-7 bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex flex-col gap-3">
+            <div className="flex items-center justify-between gap-3 flex-wrap">
+              <div>
+                <h2 className="text-sm font-bold text-[#0F172A] leading-snug">
+                  Peta Monitoring Kampus Polinela
+                </h2>
+                <p className="text-[11px] text-[#64748B] mt-0.5">
+                  Pantau posisi tim lapangan secara real-time di area Politeknik Negeri Lampung
+                </p>
+              </div>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={handleZoomIn}
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  title="Perbesar Peta"
+                >
+                  <ZoomIn className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleZoomOut}
+                  className="p-1.5 rounded-lg border border-slate-200 text-slate-600 hover:bg-slate-50 cursor-pointer"
+                  title="Perkecil Peta"
+                >
+                  <ZoomOut className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRecenter}
+                  className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-slate-200 text-[11px] font-semibold text-[#003D58] hover:bg-slate-50 cursor-pointer"
+                  title="Pusatkan ke Kampus Polinela"
+                >
+                  <LocateFixed className="w-3.5 h-3.5" />
+                  <span>Pusatkan</span>
+                </button>
+              </div>
+            </div>
+
+            <div className="relative flex-1 min-h-[360px] xl:min-h-[430px] w-full rounded-xl overflow-hidden border border-slate-200/80">
+              <CampusMap
+                locations={locations}
+                center={mapCenter}
+                zoom={mapZoom}
+                recenterTrigger={recenterTrigger}
+                zoomInTrigger={zoomInTrigger}
+                zoomOutTrigger={zoomOutTrigger}
+              />
+            </div>
+          </div>
+
+          {/* Right (5 cols): Kegiatan Sedang Berjalan + Jadwal Piket Hari Ini */}
+          <div className="xl:col-span-5 flex flex-col gap-4">
+            {/* Kegiatan Sedang Berjalan */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex flex-col gap-3 flex-1">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <h2 className="text-sm font-bold text-[#0F172A] leading-snug">
+                    Kegiatan Sedang Berjalan
+                  </h2>
+                  <p className="text-[11px] text-[#64748B] mt-0.5">
+                    Agenda peliputan aktif, ditugaskan, dan menunggu persetujuan
+                  </p>
+                </div>
+                <span className="px-2.5 py-1 rounded-full bg-[#C0FFEA] text-[#0F766E] text-[10px] font-bold shrink-0">
+                  {realActivities.length} Agenda Aktif
+                </span>
+              </div>
+
+              {realActivities.length === 0 ? (
+                <div className="flex-1 flex flex-col items-center justify-center py-8 text-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60">
+                  <Calendar className="w-7 h-7 text-slate-300 mb-1.5" />
+                  <p className="text-xs font-semibold text-slate-500">
+                    Belum ada kegiatan aktif saat ini
+                  </p>
+                </div>
               ) : (
-                <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              )}
-            </div>
-            <div className="mt-2">
-              <div className="text-2xl sm:text-3xl font-black">
-                {overdueLoansCount + pendingVerificationsCount}
-              </div>
-              <p className="text-[11px] font-semibold mt-0.5 truncate">
-                {overdueLoansCount > 0
-                  ? `${overdueLoansCount} Peminjaman Terlambat`
-                  : pendingVerificationsCount > 0
-                  ? `${pendingVerificationsCount} Menunggu Verifikasi`
-                  : 'Semua Operasional Terkendali'}
-              </p>
-            </div>
-          </div>
-
-          {/* KPI 2: Presensi Tim Lapangan (GPS) */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
-                Tim Lapangan Aktif
-              </span>
-              <Radio className="w-4 h-4 text-emerald-600" />
-            </div>
-            <div className="mt-2">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl sm:text-3xl font-black text-slate-900">
-                  {onlinePersonnel.length}
-                </span>
-                <span className="text-xs font-semibold text-slate-500">
-                  / {locations.length || stats.timHumasUsers || 0} Personel
-                </span>
-              </div>
-              <p className="text-[11px] text-emerald-700 font-semibold mt-0.5 truncate flex items-center gap-1">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                Live GPS Radar Terhubung
-              </p>
-            </div>
-          </div>
-
-          {/* KPI 3: Kegiatan Sedang Berjalan */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
-                Kegiatan Aktif Hari Ini
-              </span>
-              <Calendar className="w-4 h-4 text-[#005CDB]" />
-            </div>
-            <div className="mt-2">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl sm:text-3xl font-black text-slate-900">
-                  {liveActivities.length || stats.activeActivities || 0}
-                </span>
-                <span className="text-xs font-semibold text-slate-500">
-                  Acara
-                </span>
-              </div>
-              <p className="text-[11px] font-medium text-slate-500 mt-0.5 truncate">
-                {stats.ongoingActivities || 0} Sedang Berjalan • {stats.assignedActivities || 0} Ditugaskan
-              </p>
-            </div>
-          </div>
-
-          {/* KPI 4: Kesiapan Armada Alat */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
-                Armada Alat Tersedia
-              </span>
-              <Camera className="w-4 h-4 text-[#005CDB]" />
-            </div>
-            <div className="mt-2">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl sm:text-3xl font-black text-slate-900">
-                  {stats.unitsAvailable || 0}
-                </span>
-                <span className="text-xs font-semibold text-slate-500">
-                  / {stats.totalEquipmentUnits || 0} Unit
-                </span>
-              </div>
-              <p className="text-[11px] font-semibold text-[#005CDB] mt-0.5 truncate">
-                {stats.unitsBorrowed || 0} Unit Sedang Dipinjam
-              </p>
-            </div>
-          </div>
-
-          {/* KPI 5: Content Plan & Media */}
-          <div className="bg-white rounded-2xl p-4 border border-slate-200/90 shadow-xs flex flex-col justify-between">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-extrabold text-slate-500 uppercase tracking-wider">
-                Content Plan Berjalan
-              </span>
-              <FileText className="w-4 h-4 text-[#E99710]" />
-            </div>
-            <div className="mt-2">
-              <div className="flex items-baseline gap-1.5">
-                <span className="text-2xl sm:text-3xl font-black text-slate-900">
-                  {stats.activeContentPlans || 0}
-                </span>
-                <span className="text-xs font-semibold text-slate-500">
-                  / {stats.totalContentPlans || 0} Total
-                </span>
-              </div>
-              <p className="text-[11px] font-medium text-slate-500 mt-0.5 truncate">
-                {contentPct}% Dalam Siklus Produksi
-              </p>
-            </div>
-          </div>
-
-        </div>
-
-        {/* ─── ROW 2: DUAL COLUMN WORKFLOW & MAP MONITORING ─── */}
-        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 flex-1 items-start">
-          
-          {/* ─────────────────────────────────────────────────────────── */}
-          {/* LEFT 7 COLS: CAMPUS GPS MAP & LIVE ACTIVITIES               */}
-          {/* ─────────────────────────────────────────────────────────── */}
-          <div className="lg:col-span-7 flex flex-col gap-4">
-            
-            {/* 1. Interactive Campus GPS Map Card */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs flex flex-col gap-3">
-              
-              {/* Header */}
-              <div className="flex items-center justify-between flex-wrap gap-2">
-                <div>
-                  <h2 className="text-base sm:text-lg font-bold text-[#202938] leading-snug">
-                    Peta Monitoring Tim
-                  </h2>
-                  <p className="text-xs text-[#67686D] mt-0.5">
-                    Tracking geolokasi tim liputan dan verifikasi radius GPS secara real-time.
-                  </p>
-                </div>
-
-                {/* Map Controls */}
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => setShowPersonnelModal((p) => !p)}
-                    className={`flex items-center gap-1.5 px-3 py-2 rounded-xl border text-xs font-semibold transition-colors cursor-pointer ${
-                      showPersonnelModal
-                        ? 'bg-[#F0F9FF] border-[#005CDB] text-[#005CDB]'
-                        : 'bg-white border-slate-200 hover:bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    <span className="relative flex h-2 w-2">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-                    </span>
-                    <span>Status Tim ({onlinePersonnel.length})</span>
-                    <ChevronDown className={`w-3.5 h-3.5 text-slate-400 transition-transform ${showPersonnelModal ? 'rotate-180' : ''}`} />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleZoomIn}
-                    className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[#202938] shadow-xs transition-colors cursor-pointer"
-                    title="Perbesar Peta"
-                  >
-                    <ZoomIn className="w-4 h-4" />
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleZoomOut}
-                    className="p-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-[#202938] shadow-xs transition-colors cursor-pointer"
-                    title="Perkecil Peta"
-                  >
-                    <ZoomOut className="w-4 h-4" />
-                  </button>
-                </div>
-              </div>
-
-              {/* Personnel List Overlay Drawer */}
-              {showPersonnelModal && (
-                <div className="p-3 rounded-xl border border-slate-200 bg-slate-50 flex flex-col gap-2 max-h-52 overflow-y-auto animate-in fade-in duration-150">
-                  <div className="flex items-center justify-between text-xs font-bold text-slate-600 pb-1 border-b border-slate-200">
-                    <span>Nama Personel Humas</span>
-                    <span>Status &amp; Lokasi Terkini</span>
-                  </div>
-                  {locations.length === 0 ? (
-                    <div className="text-center py-2 text-xs text-slate-500 italic">
-                      Belum ada data presensi GPS aktif saat ini.
-                    </div>
-                  ) : (
-                    locations.map((loc) => {
-                      const isOnline = loc.isOnline;
-                      return (
-                        <div
-                          key={loc.id}
-                          onClick={() => {
-                            setMapCenter([loc.longitude, loc.latitude]);
-                            setMapZoom(18);
-                            setRecenterTrigger((p) => p + 1);
-                            setShowPersonnelModal(false);
-                            toast.info(`Fokus ke lokasi: ${loc.user?.fullName || 'Petugas'}`);
-                          }}
-                          className="flex items-center justify-between p-2 rounded-lg text-xs hover:bg-white transition-colors cursor-pointer border border-transparent hover:border-slate-200"
-                        >
-                          <div className="flex items-center gap-2 min-w-0">
-                            <span className={`w-2 h-2 rounded-full shrink-0 ${isOnline ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                            <div className="truncate">
-                              <span className="font-bold text-slate-900 block truncate">{loc.user?.fullName || 'Petugas Humas'}</span>
-                              <span className="text-[10px] text-slate-500">{loc.user?.roleLabel || 'Tim Humas'}</span>
-                            </div>
-                          </div>
-                          <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-md shrink-0 ${
-                            isOnline ? 'bg-[#F0F9FF] text-[#005CDB]' : 'bg-slate-200 text-slate-600'
-                          }`}>
-                            {isOnline ? (loc.address || 'Area Kampus Polinela') : 'Offline'}
-                          </span>
-                        </div>
-                      );
-                    })
-                  )}
-                </div>
-              )}
-
-              {/* Map Render Box */}
-              <div className="w-full rounded-2xl overflow-hidden border border-slate-200 shadow-inner">
-                <CampusMap
-                  locations={locations}
-                  center={mapCenter}
-                  zoom={mapZoom}
-                  recenterTrigger={recenterTrigger}
-                  zoomInTrigger={zoomInTrigger}
-                  zoomOutTrigger={zoomOutTrigger}
-                  height="h-[300px] sm:h-[340px] 2xl:h-[400px]"
-                />
-              </div>
-
-              {/* Map Legend */}
-              <div className="flex items-center justify-between text-xs text-slate-500 pt-1 flex-wrap gap-2">
-                <div className="flex items-center gap-4">
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-[#005CDB]" />
-                    <span className="font-medium text-slate-700">Personel Online ({onlinePersonnel.length})</span>
-                  </span>
-                  <span className="flex items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-slate-400" />
-                    <span className="font-medium text-slate-700">Personel Offline ({offlinePersonnel.length})</span>
-                  </span>
-                </div>
-                <span className="text-[11px] text-[#67686D] italic">
-                  Radius Geofence Polinela: Terpantau 24 Jam
-                </span>
-              </div>
-
-            </div>
-
-            {/* 2. Kegiatan Sedang Berjalan & Agenda Liputan */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs flex flex-col gap-3">
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-base sm:text-lg font-bold text-[#202938] leading-snug">
-                    Kegiatan Sedang Berjalan &amp; Liputan Lapangan
-                  </h2>
-                  <p className="text-xs text-[#67686D] mt-0.5">
-                    Pemantauan penugasan kru liputan dan status dokumentasi
-                  </p>
-                </div>
-                <span className="px-2.5 py-1 rounded-md text-xs font-bold text-[#005CDB] bg-[#F0F9FF]">
-                  {liveActivities.length} Jadwal Aktif
-                </span>
-              </div>
-
-              {/* Activity Cards List */}
-              <div className="flex flex-col gap-3">
-                {liveActivities.length === 0 ? (
-                  <div className="py-8 text-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60 flex flex-col items-center justify-center">
-                    <CalendarCheck2 className="w-8 h-8 text-slate-300 mb-1.5" />
-                    <p className="font-bold text-xs text-slate-700">Belum Ada Kegiatan Aktif Saat Ini</p>
-                    <p className="text-[11px] text-slate-400 mt-0.5">
-                      Semua tim stand-by untuk peliputan kampus berikutnya.
-                    </p>
-                  </div>
-                ) : (
-                  liveActivities.slice(0, 3).map((act, idx) => {
-                    const isOngoing = act.status === 'SEDANG_BERLANGSUNG';
-                    const isAssigned = act.status === 'DITUGASKAN';
-                    const statusLabel = isOngoing ? 'Sedang Berjalan' : isAssigned ? 'Ditugaskan • Peliputan' : act.status || 'Aktif';
-
-                    const memberUsers = (act.members || []).map((m: any) => m.user?.fullName).filter(Boolean);
-                    const allPersonnel = act.pic?.fullName
-                      ? [act.pic.fullName, ...memberUsers.filter((n: string) => n !== act.pic?.fullName)]
-                      : memberUsers.length > 0 ? memberUsers : ['Tim Humas'];
-
-                    const equipmentList = (act.loans || [])
-                      .flatMap((l: any) => (l.items || []).map((it: any) => it.equipment?.name))
-                      .filter(Boolean);
-                    const equipmentText = equipmentList.length > 0 ? equipmentList.join(', ') : (act.category || 'Armada Standar Humas');
-
+                <div className="divide-y divide-slate-100 max-h-[265px] overflow-y-auto pr-1">
+                  {realActivities.slice(0, 8).map((act: any) => {
+                    const badge = getActivityBadge(act.status);
+                    const dateLabel = act.date
+                      ? new Date(act.date).toLocaleDateString('id-ID', {
+                          day: 'numeric',
+                          month: 'short',
+                          year: 'numeric',
+                        })
+                      : '-';
                     return (
                       <div
-                        key={act.id || idx}
-                        className={`p-3.5 rounded-xl border transition-all flex flex-col gap-2.5 ${
-                          isOngoing
-                            ? 'bg-[#F0F9FF] border-[#005CDB]/30 shadow-xs'
-                            : 'bg-slate-50/60 border-slate-200/80 hover:bg-slate-50'
-                        }`}
+                        key={act.id}
+                        className="py-2.5 flex items-center justify-between gap-3 hover:bg-slate-50/70 rounded-lg px-2 transition-colors"
                       >
-                        <div className="flex items-center justify-between gap-2 flex-wrap">
-                          <span className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-semibold ${
-                            isOngoing
-                              ? 'bg-[#E0F2FE] text-[#005CDB]'
-                              : 'bg-blue-50 text-blue-700'
-                          }`}>
-                            {isOngoing && <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />}
-                            {statusLabel}
-                          </span>
-                          <span className="text-xs text-slate-500 flex items-center gap-1 font-medium">
-                            <Clock className="w-3.5 h-3.5 text-slate-400" />
-                            {act.startTime || '08:00'} – {act.endTime || 'Selesai'} WIB
-                          </span>
-                        </div>
-
-                        <div>
-                          <h3 className="text-sm sm:text-base font-bold text-slate-900 leading-snug">
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-[#0F172A] truncate">
                             {act.title}
-                          </h3>
-                          <div className="flex items-center gap-2 text-xs text-slate-600 mt-1 flex-wrap">
-                            <span className="flex items-center gap-1">
-                              <MapPin className="w-3.5 h-3.5 text-[#005CDB]" />
-                              {act.location || 'Kampus Polinela'}
+                          </p>
+                          <div className="flex items-center gap-2.5 text-[11px] text-slate-500 mt-0.5 flex-wrap">
+                            <span className="inline-flex items-center gap-1">
+                              <Calendar className="w-3 h-3 text-[#003D58]" />
+                              {dateLabel}
                             </span>
-                            {act.latitude && act.longitude && (
-                              <span className="inline-flex items-center gap-1 font-semibold text-emerald-700 text-[10px] bg-emerald-100/70 px-2 py-0.5 rounded">
-                                <CheckCircle className="w-2.5 h-2.5 text-emerald-600" /> GPS Terverifikasi (Radius {act.radius || 45}m)
+                            {act.startTime && (
+                              <span className="inline-flex items-center gap-1">
+                                <Clock className="w-3 h-3 text-[#003D58]" />
+                                {act.startTime}
+                                {act.endTime ? ` - ${act.endTime}` : ''} WIB
+                              </span>
+                            )}
+                            {act.location && (
+                              <span className="inline-flex items-center gap-1 truncate max-w-[180px]">
+                                <MapPin className="w-3 h-3 text-[#0F766E] shrink-0" />
+                                <span className="truncate">{act.location}</span>
                               </span>
                             )}
                           </div>
                         </div>
-
-                        {/* Footer: PIC & Equipment */}
-                        <div className="flex items-center justify-between pt-2 border-t border-slate-200/60 text-xs flex-wrap gap-2">
-                          <div className="flex items-center gap-2">
-                            <div className="flex items-center -space-x-1.5">
-                              {allPersonnel.slice(0, 3).map((name: string, pIdx: number) => (
-                                <div
-                                  key={pIdx}
-                                  className="w-6 h-6 rounded-full flex items-center justify-center font-bold text-[10px] border border-white text-white"
-                                  style={{ background: getAvatarColor(pIdx).bg }}
-                                >
-                                  {getInitials(name)}
-                                </div>
-                              ))}
-                            </div>
-                            <span className="font-semibold text-slate-800 text-xs">
-                              {allPersonnel.slice(0, 2).join(', ')}
-                            </span>
-                          </div>
-
-                          <div className="flex items-center gap-1 text-slate-500 text-[11px]">
-                            <Camera className="w-3.5 h-3.5 text-slate-400" />
-                            <span className="truncate max-w-[220px] font-medium">{equipmentText}</span>
-                          </div>
-                        </div>
-
-                      </div>
-                    );
-                  })
-                )}
-              </div>
-
-            </div>
-
-          </div>
-
-          {/* ─────────────────────────────────────────────────────────── */}
-          {/* RIGHT 5 COLS: SHIFT ROSTER, INVENTARIS & CHART              */}
-          {/* ─────────────────────────────────────────────────────────── */}
-          <div className="lg:col-span-5 flex flex-col gap-4">
-            
-            {/* 1. Jadwal Piket & Shift Operasional Humas */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs flex flex-col gap-3">
-              
-              <div className="flex items-start justify-between">
-                <div>
-                  <h2 className="text-base sm:text-lg font-bold text-[#202938] leading-snug">
-                    Jadwal Piket Hari Ini
-                  </h2>
-                  <p className="text-xs text-[#67686D] mt-0.5" suppressHydrationWarning>
-                    Shift Kerja Humas • {formattedDate}
-                  </p>
-                </div>
-                <span className="px-2.5 py-1 rounded-md text-[10px] font-bold text-white bg-[#005CDB]">
-                  Shift Aktif
-                </span>
-              </div>
-
-              {/* Active Shift Indicator Bar */}
-              <div className="flex items-center justify-between p-3 rounded-xl bg-blue-50/60 border border-blue-100">
-                <div className="flex items-center gap-2 text-xs font-bold text-slate-900">
-                  <Clock className="w-4 h-4 text-[#005CDB]" />
-                  <span>Shift Aktif Sekarang:</span>
-                </div>
-                <span
-                  className="px-2.5 py-1 rounded-md text-[10px] font-bold text-white bg-[#005CDB]"
-                  suppressHydrationWarning
-                >
-                  {activeShiftName}
-                </span>
-              </div>
-
-              {/* Duty Roster List */}
-              <div className="flex flex-col gap-2">
-                {displayDutySchedules.length === 0 ? (
-                  <div className="py-6 text-center rounded-xl border border-dashed border-slate-200 bg-slate-50/60 flex flex-col items-center justify-center">
-                    <Users className="w-7 h-7 text-slate-300 mb-1" />
-                    <p className="font-bold text-xs text-slate-700">Belum Ada Roster Terjadwal</p>
-                    <p className="text-[11px] text-slate-400">Semua staf mengikuti jam operasional reguler Humas.</p>
-                  </div>
-                ) : (
-                  displayDutySchedules.slice(0, 4).map((sched, sIdx) => {
-                    const initials = getInitials(sched.user?.fullName || sched.name);
-                    const color = getAvatarColor(sIdx);
-                    const isOnline = sched.status === 'SEDANG_BERLANGSUNG' || sched.status === 'HADIR';
-
-                    return (
-                      <div
-                        key={sched.id || sIdx}
-                        className="flex items-center justify-between p-2 rounded-xl hover:bg-slate-50 transition-colors"
-                      >
-                        <div className="flex items-center gap-2.5 min-w-0">
-                          <div
-                            className="w-8 h-8 rounded-full text-white flex items-center justify-center font-bold text-xs shrink-0"
-                            style={{ background: color.bg }}
-                          >
-                            {initials}
-                          </div>
-                          <div className="min-w-0">
-                            <span className="font-bold text-xs text-slate-900 block truncate">
-                              {sched.user?.fullName || sched.name || 'Petugas Humas'}
-                            </span>
-                            <span className="text-[10px] text-slate-500 block truncate">
-                              {sched.notes || sched.task || (sched.shiftName ? `Shift ${sched.shiftName} • Piket Humas` : 'Piket Operasional Humas')}
-                            </span>
-                          </div>
-                        </div>
-
-                        <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-semibold border flex items-center gap-1 shrink-0 ${
-                          isOnline
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200/60'
-                            : 'bg-slate-50 text-slate-600 border-slate-200'
-                        }`}>
-                          <span className={`w-1.5 h-1.5 rounded-full ${isOnline ? 'bg-emerald-500' : 'bg-slate-400'}`} />
-                          {isOnline ? 'Bertugas' : 'Terjadwal'}
+                        <span
+                          className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-semibold shrink-0 ${badge.bg} ${badge.text}`}
+                        >
+                          <span className={`w-1.5 h-1.5 rounded-full ${badge.dot}`} />
+                          {badge.label}
                         </span>
                       </div>
                     );
-                  })
-                )}
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Jadwal Piket Hari Ini */}
+            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex flex-col gap-2.5">
+              <div className="flex items-center justify-between gap-2">
+                <div>
+                  <h2 className="text-sm font-bold text-[#0F172A] leading-snug">
+                    Jadwal Piket Tim Humas
+                  </h2>
+                  <p className="text-[11px] text-[#64748B] mt-0.5">{activeShiftName}</p>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full bg-[#C0FFEA] text-[#0F766E] text-[10px] font-bold shrink-0">
+                  {displayDutySchedules.length} Petugas
+                </span>
               </div>
 
-              {/* SOP Notice */}
-              <div className="p-3 rounded-xl bg-[#F0FDF4] border border-emerald-200/60 flex items-start gap-2.5 text-xs text-slate-700">
-                <Info className="w-4 h-4 text-emerald-700 shrink-0 mt-0.5" />
-                <p className="leading-relaxed font-medium">
-                  SOP Petugas: Pastikan baterai peralatan terisi penuh dan checklist ruang podcast terselesaikan sebelum pergantian shift.
+              {displayDutySchedules.length === 0 ? (
+                <p className="text-xs text-slate-400 py-3 text-center">
+                  Belum ada jadwal piket tercatat hari ini.
+                </p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {displayDutySchedules.slice(0, 4).map((sched: any, idx: number) => {
+                    const personName = sched.user?.fullName || sched.userName || 'Petugas Humas';
+                    const color = getAvatarColor(idx);
+                    return (
+                      <div
+                        key={sched.id || idx}
+                        className="flex items-center gap-2.5 p-2 rounded-xl border border-slate-100 bg-slate-50/70"
+                      >
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0"
+                          style={{ backgroundColor: color.bg, color: color.text }}
+                        >
+                          {getInitials(personName)}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-xs font-bold text-[#0F172A] truncate">{personName}</p>
+                          <p className="text-[10px] text-slate-500 truncate">
+                            {sched.shift || sched.dayOfWeek || 'Piket Operasional'}
+                          </p>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
+
+        {/* ROW 3: SYMMETRICAL 2×2 ANALYTICS GRID (All 4 Dashboard Charts, Equal Height) */}
+        <section className="grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+          {/* Chart 1: Agenda Kegiatan Humas per Bulan */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex flex-col justify-between gap-3 h-full">
+            <div className="flex items-start justify-between gap-2 flex-wrap">
+              <div>
+                <h2 className="text-sm font-bold text-[#0F172A] leading-snug">
+                  Agenda Kegiatan Humas per Bulan
+                </h2>
+                <p className="text-[11px] text-[#64748B] mt-0.5">
+                  Periode {agenda.monthsRangeLabel || agenda.periodLabel} • Ringkasan agenda tercatat
                 </p>
               </div>
 
+              <div className="flex items-center gap-1 p-0.5 rounded-lg bg-slate-100 border border-slate-200/70 shrink-0">
+                {[
+                  { key: '3m', label: '3B' },
+                  { key: '6m', label: '6B' },
+                  { key: 'year', label: 'Tahun' },
+                  { key: 'all', label: 'Semua' },
+                ].map((opt) => (
+                  <button
+                    key={opt.key}
+                    type="button"
+                    disabled={agendaLoading}
+                    onClick={() =>
+                      handleAgendaPeriodChange(opt.key as '3m' | '6m' | 'year' | 'all')
+                    }
+                    className={`px-2 py-0.5 rounded-md text-[10px] font-bold transition-all cursor-pointer ${
+                      agendaPeriod === opt.key
+                        ? 'bg-white text-[#003D58] shadow-2xs'
+                        : 'text-slate-500 hover:text-slate-800'
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
 
-            {/* 2. Ringkasan Inventaris Peralatan Humas */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs flex flex-col gap-3">
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-base sm:text-lg font-bold text-[#202938] leading-snug">
-                    Ringkasan Inventaris Peralatan Humas
-                  </h2>
-                  <p className="text-xs text-[#67686D] mt-0.5">
-                    Status armada kamera, audio, dan drone kampus
-                  </p>
-                </div>
-                <Package className="w-4 h-4 text-[#005CDB]" />
+            <div className="grid grid-cols-3 gap-2">
+              <div className="p-2.5 rounded-xl border border-sky-100 bg-[#F0F9FF] flex flex-col items-center justify-center text-center">
+                <span className="text-[9px] font-bold tracking-wider text-[#64748B] uppercase">
+                  TOTAL KEGIATAN
+                </span>
+                <span className="text-lg font-black text-[#003D58] mt-0.5">
+                  {agenda.totalActivities ?? 0}
+                </span>
+                <span className="text-[9px] text-[#64748B]">agenda tercatat</span>
               </div>
 
-              {/* 4 Mini Stat Boxes */}
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
-                <div className="p-3 rounded-xl border border-slate-100 bg-[#F8FAFC] flex flex-col items-center justify-center text-center">
-                  <span className="text-[9px] font-bold tracking-wider uppercase text-slate-500">Jenis Alat</span>
-                  <div className="text-xl font-extrabold text-slate-900 mt-1">{stats.totalEquipmentTypes || 0}</div>
-                </div>
-
-                <div className="p-3 rounded-xl border border-slate-100 bg-[#F8FAFC] flex flex-col items-center justify-center text-center">
-                  <span className="text-[9px] font-bold tracking-wider uppercase text-slate-500">Total Unit</span>
-                  <div className="text-xl font-extrabold text-slate-900 mt-1">{stats.totalEquipmentUnits || 0}</div>
-                </div>
-
-                <div className="p-3 rounded-xl border border-[#005CDB]/20 bg-[#F0F9FF] flex flex-col items-center justify-center text-center">
-                  <span className="text-[9px] font-bold tracking-wider uppercase text-[#005CDB]">Dipinjam</span>
-                  <div className="text-xl font-extrabold text-[#005CDB] mt-1">{stats.unitsBorrowed || 0}</div>
-                </div>
-
-                <div className="p-3 rounded-xl border border-emerald-200/70 bg-emerald-50/50 flex flex-col items-center justify-center text-center">
-                  <span className="text-[9px] font-bold tracking-wider uppercase text-emerald-700">Tersedia</span>
-                  <div className="text-xl font-extrabold text-emerald-600 mt-1">{stats.unitsAvailable || 0}</div>
-                </div>
+              <div className="p-2.5 rounded-xl border border-slate-100 bg-[#F8FAFC] flex flex-col items-center justify-center text-center">
+                <span className="text-[9px] font-bold tracking-wider text-[#64748B] uppercase">
+                  BULAN TERCAKUP
+                </span>
+                <span className="text-lg font-black text-[#003D58] mt-0.5">
+                  {agenda.monthsCovered ?? 0}
+                </span>
+                <span className="text-[9px] text-[#64748B] truncate max-w-full">
+                  {agenda.monthsRangeLabel || '-'}
+                </span>
               </div>
 
-              {overdueLoansCount > 0 && (
-                <div className="p-3 rounded-xl bg-rose-50 border border-rose-200 flex items-center gap-2 text-[#B8484A] text-xs font-semibold">
-                  <AlertCircle className="w-4 h-4 text-[#B8484A] shrink-0" />
-                  <span>
-                    Perhatian: {overdueLoansCount} unit peralatan telah melewati batas waktu pengembalian.
-                  </span>
-                </div>
-              )}
-
+              <div className="p-2.5 rounded-xl border border-[#51FCE4]/50 bg-[#C0FFEA]/30 flex flex-col items-center justify-center text-center">
+                <span className="text-[9px] font-bold tracking-wider text-[#0F766E] uppercase">
+                  BULAN TERPADAT
+                </span>
+                <span className="text-sm font-black text-[#003D58] mt-0.5 truncate max-w-full">
+                  {agenda.busiestMonth?.month || '-'}
+                </span>
+                <span className="text-[9px] text-[#0F766E]">
+                  {agenda.busiestMonth?.count ?? 0} kegiatan
+                </span>
+              </div>
             </div>
 
-            {/* 3. Trend Operasional 6 Bulan Terakhir */}
-            <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-5 shadow-xs flex flex-col gap-3">
-              
-              <div className="flex items-center justify-between">
-                <div>
-                  <h2 className="text-base sm:text-lg font-bold text-[#202938] leading-snug">
-                    Trend Operasional (6 Bulan Terakhir)
-                  </h2>
-                  <p className="text-xs text-[#67686D] mt-0.5">
-                    Grafik jumlah kegiatan dan content plan per bulan
-                  </p>
-                </div>
-                <TrendingUp className="w-5 h-5 text-[#005CDB]" />
+            <DashboardAgendaMonthlyChart data={monthlyAgendaData} loading={agendaLoading} />
+
+            <div className="flex items-center justify-between gap-4 text-xs text-[#334155] pt-1.5 border-t border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-xs bg-[#003D58]" />
+                <span className="font-medium text-[11px]">Jumlah Kegiatan per Bulan</span>
               </div>
-
-              {/* Bar Chart Container */}
-              <DisplayTrendChart data={monthlyData} />
-
-              {/* Legend & Summary */}
-              <div className="flex items-center justify-center gap-6 text-xs text-slate-600 pt-2 border-t border-slate-100">
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-xs bg-[#005CDB]" />
-                  <span className="font-medium text-[#202938]">Kegiatan Diliput</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="w-3 h-3 rounded-xs bg-[#E99710]" />
-                  <span className="font-medium text-[#202938]">Content Plan</span>
-                </div>
-              </div>
-
+              <span className="text-[10px] text-[#64748B] font-medium">
+                Total: {agenda.totalActivities ?? 0} Agenda
+              </span>
             </div>
-
           </div>
 
-        </div>
+          {/* Chart 2: Trend Operasional (6 Bulan Terakhir) */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex flex-col justify-between gap-3 h-full">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-[#0F172A] leading-snug">
+                  Trend Operasional (6 Bulan Terakhir)
+                </h2>
+                <p className="text-[11px] text-[#64748B] mt-0.5">
+                  Grafik jumlah kegiatan dan content plan per bulan
+                </p>
+              </div>
+              <TrendingUp className="w-4 h-4 text-[#003D58] shrink-0" />
+            </div>
 
+            <div className="flex-1 flex items-center">
+              <div className="w-full">
+                <DashboardMonthlyChart data={monthlyData} maxVal={maxChartVal} />
+              </div>
+            </div>
+
+            <div className="flex items-center gap-5 text-xs text-[#334155] pt-1.5 border-t border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-xs bg-[#003D58]" />
+                <span className="font-medium text-[11px]">Kegiatan Diliput</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-xs bg-[#35C6D4]" />
+                <span className="font-medium text-[11px]">Content Plan</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Chart 3: Frekuensi Jenis Layanan Humas */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex flex-col justify-between gap-3 h-full">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-[#0F172A] leading-snug">
+                  Frekuensi Jenis Layanan Humas
+                </h2>
+                <p className="text-[11px] text-[#64748B] mt-0.5">
+                  Distribusi kategori layanan dokumentasi, publikasi, dan liputan
+                </p>
+              </div>
+              <BarChart3 className="w-4 h-4 text-[#003D58] shrink-0" />
+            </div>
+
+            <DashboardServiceFreqChart data={serviceFreqData} loading={agendaLoading} />
+
+            <div className="flex items-center gap-5 text-xs text-[#334155] pt-1.5 border-t border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-xs bg-[#003D58]" />
+                <span className="font-medium text-[11px]">Frekuensi Layanan</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Chart 4: Ringkasan Layanan Humas (Eksternal vs Internal) */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex flex-col justify-between gap-3 h-full">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-[#0F172A] leading-snug">
+                  Ringkasan Layanan Humas
+                </h2>
+                <p className="text-[11px] text-[#64748B] mt-0.5">
+                  Perbandingan agenda layanan Eksternal dan Internal per bulan
+                </p>
+              </div>
+              <TrendingUp className="w-4 h-4 text-[#003D58] shrink-0" />
+            </div>
+
+            <DashboardServiceCompChart data={serviceComparisonData} loading={agendaLoading} />
+
+            <div className="flex items-center gap-5 text-xs text-[#334155] pt-1.5 border-t border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-xs bg-[#35C6D4]" />
+                <span className="font-medium text-[11px]">
+                  Layanan Eksternal ({agenda.totalEksternal ?? 0})
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-xs bg-[#003D58]" />
+                <span className="font-medium text-[11px]">
+                  Layanan Internal ({agenda.totalInternal ?? 0})
+                </span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ROW 4: BOTTOM FULL-WIDTH RINGKASAN INVENTARIS PERALATAN HUMAS (Wave Cards) */}
+        <section className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-xs flex flex-col gap-3">
+          <div className="flex items-center justify-between gap-3 flex-wrap">
+            <div>
+              <h2 className="text-sm font-bold text-[#0F172A] leading-snug">
+                Ringkasan Inventaris Peralatan Humas
+              </h2>
+              <p className="text-[11px] text-[#64748B] mt-0.5">
+                Status ketersediaan armada kamera, audio, dan drone kampus
+              </p>
+            </div>
+            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-[#C0FFEA] text-[#0F766E] text-[10px] font-bold">
+              <CheckCircle2 className="w-3.5 h-3.5" />
+              Sinkronisasi Realtime
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+            <StatCard
+              compact
+              title="Total Jenis Alat"
+              value={stats.totalEquipmentTypes ?? 0}
+              badge="Kategori Armada"
+              icon={Camera}
+            />
+            <StatCard
+              compact
+              title="Total Unit"
+              value={stats.totalEquipmentUnits ?? 0}
+              badge="Semua Inventaris"
+              icon={Camera}
+            />
+            <StatCard
+              compact
+              title="Unit Tersedia"
+              value={stats.unitsAvailable ?? 0}
+              badge="Siap Dipinjam"
+              icon={CalendarCheck2}
+            />
+            <StatCard
+              compact
+              title="Unit Sedang Dipinjam"
+              value={stats.unitsBorrowed ?? 0}
+              badge="Dalam Pemakaian"
+              icon={Clock}
+            />
+          </div>
+        </section>
       </main>
 
+      {/* ─── PERSONNEL GPS MODAL ─── */}
+      {showPersonnelModal && (
+        <div
+          className="fixed inset-0 z-50 bg-slate-900/50 backdrop-blur-xs flex items-center justify-center p-4"
+          onClick={() => setShowPersonnelModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl border border-slate-200 shadow-xl w-full max-w-lg overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 bg-[#003D58] text-white flex items-center justify-between">
+              <div>
+                <h3 className="text-sm font-bold">Status GPS Anggota Humas</h3>
+                <p className="text-[11px] text-white/75">
+                  {onlinePersonnel.length} online • {offlinePersonnel.length} offline
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowPersonnelModal(false)}
+                className="p-1.5 rounded-lg hover:bg-white/15 cursor-pointer"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+            <div className="p-4 max-h-[60vh] overflow-y-auto divide-y divide-slate-100">
+              {locations.length === 0 ? (
+                <p className="text-xs text-slate-400 text-center py-6">
+                  Belum ada data lokasi anggota humas.
+                </p>
+              ) : (
+                locations.map((loc, idx) => {
+                  const color = getAvatarColor(idx);
+                  return (
+                    <div key={loc.id || idx} className="py-2.5 flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <div
+                          className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold shrink-0"
+                          style={{ backgroundColor: color.bg, color: color.text }}
+                        >
+                          {getInitials(loc.user?.fullName)}
+                        </div>
+                        <div className="min-w-0">
+                          <p className="text-xs font-bold text-slate-800 truncate">
+                            {loc.user?.fullName || 'Anggota Humas'}
+                          </p>
+                          <p className="text-[11px] text-slate-500 truncate">
+                            {loc.latitude.toFixed(5)}, {loc.longitude.toFixed(5)}
+                          </p>
+                        </div>
+                      </div>
+                      <span
+                        className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                          loc.isOnline
+                            ? 'bg-[#C0FFEA] text-[#0F766E]'
+                            : 'bg-slate-100 text-slate-500'
+                        }`}
+                      >
+                        {loc.isOnline ? 'Online' : 'Offline'}
+                      </span>
+                    </div>
+                  );
+                })
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

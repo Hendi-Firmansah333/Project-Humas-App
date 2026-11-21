@@ -6,6 +6,8 @@ import Image from 'next/image';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { getStoredUser, isSuperAdmin } from '@/utils/session';
 import { User as UserType } from '@/types';
+import ConfirmModal from '@/components/common/ConfirmModal';
+import { toast } from 'sonner';
 import {
   LayoutDashboard,
   LayoutGrid,
@@ -250,9 +252,13 @@ export default function Sidebar({
     setOpenGroups((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
   const handleLogout = () => {
+    setShowLogoutConfirm(false);
     localStorage.removeItem('humass_token');
     localStorage.removeItem('humass_user');
+    toast.success('Anda berhasil keluar dari sesi.');
     router.push('/login');
   };
 
@@ -561,7 +567,8 @@ export default function Sidebar({
       {/* ── Footer: Logout ────────────────────────── */}
       <div className="px-3 py-3 border-t border-slate-100 shrink-0">
         <button
-          onClick={handleLogout}
+          type="button"
+          onClick={() => setShowLogoutConfirm(true)}
           title={isCollapsed ? 'Keluar' : undefined}
           className={`w-full flex items-center rounded-xl text-sm font-medium text-[#EF4444] hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer ${
             isCollapsed ? 'justify-center py-2.5 px-0' : 'gap-3 px-3.5 py-2.5'
@@ -571,6 +578,18 @@ export default function Sidebar({
           {!isCollapsed && <span className="font-['Poppins'] font-medium leading-5">Keluar</span>}
         </button>
       </div>
+
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+        title="Konfirmasi Keluar"
+        message="Apakah Anda yakin ingin keluar dari sesi aplikasi HUMASS Polinela?"
+        confirmText="Ya, Keluar"
+        cancelText="Batal"
+        variant="danger"
+        icon={LogOut}
+      />
     </aside>
   );
 }

@@ -361,7 +361,7 @@ export default function CampusMapInner({
                       <button
                         type="button"
                         onClick={() => onSelectMember(loc)}
-                        className="flex-1 py-2 px-3 bg-[#005CDB] hover:bg-[#004FBD] active:bg-[#0044A5] text-white rounded-xl text-xs font-bold text-center transition-all cursor-pointer shadow-xs shadow-[#005CDB]/25 border-0"
+                        className="flex-1 py-2 px-3 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white rounded-xl text-xs font-bold text-center transition-all cursor-pointer shadow-xs shadow-[#003D58]/25 border-0"
                       >
                         Pilih Personel
                       </button>

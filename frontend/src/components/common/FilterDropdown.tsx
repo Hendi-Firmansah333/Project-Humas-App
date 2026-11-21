@@ -91,7 +91,7 @@ export default function FilterDropdown({
         aria-expanded={isOpen}
         aria-label={placeholder || 'Pilihan filter'}
         onClick={() => setIsOpen(!isOpen)}
-        className={`w-full inline-flex items-center justify-between gap-2.5 px-3.5 py-2 rounded-xl text-xs sm:text-[13px] font-semibold transition-all cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus:outline-none ${
+        className={`w-full inline-flex items-center justify-between gap-2.5 px-3.5 py-2 rounded-xl text-xs sm:text-[13px] font-semibold transition-all cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.04)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[#003D58]/30 focus-visible:border-[#003D58] ${
           isFiltered
             ? 'bg-blue-50/50 border border-[#003D58] text-[#003D58] ring-2 ring-[#003D58]/15 shadow-xs'
             : isOpen

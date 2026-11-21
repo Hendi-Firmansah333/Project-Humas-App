@@ -78,9 +78,9 @@
   --sidebar-primary: #003D58;
   --sidebar-primary-foreground: #FFFFFF;
   --sidebar-accent: #F0F9FF;
-  --sidebar-accent-foreground: #005CDB;
+  --sidebar-accent-foreground: #003D58;
   --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: #005CDB;
+  --sidebar-ring: #003D58;
 }
 
 .dark {

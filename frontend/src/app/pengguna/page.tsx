@@ -455,107 +455,109 @@ export default function UserManagementPage() {
 
   return (
     <AdminLayout title="Manajemen Personel & Hak Akses">
-      {/* Statistics Row: 4 StatCards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6">
-        <StatCard
-          title="Total Personel"
-          value={`${users.length} Orang`}
-          subtitle="Tim Humas Politeknik Negeri Lampung"
-          icon={Users}
-          iconBgClass="bg-blue-50"
-          iconColorClass="text-[#003D58]"
-        />
-        <StatCard
-          title="Personel Aktif"
-          value={`${users.filter((u) => u.status === 'AKTIF').length} Orang`}
-          subtitle="Memiliki hak akses sistem HUMASS"
-          icon={UserCheck}
-          iconBgClass="bg-green-50"
-          iconColorClass="text-green-600"
-        />
-        <StatCard
-          title="Bertugas Lapangan"
-          value={`${users.filter((u) => u.role === 'USER').length} Orang`}
-          subtitle="Anggota Humas terdaftar"
-          icon={Radio}
-          iconBgClass="bg-sky-50"
-          iconColorClass="text-sky-600"
-        />
-        <StatCard
-          title="Nonaktif / Cuti"
-          value={`${users.filter((u) => u.status === 'NONAKTIF').length} Orang`}
-          subtitle="Akun dinonaktifkan sementara"
-          icon={UserX}
-          iconBgClass="bg-orange-50"
-          iconColorClass="text-orange-600"
-        />
-      </div>
-
-      {/* Header Banner & Table Controls */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-lg font-bold text-slate-900 tracking-tight">Daftar Personel Kehumasan</h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              Kelola data profil, peran (Role Access Control), dan status keaktifan akun petugas humas.
-            </p>
-          </div>
-          <CustomButton variant="primary" icon={Plus} onClick={handleOpenCreate}>
-            Tambah Personel
-          </CustomButton>
-        </div>
-
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
-          <SearchBox
-            value={searchQuery}
-            onChange={(val) => {
-              setSearchQuery(val);
-              setCurrentPage(1);
-            }}
-            placeholder="Cari nama personel, username, atau email..."
-            className="w-full sm:w-80"
+      <div className="space-y-5">
+        {/* Statistics Row: 4 StatCards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          <StatCard
+            title="Total Personel"
+            value={`${users.length} Orang`}
+            subtitle="Tim Humas Politeknik Negeri Lampung"
+            icon={Users}
+            iconBgClass="bg-blue-50"
+            iconColorClass="text-[#003D58]"
           />
-          <div className="flex flex-wrap items-center gap-2.5">
-            <FilterDropdown
-              options={[
-                { value: 'SUPER_ADMIN', label: 'Kepala Humas' },
-                { value: 'ADMIN', label: 'Admin Humas' },
-                { value: 'USER', label: 'Anggota Humas' },
-              ]}
-              value={roleFilter}
+          <StatCard
+            title="Personel Aktif"
+            value={`${users.filter((u) => u.status === 'AKTIF').length} Orang`}
+            subtitle="Memiliki hak akses sistem HUMASS"
+            icon={UserCheck}
+            iconBgClass="bg-green-50"
+            iconColorClass="text-green-600"
+          />
+          <StatCard
+            title="Bertugas Lapangan"
+            value={`${users.filter((u) => u.role === 'USER').length} Orang`}
+            subtitle="Anggota Humas terdaftar"
+            icon={Radio}
+            iconBgClass="bg-sky-50"
+            iconColorClass="text-sky-600"
+          />
+          <StatCard
+            title="Nonaktif / Cuti"
+            value={`${users.filter((u) => u.status === 'NONAKTIF').length} Orang`}
+            subtitle="Akun dinonaktifkan sementara"
+            icon={UserX}
+            iconBgClass="bg-orange-50"
+            iconColorClass="text-orange-600"
+          />
+        </div>
+
+        {/* Header Banner & Table Controls */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-lg font-bold text-slate-900 tracking-tight">Daftar Personel Kehumasan</h1>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Kelola data profil, peran (Role Access Control), dan status keaktifan akun petugas humas.
+              </p>
+            </div>
+            <CustomButton variant="primary" icon={Plus} onClick={handleOpenCreate}>
+              Tambah Personel
+            </CustomButton>
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-slate-100">
+            <SearchBox
+              value={searchQuery}
               onChange={(val) => {
-                setRoleFilter(val);
+                setSearchQuery(val);
                 setCurrentPage(1);
               }}
-              placeholder="Semua Role"
+              placeholder="Cari nama personel, username, atau email..."
+              className="w-full sm:w-80 md:w-96"
             />
-            <FilterDropdown
-              options={[
-                { value: 'AKTIF', label: 'Aktif' },
-                { value: 'NONAKTIF', label: 'Nonaktif' },
-              ]}
-              value={statusFilter}
-              onChange={(val) => {
-                setStatusFilter(val);
-                setCurrentPage(1);
-              }}
-              placeholder="Semua Status"
-            />
+            <div className="flex flex-wrap items-center gap-2.5">
+              <FilterDropdown
+                options={[
+                  { value: 'SUPER_ADMIN', label: 'Kepala Humas' },
+                  { value: 'ADMIN', label: 'Admin Humas' },
+                  { value: 'USER', label: 'Anggota Humas' },
+                ]}
+                value={roleFilter}
+                onChange={(val) => {
+                  setRoleFilter(val);
+                  setCurrentPage(1);
+                }}
+                placeholder="Semua Role"
+              />
+              <FilterDropdown
+                options={[
+                  { value: 'AKTIF', label: 'Aktif' },
+                  { value: 'NONAKTIF', label: 'Nonaktif' },
+                ]}
+                value={statusFilter}
+                onChange={(val) => {
+                  setStatusFilter(val);
+                  setCurrentPage(1);
+                }}
+                placeholder="Semua Status"
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Personnel Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <DataTable columns={columns} data={paginatedUsers} emptyMessage="Tidak ada personel yang sesuai dengan kriteria." />
-        <PaginationBar
-          currentPage={currentPage}
-          totalPages={totalPages || 1}
-          totalItems={filteredUsers.length}
-          onPageChange={setCurrentPage}
-          itemName="personel"
-        />
+        {/* Main Personnel Table */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <DataTable columns={columns} data={paginatedUsers} emptyMessage="Tidak ada personel yang sesuai dengan kriteria." />
+          <PaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages || 1}
+            totalItems={filteredUsers.length}
+            onPageChange={setCurrentPage}
+            itemName="personel"
+          />
+        </div>
       </div>
 
       {/* Create User Modal */}

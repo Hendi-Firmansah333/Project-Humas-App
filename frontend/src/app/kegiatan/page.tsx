@@ -568,69 +568,71 @@ export default function ActivityManagementPage() {
 
   return (
     <AdminLayout title="Manajemen Kegiatan Kehumasan">
-      {/* Header */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div>
-            <h1 className="text-lg font-bold text-slate-900 tracking-tight">
-              {currentUser?.role === 'USER' ? 'Daftar Kegiatan Saya' : 'Daftar Kegiatan Kehumasan'}
-            </h1>
-            <p className="text-xs text-slate-400 mt-0.5">
-              {currentUser?.role === 'USER'
-                ? 'Daftar kegiatan di mana Anda ditugaskan sebagai PIC Lapangan atau Anggota Tim.'
-                : 'Kelola penjadwalan, penugasan personel (PIC), dan status peliputan kegiatan tim humas.'}
-            </p>
-          </div>
-          {currentUser?.role === 'SUPER_ADMIN' && (
-            <CustomButton variant="primary" icon={Plus} onClick={handleOpenCreate}>
-              Tambah Kegiatan Manual
-            </CustomButton>
-          )}
-          {currentUser?.role === 'ADMIN' && (
-            <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2 max-w-xs">
-              <Lightbulb className="w-4 h-4 text-amber-600 shrink-0" />
-              <span>Kegiatan dibuat otomatis dari Surat Masuk yang disetujui Kepala Humas.</span>
+      <div className="space-y-5">
+        {/* Header */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-lg font-bold text-slate-900 tracking-tight">
+                {currentUser?.role === 'USER' ? 'Daftar Kegiatan Saya' : 'Daftar Kegiatan Kehumasan'}
+              </h1>
+              <p className="text-xs text-slate-500 mt-0.5">
+                {currentUser?.role === 'USER'
+                  ? 'Daftar kegiatan di mana Anda ditugaskan sebagai PIC Lapangan atau Anggota Tim.'
+                  : 'Kelola penjadwalan, penugasan personel (PIC), dan status peliputan kegiatan tim humas.'}
+              </p>
             </div>
-          )}
+            {currentUser?.role === 'SUPER_ADMIN' && (
+              <CustomButton variant="primary" icon={Plus} onClick={handleOpenCreate}>
+                Tambah Kegiatan Manual
+              </CustomButton>
+            )}
+            {currentUser?.role === 'ADMIN' && (
+              <div className="flex items-center gap-2 text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-xl px-3.5 py-2.5 max-w-sm">
+                <Lightbulb className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>Kegiatan dibuat otomatis dari Surat Masuk yang disetujui Kepala Humas.</span>
+              </div>
+            )}
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-slate-100">
+            <SearchBox
+              value={searchQuery}
+              onChange={(val) => { setSearchQuery(val); setCurrentPage(1); }}
+              placeholder="Cari kegiatan, lokasi, kategori, atau PIC..."
+              className="w-full sm:w-80 md:w-96"
+            />
+            <FilterDropdown
+              options={[
+                { value: 'AKAN_DATANG', label: 'Akan Datang' },
+                { value: 'SEDANG_BERLANGSUNG', label: 'Sedang Berlangsung' },
+                { value: 'MENUNGGU_PERSETUJUAN_AKHIR', label: 'Menunggu Persetujuan Akhir' },
+                { value: 'SELESAI', label: 'Selesai' },
+                { value: 'DIKEMBALIKAN', label: 'Dikembalikan / Revisi' },
+                { value: 'DIBATALKAN', label: 'Dibatalkan' },
+              ]}
+              value={statusFilter}
+              onChange={(val) => { setStatusFilter(val); setCurrentPage(1); }}
+              placeholder="Semua Status"
+            />
+          </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
-          <SearchBox
-            value={searchQuery}
-            onChange={(val) => { setSearchQuery(val); setCurrentPage(1); }}
-            placeholder="Cari kegiatan, lokasi, kategori, atau PIC..."
-            className="w-full sm:w-80"
+        {/* Table */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <DataTable
+            columns={columns}
+            data={paginatedActivities}
+            emptyMessage="Tidak ada kegiatan yang cocok dengan kriteria pencarian Anda."
           />
-          <FilterDropdown
-            options={[
-              { value: 'AKAN_DATANG', label: 'Akan Datang' },
-              { value: 'SEDANG_BERLANGSUNG', label: 'Sedang Berlangsung' },
-              { value: 'MENUNGGU_PERSETUJUAN_AKHIR', label: 'Menunggu Persetujuan Akhir' },
-              { value: 'SELESAI', label: 'Selesai' },
-              { value: 'DIKEMBALIKAN', label: 'Dikembalikan / Revisi' },
-              { value: 'DIBATALKAN', label: 'Dibatalkan' },
-            ]}
-            value={statusFilter}
-            onChange={(val) => { setStatusFilter(val); setCurrentPage(1); }}
-            placeholder="Semua Status"
+          <PaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages || 1}
+            totalItems={filteredActivities.length}
+            onPageChange={setCurrentPage}
+            itemName="kegiatan"
           />
         </div>
-      </div>
-
-      {/* Table */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <DataTable
-          columns={columns}
-          data={paginatedActivities}
-          emptyMessage="Tidak ada kegiatan yang cocok dengan kriteria pencarian Anda."
-        />
-        <PaginationBar
-          currentPage={currentPage}
-          totalPages={totalPages || 1}
-          totalItems={filteredActivities.length}
-          onPageChange={setCurrentPage}
-          itemName="kegiatan"
-        />
       </div>
 
       {/* ═══════════════ CREATE MANUAL ACTIVITY MODAL ═══════════════ */}

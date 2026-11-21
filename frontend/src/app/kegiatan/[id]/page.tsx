@@ -32,6 +32,8 @@ import {
   Mail,
   Package,
   Globe,
+  FileText,
+  Building2,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { activityService, userService } from '@/services';
@@ -299,7 +301,26 @@ export default function ActivityDetailPage() {
     return `${dateStr} pukul ${timeStr}`;
   };
 
-  const checkInLogs = (activity.members ?? [])
+  // Gabungkan daftar members dengan PIC (jika PIC belum masuk ke array members)
+  const assignedMembers = (() => {
+    const list = [...(activity.members ?? [])];
+    if (activity.pic && !list.some((m) => m.userId === activity.pic!.id)) {
+      const picAtt = activity.attendances?.find((a) => a.userId === activity.pic!.id);
+      list.unshift({
+        id: -activity.pic.id,
+        activityId: activity.id,
+        userId: activity.pic.id,
+        role: 'PIC Lapangan',
+        checkInTime: picAtt?.checkInTime ?? undefined,
+        checkInStatus: picAtt?.status ?? undefined,
+        selfieUrl: picAtt?.selfieUrl ?? undefined,
+        user: activity.pic,
+      } as any);
+    }
+    return list;
+  })();
+
+  const checkInLogs = assignedMembers
     .filter((m) => m.checkInTime)
     .map((m) => {
       const att = activity.attendances?.find((a) => a.userId === m.userId);
@@ -316,31 +337,35 @@ export default function ActivityDetailPage() {
 
   return (
     <AdminLayout title="Detail Kegiatan Kehumasan">
-      <div className="space-y-6 pb-12">
-        {/* Header Bar */}
-        <div className="bg-white rounded-2xl border border-slate-200/90 p-5 sm:p-6 shadow-xs flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-4 min-w-0">
+      <div className="space-y-4 pb-10 font-['Poppins']">
+        {/* 1. Top Header Bar */}
+        <div className="bg-white rounded-2xl border border-slate-200/80 px-5 sm:px-6 py-4.5 shadow-2xs flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="flex items-center gap-3.5 min-w-0">
             <Link
               href={activity.status === 'SELESAI' ? '/riwayat-kegiatan' : '/kegiatan'}
-              className="p-2.5 rounded-xl border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors shrink-0 shadow-2xs cursor-pointer"
+              className="p-2 rounded-xl text-slate-600 hover:text-[#003D58] hover:bg-slate-100 transition-colors shrink-0 cursor-pointer"
               title="Kembali ke Daftar Kegiatan"
             >
               <ArrowLeft className="w-5 h-5" />
             </Link>
             <div className="min-w-0">
-              <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                <span className="bg-blue-50 text-[#003D58] font-bold px-2.5 py-0.5 rounded-md text-xs border border-blue-100">
-                  {activity.category}
-                </span>
-                <StatusBadge status={getDisplayStatus(activity)} />
-              </div>
-              <h1 className="text-xl sm:text-2xl font-bold text-slate-900 tracking-tight truncate" title={activity.title}>
+              <h1
+                className="text-lg sm:text-xl font-extrabold text-[#003D58] uppercase tracking-tight truncate"
+                title={activity.title}
+              >
                 {activity.title}
               </h1>
+              {activity.category && (
+                <p className="text-xs font-medium text-slate-400 mt-0.5 truncate">
+                  {activity.category}
+                </p>
+              )}
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center gap-3 shrink-0">
+          <div className="flex flex-wrap items-center gap-2.5 shrink-0">
+            <StatusBadge status={getDisplayStatus(activity)} />
+
             {activity.status === 'MENUNGGU_PERSETUJUAN' && isSuperAdmin && (
               <>
                 <CustomButton
@@ -384,458 +409,550 @@ export default function ActivityDetailPage() {
           </div>
         </div>
 
-        {/* Info Cards */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex items-center gap-4 transition-all hover:border-slate-300">
-            <div className="w-12 h-12 rounded-2xl bg-blue-50 text-[#003D58] flex items-center justify-center shrink-0 shadow-2xs">
-              <Calendar className="w-6 h-6" />
+        {/* 2. Row of 4 Info Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="bg-white rounded-2xl border border-slate-200/80 px-5 py-4 shadow-2xs flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
+              <Calendar className="w-5 h-5" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Tanggal Pelaksanaan</p>
-              <p className="text-sm font-bold text-slate-800 mt-1 truncate">{formatDateID(activity.date)}</p>
+              <p className="text-sm sm:text-[15px] font-bold text-[#0F172A] mt-0.5 truncate">
+                {formatDateID(activity.date)}
+              </p>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex items-center gap-4 transition-all hover:border-slate-300">
-            <div className="w-12 h-12 rounded-2xl bg-sky-50 text-sky-600 flex items-center justify-center shrink-0 shadow-2xs">
-              <Clock className="w-6 h-6" />
+          <div className="bg-white rounded-2xl border border-slate-200/80 px-5 py-4 shadow-2xs flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-sky-50 text-[#003D58] flex items-center justify-center shrink-0">
+              <Clock className="w-5 h-5" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Waktu Peliputan</p>
-              <p className="text-sm font-bold text-slate-800 mt-1 truncate">
+              <p className="text-sm sm:text-[15px] font-bold text-[#0F172A] mt-0.5 truncate">
                 {activity.startTime} - {activity.endTime} WIB
               </p>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex items-center gap-4 transition-all hover:border-slate-300">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0 shadow-2xs">
-              <MapPin className="w-6 h-6" />
+          <div className="bg-white rounded-2xl border border-slate-200/80 px-5 py-4 shadow-2xs flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+              <MapPin className="w-5 h-5" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">Lokasi Kegiatan</p>
-              <p className="text-sm font-bold text-slate-800 mt-1 truncate" title={activity.location}>
+              <p className="text-sm sm:text-[15px] font-bold text-[#0F172A] mt-0.5 truncate" title={activity.location}>
                 {activity.location}
               </p>
             </div>
           </div>
 
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs flex items-center gap-4 transition-all hover:border-slate-300">
-            <div className="w-12 h-12 rounded-2xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0 shadow-2xs">
-              <UserCheck className="w-6 h-6" />
+          <div className="bg-white rounded-2xl border border-slate-200/80 px-5 py-4 shadow-2xs flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+              <UserCheck className="w-5 h-5" />
             </div>
             <div className="min-w-0 flex-1">
               <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">PIC Bertugas</p>
-              <p className="text-sm font-bold text-slate-800 mt-1 truncate" title={activity.pic?.fullName ?? '-'}>{activity.pic?.fullName ?? '-'}</p>
+              <p
+                className="text-sm sm:text-[15px] font-bold text-[#0F172A] mt-0.5 truncate"
+                title={activity.pic?.fullName ?? '-'}
+              >
+                {activity.pic?.fullName ?? '-'}
+              </p>
             </div>
           </div>
         </div>
 
-        {/* SUMBER SURAT CARD — only if linked to a letter */}
-        {activity.surat && (
-          <div className="bg-sky-50/80 border border-sky-200 rounded-2xl p-5 sm:p-6 shadow-xs">
-            <div className="flex items-center gap-2.5 mb-3">
-              <div className="w-9 h-9 rounded-xl bg-sky-100 text-sky-700 flex items-center justify-center shrink-0">
-                <Mail className="w-5 h-5" />
-              </div>
-              <div>
-                <p className="text-xs font-bold text-sky-700 uppercase tracking-wider">Sumber Surat Masuk</p>
-                <p className="text-xs text-sky-600 font-medium">Kegiatan ini dibuat berdasarkan surat masuk berikut</p>
-              </div>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-xs font-medium text-sky-900">
-              <div><span className="text-sky-500 font-semibold">No. Surat:</span> {activity.surat.letterNumber}</div>
-              <div><span className="text-sky-500 font-semibold">Tgl. Surat:</span> {activity.surat.letterDate ? formatDateID(activity.surat.letterDate.split('T')[0]) : '-'}</div>
-              <div><span className="text-sky-500 font-semibold">Pengirim:</span> {activity.surat.sender}</div>
-              <div><span className="text-sky-500 font-semibold">Instansi:</span> {activity.surat.institution}</div>
-              <div className="sm:col-span-2"><span className="text-sky-500 font-semibold">Perihal:</span> {activity.surat.subject}</div>
-            </div>
-            {activity.surat.fileUrl && (
-              <a
-                href={activity.surat.fileUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="mt-3 inline-flex items-center gap-1.5 text-xs font-bold text-sky-700 hover:text-sky-900 underline"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                Buka File Surat Asli
-              </a>
-            )}
-          </div>
-        )}
-
-
-
-      {/* Main 2-Column Split Layout */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 items-start">
-        {/* Left Column (Span 2) - Operasional & Dokumentasi */}
-        <div className="lg:col-span-2 space-y-6">
-          {/* Section: Bukti Kehadiran Tim */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-5">
-            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <Camera className="w-5 h-5 text-[#003D58]" />
-                <h3 className="text-base font-bold text-slate-800">Bukti Kehadiran Tim (Selfie & GPS)</h3>
-              </div>
-              <span className="text-xs text-slate-500 font-medium bg-slate-100 px-2.5 py-0.5 rounded-full border border-slate-200">
-                {activity.members?.filter((m) => m.checkInTime).length ?? 0} dari {activity.members?.length ?? 0} Hadir
-              </span>
-            </div>
-
-            {(!activity.members || activity.members.length === 0) ? (
-              <div className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl p-8 text-center text-slate-400">
-                <Camera className="w-8 h-8 text-slate-300 mx-auto mb-2" />
-                <p className="text-xs font-semibold">Belum ada personel yang ditugaskan.</p>
-                <p className="text-[10px] text-slate-400 mt-0.5">Penugasan tim dilakukan oleh Kepala Humas.</p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                {activity.members.map((m) => {
-                  const hasCheckedIn = !!m.checkInTime;
-                  const att = activity.attendances?.find((a) => a.userId === m.userId);
-                  const hasGPS = att?.latitude != null && att?.longitude != null;
-
-                  return (
-                    <div
-                      key={m.id}
-                      className="border border-slate-200/90 rounded-2xl p-4 flex gap-4 bg-white hover:border-[#35C6D4]/50 hover:shadow-xs transition-all"
-                    >
-                      <div className="w-20 h-24 shrink-0 rounded-xl overflow-hidden bg-slate-100 border border-slate-200 flex items-center justify-center relative group shadow-2xs">
-                        {hasCheckedIn && m.selfieUrl ? (
-                          <>
-                            <img src={m.selfieUrl} className="w-full h-full object-cover" alt="Selfie" />
-                            <button
-                              type="button"
-                              onClick={() => setSelectedPhoto(m.selfieUrl ?? null)}
-                              className="absolute inset-0 bg-slate-900/50 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity cursor-pointer text-xs font-semibold"
-                            >
-                              Zoom
-                            </button>
-                          </>
-                        ) : (
-                          <div className="text-center p-2">
-                            <Camera className="w-6 h-6 text-slate-300 mx-auto" />
-                            <span className="text-[10px] text-slate-400 font-medium block mt-1">No Selfie</span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="flex-1 min-w-0 text-xs flex flex-col justify-between py-0.5">
-                        <div>
-                          <div className="flex items-center justify-between gap-1.5">
-                            <p className="font-bold text-slate-800 truncate text-xs">{m.user.fullName}</p>
-                            <span
-                              className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 uppercase inline-flex items-center gap-1 ${
-                                hasCheckedIn
-                                  ? m.checkInStatus === 'TERLAMBAT'
-                                    ? 'bg-amber-50 text-amber-700 border border-amber-200'
-                                    : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
-                                  : 'bg-rose-50 text-rose-700 border border-rose-200'
-                              }`}
-                            >
-                              <span
-                                className={`w-1.5 h-1.5 rounded-full ${
-                                  hasCheckedIn ? 'bg-emerald-500' : 'bg-rose-500'
-                                }`}
-                              />
-                              {hasCheckedIn ? (m.checkInStatus === 'TERLAMBAT' ? 'Terlambat' : 'Hadir') : 'Belum'}
-                            </span>
-                          </div>
-                          <span className="inline-block text-[10px] font-semibold text-[#003D58] bg-sky-50 px-2 py-0.5 rounded-md mt-1 border border-sky-100">
-                            {m.userId === activity.picId ? 'PIC Lapangan' : m.role || 'Anggota Tim'}
-                          </span>
-                        </div>
-
-                        {hasCheckedIn ? (
-                          <div className="mt-2.5 space-y-1 text-slate-500 font-medium text-[11px]">
-                            <p className="flex items-center gap-1.5">
-                              <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                              <span>Jam: <strong className="text-slate-700">{m.checkInTime} WIB</strong></span>
-                            </p>
-                            <p className="truncate flex items-center gap-1.5" title={activity.location}>
-                              <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                              <span className="truncate">Lokasi: <strong className="text-slate-700">{activity.location}</strong></span>
-                            </p>
-                            <p className="flex items-center gap-1.5">
-                              <Globe className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                              <span>GPS:</span>
-                              <span
-                                className={`font-bold uppercase text-[9px] px-1.5 py-0.5 rounded ${
-                                  hasGPS ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                                }`}
-                              >
-                                {hasGPS ? 'Valid' : 'Tidak Valid'}
-                              </span>
-                              {hasGPS && att?.distance != null && (
-                                <span className="text-[10px] text-slate-400">({att.distance}m)</span>
-                              )}
-                            </p>
-                          </div>
-                        ) : (
-                          <p className="text-rose-500 text-[11px] font-medium mt-2.5 flex items-center gap-1.5">
-                            <Clock className="w-3.5 h-3.5 text-rose-400 shrink-0" />
-                            <span>Belum melakukan check-in</span>
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Section: Dokumentasi Google Drive */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <Share2 className="w-5 h-5 text-[#003D58]" />
-                <h3 className="text-base font-bold text-slate-800">Dokumentasi Google Drive (1 Link Maksimal)</h3>
-              </div>
-            </div>
-
-            {driveMedia.length === 0 ? (
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl py-8 px-6 text-center text-slate-400">
-                <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 mx-auto mb-2.5 shadow-2xs">
-                  <Info className="w-6 h-6 text-slate-400" />
+        {/* 3. Main Asymmetric Bento Grid (Exact 1-to-1 Figma Layout: Left 5 cols | Right 7 cols) */}
+        <div className="grid grid-cols-1 lg:grid-cols-12 gap-4 items-stretch">
+          {/* ─── LEFT COLUMN (5 cols): Sumber Surat + Bukti Kehadiran Tim ─── */}
+          <div className="lg:col-span-5 flex flex-col gap-4">
+            {/* SUMBER SURAT MASUK (Exact match to reference card) */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 shadow-2xs space-y-4">
+              {/* Card Header */}
+              <div className="flex items-center justify-between gap-3 pb-3.5 border-b border-slate-100">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-sky-50 text-[#003D58] flex items-center justify-center shrink-0">
+                    <Mail className="w-4.5 h-4.5" />
+                  </div>
+                  <div className="min-w-0">
+                    <h2 className="text-xs sm:text-[13px] font-extrabold text-[#003D58] uppercase tracking-wide">
+                      Sumber Surat Masuk
+                    </h2>
+                    <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                      {activity.surat
+                        ? 'Kegiatan ini dibuat berdasarkan surat masuk berikut'
+                        : 'Informasi sumber pengajuan kegiatan kehumasan'}
+                    </p>
+                  </div>
                 </div>
-                <p className="text-xs font-semibold text-slate-600">Belum ada dokumentasi</p>
-                <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
-                  PIC atau anggota bertugas dapat mengunggah link Google Drive dari aplikasi Android.
-                </p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {driveMedia.map((doc) => {
-                  const formattedDate = formatDateID(doc.createdAt);
-                  const docDateObj = new Date(doc.createdAt);
-                  const formattedTime = docDateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
-
-                  return (
-                    <div
-                      key={doc.id}
-                      className="flex items-center justify-between p-4 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-white hover:shadow-2xs transition-all text-xs"
+                {activity.surat && (
+                  activity.surat.fileUrl ? (
+                    <a
+                      href={activity.surat.fileUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-[#003D58] transition-colors shrink-0 whitespace-nowrap shadow-2xs"
                     >
-                      <div className="flex items-center gap-3.5 min-w-0 flex-1">
-                        <div className="w-10 h-10 rounded-xl bg-blue-100 text-blue-900 flex items-center justify-center shrink-0">
-                          <Share2 className="w-5 h-5" />
-                        </div>
-                        <div className="min-w-0 flex-1">
-                          <p className="font-bold text-slate-800 truncate">
-                            Link Drive Resmi Kegiatan
-                          </p>
-                          <a
-                            href={doc.fileUrl}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="text-[#003D58] hover:underline truncate block text-[11px] mt-0.5 font-semibold"
-                          >
-                            {doc.fileUrl}
-                          </a>
-                          <p className="text-[10px] text-slate-400 mt-1 font-medium">
-                            Pengunggah: <strong className="text-slate-600">{doc.uploader?.fullName ?? 'Tim Humas'}</strong> • Upload: {formattedDate} - {formattedTime}
-                          </p>
-                        </div>
-                      </div>
-                      <a
-                        href={doc.fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="p-2.5 rounded-lg bg-white border border-slate-200 hover:bg-blue-50 hover:text-[#003D58] text-slate-600 transition-colors shrink-0 cursor-pointer ml-3"
-                        title="Buka Google Drive"
-                      >
-                        <ExternalLink className="w-4 h-4" />
-                      </a>
-                    </div>
-                  );
-                })}
+                      <FileText className="w-3.5 h-3.5 text-[#003D58]" />
+                      <span>Lihat Surat</span>
+                    </a>
+                  ) : (
+                    <Link
+                      href="/surat-masuk"
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-xs font-semibold text-[#003D58] transition-colors shrink-0 whitespace-nowrap shadow-2xs"
+                    >
+                      <FileText className="w-3.5 h-3.5 text-[#003D58]" />
+                      <span>Lihat Surat</span>
+                    </Link>
+                  )
+                )}
               </div>
-            )}
-          </div>
 
-          {/* Section: Peralatan yang Digunakan */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
-              <div className="flex items-center gap-2.5">
-                <Package className="w-5 h-5 text-[#003D58]" />
-                <h3 className="text-base font-bold text-slate-800">
-                  Peralatan yang Digunakan ({equipmentItems.length})
-                </h3>
-              </div>
-            </div>
-
-            {equipmentItems.length === 0 ? (
-              <div className="bg-slate-50 border border-slate-200/80 rounded-2xl py-8 px-6 text-center text-slate-400">
-                <div className="w-12 h-12 rounded-2xl bg-white border border-slate-200 flex items-center justify-center text-slate-400 mx-auto mb-2.5 shadow-2xs">
-                  <Info className="w-6 h-6 text-slate-400" />
-                </div>
-                <p className="text-xs font-semibold text-slate-600">Tidak ada peralatan yang ditugaskan</p>
-                <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
-                  Kegiatan ini tidak meminjam inventaris alat humas.
-                </p>
-              </div>
-            ) : (
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-                {equipmentItems.map((eq: any) => (
-                  <div
-                    key={eq.id}
-                    className="p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 flex items-center justify-between gap-3 hover:bg-white hover:shadow-2xs transition-all"
-                  >
+              {activity.surat ? (
+                <>
+                  {/* Perihal + Dokumen Resmi pill */}
+                  <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <p className="font-bold text-slate-800 truncate">{eq.name}</p>
-                      <p className="text-[11px] text-slate-400 mt-0.5">
-                        {eq.category} {eq.brand ? `• ${eq.brand}` : ''} ({eq.code})
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Perihal</p>
+                      <p className="text-sm font-bold text-[#003D58] mt-0.5 leading-snug">
+                        {activity.surat.subject}
                       </p>
-                      {eq.returnCondition && (
-                        <span className="inline-block mt-1 text-[10px] font-semibold text-amber-700 bg-amber-50 px-1.5 py-0.5 rounded border border-amber-200">
-                          Kondisi: {eq.returnCondition}
-                        </span>
-                      )}
                     </div>
-                    <div className="text-right shrink-0">
-                      <span className="font-bold text-slate-800 block">{eq.quantity} Unit</span>
-                      <span
-                        className={`inline-block mt-1 text-[9px] font-bold px-1.5 py-0.5 rounded ${
-                          eq.isReturned
-                            ? 'bg-green-100 text-green-700'
-                            : 'bg-amber-100 text-amber-700'
-                        }`}
-                      >
-                        {eq.isReturned ? 'Dikembalikan' : 'Sedang Digunakan'}
-                      </span>
+                    <span className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-[#003D58] shrink-0 whitespace-nowrap shadow-2xs">
+                      Dokumen Resmi
+                    </span>
+                  </div>
+
+                  {/* 3-Col Meta Tiles: No Surat, Tgl Surat, Instansi */}
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                    <div className="min-w-0 rounded-xl bg-slate-50/70 p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">No. Surat</p>
+                      <p className="font-bold text-[#003D58] mt-1 break-words leading-snug">
+                        {activity.surat.letterNumber}
+                      </p>
+                    </div>
+                    <div className="min-w-0 rounded-xl bg-slate-50/70 p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider inline-flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span>Tgl. Surat</span>
+                      </p>
+                      <p className="font-bold text-[#003D58] mt-1">
+                        {activity.surat.letterDate ? formatDateID(activity.surat.letterDate.split('T')[0]) : '-'}
+                      </p>
+                    </div>
+                    <div className="min-w-0 rounded-xl bg-slate-50/70 p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider inline-flex items-center gap-1">
+                        <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span>Instansi</span>
+                      </p>
+                      <p className="font-bold text-[#003D58] mt-1 truncate" title={activity.surat.institution}>
+                        {activity.surat.institution}
+                      </p>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
 
-        {/* Right Column (Span 1) - Roster, Timeline & History */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Personel Bertugas */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-4">
-            <div className="flex items-center justify-between pb-3.5 border-b border-slate-100">
-              <div className="flex items-center gap-2">
-                <h3 className="text-base font-bold text-slate-800">Personel Bertugas</h3>
-                <span className="bg-sky-50 text-[#003D58] border border-sky-100 font-bold px-2 py-0.5 rounded-full text-xs">
-                  {activity.members?.length ?? 0}
-                </span>
-              </div>
-              {isSuperAdmin && activity.status !== 'SELESAI' && (
-                <button
-                  type="button"
-                  onClick={() => setIsAssignModalOpen(true)}
-                  className="text-xs font-semibold text-[#003D58] hover:text-[#35C6D4] transition-colors flex items-center gap-1 cursor-pointer"
-                >
-                  <UserPlus className="w-3.5 h-3.5" />
-                  <span>{(activity.members?.length ?? 0) > 0 ? 'Ubah Tim' : 'Tugaskan Tim'}</span>
-                </button>
+                  {/* Pengirim footer */}
+                  <div className="pt-1 text-xs text-slate-400 flex items-center gap-2">
+                    <span>Pengirim:</span>
+                    <span className="font-bold text-[#003D58]">{activity.surat.sender}</span>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Perihal</p>
+                      <p className="text-sm font-bold text-[#003D58] mt-0.5 leading-snug">
+                        {activity.title}
+                      </p>
+                    </div>
+                    <span className="px-3 py-1.5 rounded-xl bg-white border border-slate-200 text-[11px] font-bold text-[#003D58] shrink-0 whitespace-nowrap shadow-2xs">
+                      Agenda Langsung
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                    <div className="min-w-0 rounded-xl bg-slate-50/70 p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">No. Surat</p>
+                      <p className="font-bold text-slate-400 mt-1">-</p>
+                    </div>
+                    <div className="min-w-0 rounded-xl bg-slate-50/70 p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider inline-flex items-center gap-1">
+                        <Calendar className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span>Tgl. Kegiatan</span>
+                      </p>
+                      <p className="font-bold text-[#003D58] mt-1">
+                        {formatDateID(activity.date)}
+                      </p>
+                    </div>
+                    <div className="min-w-0 rounded-xl bg-slate-50/70 p-3">
+                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider inline-flex items-center gap-1">
+                        <Building2 className="w-3 h-3 text-slate-400 shrink-0" />
+                        <span>Sumber</span>
+                      </p>
+                      <p className="font-bold text-[#003D58] mt-1 truncate">Internal Humas</p>
+                    </div>
+                  </div>
+
+                  <div className="pt-1 text-xs text-slate-400 flex items-center gap-2">
+                    <span>Catatan:</span>
+                    <span className="font-medium text-slate-600 truncate">
+                      {activity.description || 'Dibuat langsung tanpa surat masuk'}
+                    </span>
+                  </div>
+                </>
               )}
             </div>
 
-            {(!activity.members || activity.members.length === 0) ? (
-              <p className="text-xs text-slate-400 italic text-center py-6">Belum ada personel yang ditugaskan.</p>
-            ) : (
-              <div className="space-y-3">
-                {activity.members.map((m) => {
-                  const hasCheckedIn = !!m.checkInTime;
+            {/* Deskripsi Kegiatan (only if surat exists AND description exists) */}
+            {activity.surat && activity.description && (
+              <div className="bg-white rounded-2xl border border-slate-200/80 p-4 shadow-2xs space-y-1.5">
+                <h2 className="text-[11px] font-extrabold text-[#003D58] uppercase tracking-wide flex items-center gap-1.5">
+                  <Info className="w-3.5 h-3.5 text-[#003D58]" />
+                  Catatan Kegiatan
+                </h2>
+                <p className="text-xs text-slate-600 leading-relaxed whitespace-pre-wrap">
+                  {activity.description}
+                </p>
+              </div>
+            )}
 
-                  return (
-                    <div
-                      key={m.id}
-                      className="p-3.5 rounded-xl border border-slate-100 bg-slate-50/70 hover:bg-sky-50/40 hover:border-sky-100 transition-all flex items-center gap-3"
-                    >
-                      <UserAvatar src={m.user.avatar} name={m.user.fullName} size="md" />
-                      <div className="min-w-0 flex-1 text-xs">
-                        <div className="flex items-center justify-between gap-1.5">
-                          <h4 className="font-bold text-slate-800 truncate">{m.user.fullName}</h4>
-                          <span
-                            className={`text-[9px] font-bold px-2 py-0.5 rounded-full shrink-0 inline-flex items-center gap-1 ${
-                              hasCheckedIn ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-rose-50 text-rose-700 border border-rose-200'
-                            }`}
-                          >
-                            <span className={`w-1.5 h-1.5 rounded-full ${hasCheckedIn ? 'bg-emerald-500' : 'bg-rose-500'}`} />
-                            {hasCheckedIn ? 'Hadir' : 'Belum'}
-                          </span>
+            {/* Bukti Kehadiran Tim (Selfie & GPS) */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-2xs flex flex-col gap-4 flex-1">
+              <div className="flex items-center justify-between gap-2 pb-3.5 border-b border-slate-100">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <Camera className="w-5 h-5 text-[#003D58] shrink-0" />
+                  <h2 className="text-sm sm:text-[15px] font-bold text-[#003D58] truncate">
+                    Bukti Kehadiran Tim (Selfie &amp; GPS)
+                  </h2>
+                </div>
+                <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full shrink-0">
+                  {assignedMembers.filter((m) => m.checkInTime).length}/{assignedMembers.length} Hadir
+                </span>
+              </div>
+
+              {assignedMembers.length === 0 ? (
+                <div className="flex-1 bg-slate-50/70 border border-dashed border-slate-200 rounded-xl p-6 flex flex-col items-center justify-center text-center text-slate-400">
+                  <Camera className="w-6 h-6 text-slate-300 mb-1.5" />
+                  <p className="text-xs font-semibold text-slate-500">Belum ada personel yang ditugaskan.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {assignedMembers.map((m) => {
+                    const hasCheckedIn = !!m.checkInTime;
+                    const att = activity.attendances?.find((a) => a.userId === m.userId);
+                    const hasGPS = att?.latitude != null && att?.longitude != null;
+
+                    return (
+                      <div
+                        key={m.id}
+                        className="rounded-xl p-2.5 flex items-center gap-3.5 hover:bg-slate-50/70 transition-colors"
+                      >
+                        <div className="w-16 h-16 shrink-0 rounded-2xl overflow-hidden bg-slate-100/90 border border-slate-200/70 flex items-center justify-center relative group">
+                          {hasCheckedIn && m.selfieUrl ? (
+                            <>
+                              <img src={m.selfieUrl} className="w-full h-full object-cover" alt="Selfie" />
+                              <button
+                                type="button"
+                                onClick={() => setSelectedPhoto(m.selfieUrl ?? null)}
+                                className="absolute inset-0 bg-[#003D58]/60 opacity-0 group-hover:opacity-100 flex items-center justify-center text-white transition-opacity cursor-pointer text-[11px] font-semibold"
+                              >
+                                Zoom
+                              </button>
+                            </>
+                          ) : (
+                            <div className="text-center px-1">
+                              <Camera className="w-4.5 h-4.5 text-slate-400 mx-auto" />
+                              <span className="text-[10px] text-slate-400 font-medium block mt-0.5">No Selfie</span>
+                            </div>
+                          )}
                         </div>
-                        <div className="flex items-center justify-between mt-1">
-                          <span className="text-[10px] font-semibold text-[#003D58]">
+
+                        <div className="min-w-0 flex-1">
+                          <p className="text-[13px] font-bold text-[#003D58] truncate">{m.user.fullName}</p>
+                          <span className="inline-block text-[11px] font-semibold text-[#003D58] bg-sky-100 px-2.5 py-0.5 rounded-md mt-1">
                             {m.userId === activity.picId ? 'PIC Lapangan' : m.role || 'Anggota Tim'}
                           </span>
-                          <span className="text-[10px] text-slate-400">
-                            {hasCheckedIn ? `Jam ${m.checkInTime}` : 'Belum check-in'}
+                          {hasCheckedIn ? (
+                            <div className="mt-1.5 space-y-0.5 text-[11px] text-slate-500">
+                              <p className="font-semibold text-emerald-700 truncate">
+                                Hadir · {m.checkInTime} WIB
+                              </p>
+                              <p className="inline-flex items-center gap-1 truncate">
+                                <Globe className="w-3 h-3 text-slate-400 shrink-0" />
+                                <span className={hasGPS ? 'text-emerald-600 font-semibold' : 'text-rose-500'}>
+                                  {hasGPS ? `GPS Valid${att?.distance != null ? ` (${att.distance}m)` : ''}` : 'GPS Tidak Valid'}
+                                </span>
+                              </p>
+                            </div>
+                          ) : (
+                            <p className="text-[11px] text-rose-500 italic mt-1.5 truncate">
+                              Belum melakukan check-in.
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* ─── RIGHT COLUMN (7 cols): Google Drive Top + 3-Col Sub-grid Bottom ─── */}
+          <div className="lg:col-span-7 flex flex-col gap-4">
+            {/* Dokumentasi Google Drive (1 Link Maksimal) */}
+            <div className="bg-white rounded-2xl border border-slate-200/80 p-5 sm:p-6 shadow-2xs space-y-3.5">
+              <h2 className="text-sm sm:text-[15px] font-bold text-[#0F172A]">
+                Dokumentasi Google Drive (1 Link Maksimal)
+              </h2>
+
+              {driveMedia.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50/70 py-6 px-4 text-center">
+                  <p className="text-xs sm:text-[13px] font-semibold text-slate-500">Belum ada link dokumentasi Google Drive</p>
+                  <p className="text-xs text-slate-400 mt-1">
+                    PIC atau anggota bertugas dapat mengunggah link Google Drive dari aplikasi mobile.
+                  </p>
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {driveMedia.map((doc) => {
+                    const formattedDate = formatDateID(doc.createdAt);
+                    const docDateObj = new Date(doc.createdAt);
+                    const formattedTime =
+                      docDateObj.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+
+                    return (
+                      <div
+                        key={doc.id}
+                        className="flex items-center justify-between gap-3.5 p-4 rounded-xl border border-slate-100 bg-slate-50/60 hover:bg-slate-50 transition-colors"
+                      >
+                        <div className="flex items-center gap-3.5 min-w-0 flex-1">
+                          <div className="w-11 h-11 rounded-full bg-[#C0FFEA]/60 text-[#0F766E] flex items-center justify-center shrink-0">
+                            <Share2 className="w-5 h-5" />
+                          </div>
+                          <div className="min-w-0 flex-1">
+                            <p className="text-[13px] font-bold text-slate-800 truncate">
+                              Link Drive Resmi Kegiatan
+                            </p>
+                            <a
+                              href={doc.fileUrl}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-xs text-sky-600 hover:text-[#003D58] hover:underline truncate block mt-0.5 font-medium"
+                            >
+                              {doc.fileUrl}
+                            </a>
+                            <p className="text-[11px] text-slate-400 mt-1 truncate">
+                              Pengunggah: <strong className="text-slate-600">{doc.uploader?.fullName ?? 'Tim Humas'}</strong> · Upload: {formattedDate} - {formattedTime}
+                            </p>
+                          </div>
+                        </div>
+                        <a
+                          href={doc.fileUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-2.5 rounded-xl bg-white border border-slate-200 hover:border-[#003D58] hover:text-[#003D58] text-slate-500 transition-colors shrink-0 cursor-pointer"
+                          title="Buka Google Drive"
+                        >
+                          <ExternalLink className="w-4 h-4" />
+                        </a>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Bottom 3-Column Sub-Grid (More Generous Sizing) */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 items-stretch flex-1">
+              {/* Sub-Col 1: Personel Bertugas + Log Kehadiran (Timeline) */}
+              <div className="flex flex-col gap-4 min-w-0">
+                {/* Personel Bertugas */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs space-y-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <h3 className="text-[13px] font-bold text-[#0F172A] truncate">
+                      Personel Bertugas ({assignedMembers.length})
+                    </h3>
+                    {isSuperAdmin && activity.status !== 'SELESAI' && (
+                      <button
+                        type="button"
+                        onClick={() => setIsAssignModalOpen(true)}
+                        className="text-[11px] font-semibold text-[#003D58] hover:underline cursor-pointer shrink-0"
+                      >
+                        {assignedMembers.length > 0 ? 'Ubah' : 'Tugaskan'}
+                      </button>
+                    )}
+                  </div>
+
+                  {assignedMembers.length === 0 ? (
+                    <p className="text-xs text-slate-400 italic text-center py-4">
+                      Belum ada personel.
+                    </p>
+                  ) : (
+                    <div className="space-y-2.5">
+                      {assignedMembers.map((m) => {
+                        const hasCheckedIn = !!m.checkInTime;
+                        return (
+                          <div key={m.id} className="flex items-center gap-2.5 min-w-0">
+                            <UserAvatar src={m.user.avatar} name={m.user.fullName} size="md" />
+                            <div className="min-w-0 flex-1">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <p className="text-xs font-bold text-slate-800 truncate">{m.user.fullName}</p>
+                                <span className="text-[10px] font-semibold text-[#0F766E] bg-[#C0FFEA]/60 px-2 py-0.5 rounded-full shrink-0">
+                                  {m.userId === activity.picId ? 'PIC Lapangan' : m.role || 'Anggota'}
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                                {hasCheckedIn ? `Check-in ${m.checkInTime} WIB` : 'Belum melakukan check-in'}
+                              </p>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                {/* Log Kehadiran (Timeline) */}
+                <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs flex flex-col gap-3 flex-1">
+                  <div className="flex items-center gap-2">
+                    <MapPinCheckInside className="w-4 h-4 text-[#003D58] shrink-0" />
+                    <h3 className="text-[13px] font-bold text-[#0F172A] truncate">Log Kehadiran (Timeline)</h3>
+                  </div>
+
+                  {checkInLogs.length === 0 ? (
+                    <div className="flex-1 min-h-[90px] rounded-xl border border-slate-100 bg-slate-50/70 flex items-center justify-center p-4 text-center">
+                      <p className="text-xs text-slate-400 italic">Belum ada timeline check-in.</p>
+                    </div>
+                  ) : (
+                    <div className="relative border-l-2 border-slate-100 pl-3.5 ml-1.5 space-y-3 py-0.5 text-xs">
+                      {checkInLogs.map((log, idx) => (
+                        <div key={idx} className="relative">
+                          <div className="absolute -left-[19px] top-1 w-2.5 h-2.5 rounded-full bg-[#003D58] border-2 border-white" />
+                          <span className="text-[10px] font-bold text-[#003D58] bg-sky-50 px-2 py-0.5 rounded">
+                            {log.time}
+                          </span>
+                          <p className="text-xs font-bold text-slate-800 mt-1 leading-tight truncate">{log.name}</p>
+                          <p className="text-[11px] text-slate-400 truncate">{log.role}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Sub-Col 2: Peralatan yang Digunakan */}
+              <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs flex flex-col gap-3 h-full min-w-0">
+                <div className="flex items-center gap-2.5">
+                  <div className="w-8 h-8 rounded-lg bg-[#C0FFEA]/60 text-[#0F766E] flex items-center justify-center shrink-0">
+                    <Package className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <h3 className="text-[13px] font-bold text-[#0F172A] leading-tight truncate">
+                      Peralatan yang Digunakan
+                    </h3>
+                    <p className="text-[11px] text-slate-400 mt-0.5 truncate">
+                      Daftar perangkat operasional aktif
+                    </p>
+                  </div>
+                </div>
+
+                {equipmentItems.length === 0 ? (
+                  <div className="flex-1 min-h-[150px] rounded-xl border border-slate-100 bg-slate-50/70 flex flex-col items-center justify-center p-4 text-center">
+                    <Package className="w-6 h-6 text-slate-300 mb-1.5" />
+                    <p className="text-xs text-slate-400 italic">
+                      Tidak ada peralatan dipinjam.
+                    </p>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 flex-1">
+                    {equipmentItems.map((eq: any) => (
+                      <div
+                        key={eq.id}
+                        className="p-3 rounded-xl border border-slate-100 bg-slate-50/60 space-y-2"
+                      >
+                        <div className="flex items-start justify-between gap-2">
+                          <div className="flex items-center gap-2.5 min-w-0">
+                            <div className="w-7 h-7 rounded-lg bg-white border border-slate-200/80 flex items-center justify-center text-slate-500 shrink-0">
+                              <Camera className="w-3.5 h-3.5" />
+                            </div>
+                            <div className="min-w-0">
+                              <p className="text-xs font-bold text-slate-800 truncate">{eq.name}</p>
+                              <p className="text-[10px] text-slate-400 truncate">
+                                {eq.category} ({eq.code})
+                              </p>
+                            </div>
+                          </div>
+                          <span className="text-xs font-bold text-slate-700 shrink-0 whitespace-nowrap">
+                            {eq.quantity} Unit
+                          </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-1.5 flex-wrap pt-1.5 border-t border-slate-100">
+                          <span
+                            className={`inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full whitespace-nowrap ${
+                              eq.isReturned
+                                ? 'bg-emerald-50 text-emerald-700'
+                                : 'bg-amber-50 text-amber-700'
+                            }`}
+                          >
+                            <span
+                              className={`w-1.5 h-1.5 rounded-full ${
+                                eq.isReturned ? 'bg-emerald-500' : 'bg-amber-500'
+                              }`}
+                            />
+                            {eq.isReturned ? 'Dikembalikan' : 'Sedang Digunakan'}
+                          </span>
+                          <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">
+                            {eq.isReturned ? 'Status: Kembali' : 'Status: Check-out'}
                           </span>
                         </div>
                       </div>
-                    </div>
-                  );
-                })}
-              </div>
-            )}
-          </div>
-
-          {/* Timeline Check-in */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-4">
-            <div className="flex items-center gap-2.5 pb-3.5 border-b border-slate-100">
-              <MapPinCheckInside className="w-5 h-5 text-[#003D58]" />
-              <h3 className="text-base font-bold text-slate-800">Log Kehadiran (Timeline)</h3>
-            </div>
-
-            {checkInLogs.length === 0 ? (
-              <p className="text-xs text-slate-400 italic text-center py-6">Belum ada timeline check-in.</p>
-            ) : (
-              <div className="relative border-l-2 border-slate-100 pl-4.5 ml-2.5 space-y-4 py-1 text-xs">
-                {checkInLogs.map((log, idx) => (
-                  <div key={idx} className="relative">
-                    <div className="absolute -left-[23px] top-0.5 w-3 h-3 rounded-full bg-[#003D58] border-2 border-white shadow-xs" />
-                    <div>
-                      <span className="font-bold text-[#003D58] bg-blue-50 px-2 py-0.5 rounded text-[10px] border border-blue-100">
-                        {log.time}
-                      </span>
-                      <p className="font-bold text-slate-800 mt-1.5">{log.name}</p>
-                      <p className="text-[10px] text-slate-400 mt-0.5">
-                        Berhasil Check-in sebagai <strong className="text-[#003D58]/90 font-bold">{log.role}</strong>
-                      </p>
-                    </div>
+                    ))}
                   </div>
-                ))}
+                )}
               </div>
-            )}
-          </div>
 
-          {/* Section: Riwayat Persetujuan (Approval History Log) */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-6 shadow-xs space-y-4">
-            <div className="flex items-center gap-2.5 pb-3.5 border-b border-slate-100">
-              <History className="w-5 h-5 text-[#003D58]" />
-              <h3 className="text-base font-bold text-slate-800">Riwayat Persetujuan & Catatan</h3>
-            </div>
+              {/* Sub-Col 3: Riwayat Persetujuan & Catatan */}
+              <div className="bg-white rounded-2xl border border-slate-200/80 p-4 sm:p-5 shadow-2xs flex flex-col gap-3 h-full min-w-0">
+                <div className="flex items-center gap-2">
+                  <History className="w-4 h-4 text-[#003D58] shrink-0" />
+                  <h3 className="text-[13px] font-bold text-[#0F172A] truncate">Riwayat Persetujuan &amp; Catatan</h3>
+                </div>
 
-            {(!activity.approvalHistory || activity.approvalHistory.length === 0) ? (
-              <p className="text-xs text-slate-400 italic text-center py-6">Belum ada riwayat persetujuan.</p>
-            ) : (
-              <div className="space-y-3">
-                {activity.approvalHistory.map((item, idx) => (
-                  <div key={idx} className="border border-slate-200/90 rounded-xl p-3.5 bg-slate-50/60 text-xs space-y-1">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold text-slate-800">{item.stage}</span>
-                      <StatusBadge status={item.status} />
-                    </div>
-                    <p className="text-[11px] text-slate-500">
-                      Oleh: <strong className="text-slate-700">{item.fullName}</strong> ({item.role}) • {formatDateTime(item.date)}
-                    </p>
-                    {item.notes && (
-                      <p className="text-slate-600 italic bg-white p-2.5 rounded-lg border border-slate-100 mt-1 leading-relaxed">
-                        "{item.notes}"
-                      </p>
-                    )}
+                {!activity.approvalHistory || activity.approvalHistory.length === 0 ? (
+                  <div className="flex-1 min-h-[150px] rounded-xl border border-slate-100 bg-slate-50/70 flex items-center justify-center p-4 text-center">
+                    <p className="text-xs text-slate-400 italic">Belum ada riwayat persetujuan</p>
                   </div>
-                ))}
+                ) : (
+                  <div className="space-y-2.5 flex-1">
+                    {activity.approvalHistory.map((item, idx) => (
+                      <div
+                        key={idx}
+                        className="border border-slate-100 rounded-xl p-3 bg-slate-50/60 text-xs space-y-1"
+                      >
+                        <div className="flex items-center justify-between gap-1.5 flex-wrap">
+                          <span className="font-bold text-slate-800 text-xs truncate">{item.stage}</span>
+                          <StatusBadge status={item.status} />
+                        </div>
+                        <p className="text-[11px] text-slate-500 truncate">
+                          <strong className="text-slate-700">{item.fullName}</strong> · {formatDateTime(item.date)}
+                        </p>
+                        {item.notes && (
+                          <p className="text-[11px] text-slate-600 italic bg-white p-2.5 rounded-lg border border-slate-100 mt-1 leading-relaxed">
+                            &quot;{item.notes}&quot;
+                          </p>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
-            )}
+            </div>
           </div>
         </div>
-      </div>
       </div>
 
       {/* ── MODALS ──────────────────────────────────────────────────────── */}

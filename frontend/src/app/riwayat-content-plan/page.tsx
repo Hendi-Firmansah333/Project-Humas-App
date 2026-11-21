@@ -277,36 +277,23 @@ export default function ContentPlanHistoryPage() {
     },
     {
       key: 'actions',
-      header: 'Aksi',
+      header: 'Detail',
       render: (item) => (
-        <div className="flex items-center justify-center gap-1">
+        <div className="flex items-center justify-center">
           <button
+            type="button"
             onClick={() => {
               setSelectedItem(item);
               setIsViewerOpen(true);
             }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-[#003D58] hover:bg-blue-50 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-[#003D58] hover:bg-sky-50 transition-colors cursor-pointer"
             title="Lihat Detail"
           >
             <Eye className="w-4.5 h-4.5" />
           </button>
-          <button
-            onClick={() => handleRestore(item)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer"
-            title="Reaktifkan Konten"
-          >
-            <RotateCcw className="w-4.5 h-4.5" />
-          </button>
-          <button
-            onClick={() => handleOpenDelete(item)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
-            title="Hapus Permanen"
-          >
-            <Trash2 className="w-4.5 h-4.5" />
-          </button>
         </div>
       ),
-      className: 'text-center w-28',
+      className: 'text-center w-20',
     },
   ];
 
@@ -569,51 +556,13 @@ export default function ContentPlanHistoryPage() {
 
               {/* Actions Toolbar */}
               <div className="pt-4 border-t border-slate-100 flex flex-wrap justify-end gap-2.5">
-                <CustomButton variant="outline" size="sm" onClick={() => setIsViewerOpen(false)}>
+                <CustomButton variant="primary" size="sm" onClick={() => setIsViewerOpen(false)}>
                   Tutup
-                </CustomButton>
-                <CustomButton
-                  variant="primary"
-                  size="sm"
-                  icon={RotateCcw}
-                  onClick={() => handleRestore(selectedItem)}
-                >
-                  Aktifkan Kembali
                 </CustomButton>
               </div>
             </div>
           );
         })()}
-      </CustomModal>
-
-      {/* Delete Confirmation Modal */}
-      <CustomModal
-        isOpen={isDeleteOpen}
-        onClose={() => setIsDeleteOpen(false)}
-        title="Konfirmasi Hapus Riwayat Konten"
-        maxWidth="sm"
-      >
-        <div className="text-center py-2 space-y-4">
-          <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
-            <AlertTriangle className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-slate-800">
-              Hapus &quot;{selectedItem?.title}&quot;?
-            </p>
-            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-              Tindakan ini akan menghapus riwayat content plan secara permanen dari database.
-            </p>
-          </div>
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-            <CustomButton variant="outline" onClick={() => setIsDeleteOpen(false)}>
-              Batal
-            </CustomButton>
-            <CustomButton variant="danger" onClick={handleDeleteConfirm}>
-              Ya, Hapus
-            </CustomButton>
-          </div>
-        </div>
       </CustomModal>
     </AdminLayout>
   );

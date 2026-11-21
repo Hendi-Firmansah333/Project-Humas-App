@@ -380,7 +380,7 @@ export default function SchedulePage() {
               </div>
               <button
                 onClick={() => setSelectedMemberFilters(membersList.map((m) => m.id))}
-                className="text-xs font-bold text-[#005CDB] hover:underline cursor-pointer font-['Poppins']"
+                className="text-xs font-bold text-[#003D58] hover:underline cursor-pointer font-['Poppins']"
               >
                 Reset
               </button>
@@ -420,7 +420,7 @@ export default function SchedulePage() {
                           className="w-7 h-7 rounded-full object-cover shrink-0"
                         />
                       ) : (
-                        <div className="w-7 h-7 rounded-full bg-[#E6F0FF] text-[#005CDB] font-bold text-xs flex items-center justify-center shrink-0 font-['Poppins']">
+                        <div className="w-7 h-7 rounded-full bg-sky-50 text-[#003D58] font-bold text-xs flex items-center justify-center shrink-0 font-['Poppins']">
                           {initials}
                         </div>
                       )}

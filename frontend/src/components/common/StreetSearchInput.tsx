@@ -291,7 +291,10 @@ export default function StreetSearchInput({
   };
 
   useEffect(() => {
-    setQuery(value || '');
+    const nextVal = value || '';
+    if (!isUserTypingRef.current) {
+      setQuery((prev) => (prev === nextVal ? prev : nextVal));
+    }
   }, [value]);
 
   // Click outside listener to close dropdown
@@ -601,6 +604,9 @@ export default function StreetSearchInput({
             value={query}
             onChange={(e) => handleInputChange(e.target.value)}
             onFocus={handleInputFocus}
+            onBlur={() => {
+              isUserTypingRef.current = false;
+            }}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
             className={`w-full h-[38px] pl-9 pr-9 ${

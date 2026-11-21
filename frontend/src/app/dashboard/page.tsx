@@ -10,7 +10,7 @@ import {
   CalendarCheck2, FileText, Users, Clock, AlertCircle,
   TrendingUp, ArrowRight, Camera, Plus,
   ZoomIn, ZoomOut, LocateFixed, Tv, ExternalLink, RotateCcw,
-  BarChart3, Loader2,
+  BarChart3, Loader2, ShieldAlert, Radio, CalendarClock,
 } from 'lucide-react';
 import { dashboardService, locationService, activityService } from '@/services';
 import { getStoredUser } from '@/utils/session';
@@ -308,7 +308,7 @@ export default function DashboardPage() {
 
   return (
     <AdminLayout title="Dashboard Operasional Humas">
-      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-start pb-6">
+      <div className="grid grid-cols-1 xl:grid-cols-12 gap-4 items-stretch pb-6">
 
         {/* ═════════════════════════════════════════════════════════ */}
         {/* LEFT COLUMN: BANNER, PETA, KEGIATAN, TREND               */}
@@ -455,7 +455,7 @@ export default function DashboardPage() {
           </div>
 
           {/* 3. Kegiatan Sedang Berjalan (Memuat Kegiatan Riil Dari Database) */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-4.5 shadow-xs flex flex-col gap-3">
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-4.5 shadow-xs flex flex-col gap-3 flex-1">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-[#0F172A] leading-snug font-['Poppins']">
@@ -573,35 +573,19 @@ export default function DashboardPage() {
                 })
               )}
             </div>
-          </div>
 
-          {/* 4. Trend Operasional (6 Bulan Terakhir) */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-4.5 shadow-xs flex flex-col gap-3">
-            <div className="flex items-center justify-between gap-3">
-              <div>
-                <h2 className="text-sm font-bold text-[#0F172A] leading-snug font-['Poppins']">
-                  Trend Operasional (6 Bulan Terakhir)
-                </h2>
-                <p className="text-[11px] text-[#64748B] mt-0.5 font-['Poppins']">
-                  Grafik jumlah kegiatan dan content plan per bulan
-                </p>
-              </div>
-              <TrendingUp className="w-4 h-4 text-[#003D58] shrink-0" />
-            </div>
-
-            {/* Line Chart */}
-            <DashboardMonthlyChart data={monthlyData} maxVal={maxChartVal} />
-
-            {/* Legend */}
-            <div className="flex items-center gap-5 text-xs text-[#334155] pt-1.5 border-t border-slate-100">
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-xs bg-[#003D58]" />
-                <span className="font-medium text-[11px] font-['Poppins']">Kegiatan Diliput</span>
-              </div>
-              <div className="flex items-center gap-2">
-                <span className="w-2.5 h-2.5 rounded-xs bg-[#35C6D4]" />
-                <span className="font-medium text-[11px] font-['Poppins']">Content Plan</span>
-              </div>
+            {/* Footer Ringkasan Kegiatan */}
+            <div className="mt-auto pt-2.5 border-t border-slate-100 flex items-center justify-between gap-2 text-[11px] font-['Poppins']">
+              <span className="text-slate-500 font-medium">
+                Menampilkan {Math.min(realActivities.length, 4)} dari {realActivities.length} kegiatan aktif
+              </span>
+              <Link
+                href="/kegiatan"
+                className="font-bold text-[#003D58] hover:underline inline-flex items-center gap-1"
+              >
+                <span>Semua Kegiatan</span>
+                <ArrowRight className="w-3 h-3" />
+              </Link>
             </div>
           </div>
 
@@ -727,8 +711,179 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* 3. Ringkasan Layanan Humas (Eksternal vs Internal) */}
-          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-4.5 shadow-xs flex flex-col gap-3">
+          {/* 3. Info Penting & Prioritas Operasional (Mengisi area kanan agar seimbang) */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-4.5 shadow-xs flex flex-col justify-between gap-3 flex-1">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-[#0F172A] leading-snug font-['Poppins']">
+                  Info Penting &amp; Prioritas Hari Ini
+                </h2>
+                <p className="text-[11px] text-[#64748B] mt-0.5 font-['Poppins']">
+                  Ringkasan tindakan cepat, status alat, dan piket operasional
+                </p>
+              </div>
+              <ShieldAlert className="w-4 h-4 text-[#003D58] shrink-0" />
+            </div>
+
+            {/* Quick Priority Status List */}
+            <div className="space-y-2">
+              <Link
+                href="/persetujuan"
+                className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-slate-100 bg-slate-50/70 hover:bg-sky-50/60 hover:border-sky-200/70 transition-colors"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-amber-50 text-amber-600 flex items-center justify-center shrink-0">
+                    <Clock className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-[#0F172A] truncate font-['Poppins']">
+                      Menunggu Persetujuan Kepala Humas
+                    </p>
+                    <p className="text-[10px] text-slate-500 truncate font-['Poppins']">
+                      Pengajuan kegiatan &amp; pemeriksaan akhir
+                    </p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-800 text-[11px] font-bold shrink-0">
+                  {stats.pendingApprovalActivities ?? 0}
+                </span>
+              </Link>
+
+              <Link
+                href="/peminjaman-alat"
+                className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-slate-100 bg-slate-50/70 hover:bg-sky-50/60 hover:border-sky-200/70 transition-colors"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div
+                    className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 ${
+                      (stats.overdueLoans ?? 0) > 0
+                        ? 'bg-rose-50 text-rose-600'
+                        : 'bg-sky-50 text-[#003D58]'
+                    }`}
+                  >
+                    <Camera className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-[#0F172A] truncate font-['Poppins']">
+                      {(stats.overdueLoans ?? 0) > 0
+                        ? 'Peminjaman Alat Terlambat'
+                        : 'Status Peminjaman Peralatan'}
+                    </p>
+                    <p className="text-[10px] text-slate-500 truncate font-['Poppins']">
+                      {stats.activeLoans ?? 0} peminjaman aktif • {stats.unitsAvailable ?? 0} unit tersedia
+                    </p>
+                  </div>
+                </div>
+                <span
+                  className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold shrink-0 ${
+                    (stats.overdueLoans ?? 0) > 0
+                      ? 'bg-rose-100 text-rose-700'
+                      : 'bg-sky-100 text-[#003D58]'
+                  }`}
+                >
+                  {(stats.overdueLoans ?? 0) > 0
+                    ? `${stats.overdueLoans} Terlambat`
+                    : 'Aman'}
+                </span>
+              </Link>
+
+              <Link
+                href="/live-location"
+                className="flex items-center justify-between gap-3 p-2.5 rounded-xl border border-slate-100 bg-slate-50/70 hover:bg-sky-50/60 hover:border-sky-200/70 transition-colors"
+              >
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <div className="w-8 h-8 rounded-lg bg-emerald-50 text-emerald-600 flex items-center justify-center shrink-0">
+                    <Radio className="w-4 h-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-[#0F172A] truncate font-['Poppins']">
+                      Pemantauan GPS Tim Lapangan
+                    </p>
+                    <p className="text-[10px] text-slate-500 truncate font-['Poppins']">
+                      Anggota humas aktif mengirim lokasi real-time
+                    </p>
+                  </div>
+                </div>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-[11px] font-bold shrink-0">
+                  {locations.filter((l) => l.isOnline).length}/{locations.length} Online
+                </span>
+              </Link>
+            </div>
+
+            {/* Petugas Piket Terdekat */}
+            <div className="pt-2.5 border-t border-slate-100">
+              <div className="flex items-center justify-between mb-2">
+                <span className="inline-flex items-center gap-1.5 text-[11px] font-bold text-[#0F172A] font-['Poppins']">
+                  <CalendarClock className="w-3.5 h-3.5 text-[#003D58]" />
+                  Jadwal Piket Tim Humas
+                </span>
+                <Link
+                  href="/jadwal-piket"
+                  className="text-[11px] font-semibold text-[#003D58] hover:underline font-['Poppins']"
+                >
+                  Lihat Jadwal →
+                </Link>
+              </div>
+              {Array.isArray(dashboardData?.todaySchedules) && dashboardData.todaySchedules.length > 0 ? (
+                <div className="grid grid-cols-2 gap-2">
+                  {dashboardData.todaySchedules.slice(0, 4).map((sched: any, idx: number) => (
+                    <div
+                      key={sched.id || idx}
+                      className="px-2.5 py-1.5 rounded-lg bg-slate-50 border border-slate-100 min-w-0"
+                    >
+                      <p className="text-[11px] font-bold text-slate-800 truncate font-['Poppins']">
+                        {sched.user?.fullName || sched.userName || 'Petugas Humas'}
+                      </p>
+                      <p className="text-[10px] text-slate-500 truncate font-['Poppins']">
+                        {sched.shift || sched.dayOfWeek || 'Piket Operasional'}
+                      </p>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[11px] text-slate-400 italic font-['Poppins']">
+                  Belum ada petugas piket tercatat untuk hari ini.
+                </p>
+              )}
+            </div>
+          </div>
+
+        </div>
+
+        {/* ═════════════════════════════════════════════════════════ */}
+        {/* BALANCED CHART ROW: TREND OPERASIONAL & RINGKASAN LAYANAN */}
+        {/* ═════════════════════════════════════════════════════════ */}
+        <div className="xl:col-span-12 grid grid-cols-1 lg:grid-cols-2 gap-4 items-stretch">
+          {/* Trend Operasional (6 Bulan Terakhir) */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-4.5 shadow-xs flex flex-col justify-between gap-3 h-full">
+            <div className="flex items-center justify-between gap-3">
+              <div>
+                <h2 className="text-sm font-bold text-[#0F172A] leading-snug font-['Poppins']">
+                  Trend Operasional (6 Bulan Terakhir)
+                </h2>
+                <p className="text-[11px] text-[#64748B] mt-0.5 font-['Poppins']">
+                  Grafik jumlah kegiatan dan content plan per bulan
+                </p>
+              </div>
+              <TrendingUp className="w-4 h-4 text-[#003D58] shrink-0" />
+            </div>
+
+            <DashboardMonthlyChart data={monthlyData} maxVal={maxChartVal} />
+
+            <div className="flex items-center gap-5 text-xs text-[#334155] pt-1.5 border-t border-slate-100">
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-xs bg-[#003D58]" />
+                <span className="font-medium text-[11px] font-['Poppins']">Kegiatan Diliput</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="w-2.5 h-2.5 rounded-xs bg-[#35C6D4]" />
+                <span className="font-medium text-[11px] font-['Poppins']">Content Plan</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Ringkasan Layanan Humas (Eksternal vs Internal) */}
+          <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-4.5 shadow-xs flex flex-col justify-between gap-3 h-full">
             <div className="flex items-center justify-between gap-3">
               <div>
                 <h2 className="text-sm font-bold text-[#0F172A] leading-snug font-['Poppins']">
@@ -743,7 +898,6 @@ export default function DashboardPage() {
 
             <DashboardServiceCompChart data={serviceComparisonData} loading={agendaLoading} />
 
-            {/* Legend */}
             <div className="flex items-center gap-5 text-xs text-[#334155] pt-1.5 border-t border-slate-100">
               <div className="flex items-center gap-2">
                 <span className="w-2.5 h-2.5 rounded-xs bg-[#35C6D4]" />
@@ -759,7 +913,6 @@ export default function DashboardPage() {
               </div>
             </div>
           </div>
-
         </div>
 
         {/* ═════════════════════════════════════════════════════════ */}
@@ -767,7 +920,7 @@ export default function DashboardPage() {
         {/* ═════════════════════════════════════════════════════════ */}
         <div className="xl:col-span-12 flex flex-col gap-4">
 
-          {/* 1. 4 Metric Cards (Adjusted to 4-Column Horizontal Grid) */}
+          {/* 1. 4 Metric Cards (Original Clean Dashboard Cards) */}
           <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
             {/* Stat 1: Jumlah Tim Humas */}
             <div className="bg-white rounded-2xl border border-slate-200/90 p-3.5 shadow-xs flex flex-col justify-between">
@@ -842,7 +995,7 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* 2. Ringkasan Inventaris Peralatan Humas */}
+          {/* 2. Ringkasan Inventaris Peralatan Humas (Original Clean Tiles) */}
           <div className="bg-white rounded-2xl border border-slate-200/90 p-4 sm:p-4.5 shadow-xs flex flex-col gap-3">
             <div className="flex items-center justify-between gap-3 flex-wrap">
               <div>

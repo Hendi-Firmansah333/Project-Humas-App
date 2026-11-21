@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/layout/AdminLayout';
-import { CustomButton, StatusBadge } from '@/components/common';
+import { CustomButton, StatusBadge, ConfirmModal } from '@/components/common';
 import {
   User,
   Mail,
@@ -32,6 +32,7 @@ const DEFAULT_UNIT = 'Unit Kehumasan & Publikasi Politeknik Negeri Lampung';
 export default function ProfilePage() {
   const router = useRouter();
   const [loading, setLoading] = useState(true);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [accountStatus, setAccountStatus] = useState('AKTIF');
 
   // Stats State
@@ -79,12 +80,35 @@ export default function ProfilePage() {
     return `${digits.slice(0, 4)}-${digits.slice(4, 8)}-${digits.slice(8, 13)}`;
   };
 
-  const handlePhoneChange = (val: string) => {
-    const formatted = formatPhoneNumber(val);
+  const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const input = e.target;
+    const rawVal = input.value;
+    const cursorPos = input.selectionStart ?? rawVal.length;
+    const digitsBeforeCursor = rawVal.slice(0, cursorPos).replace(/\D/g, '').length;
+
+    const formatted = formatPhoneNumber(rawVal);
     setProfileData((prev) => ({ ...prev, phone: formatted }));
     if (formErrors.phone) {
       setFormErrors((prev) => ({ ...prev, phone: undefined }));
     }
+
+    requestAnimationFrame(() => {
+      let seenDigits = 0;
+      let nextCursor = formatted.length;
+      for (let i = 0; i < formatted.length; i++) {
+        if (/\d/.test(formatted[i])) {
+          if (seenDigits === digitsBeforeCursor) {
+            nextCursor = i;
+            break;
+          }
+          seenDigits++;
+        }
+      }
+      if (digitsBeforeCursor === 0) {
+        nextCursor = 0;
+      }
+      input.setSelectionRange(nextCursor, nextCursor);
+    });
   };
 
   const handleEmailChange = (val: string) => {
@@ -289,6 +313,7 @@ export default function ProfilePage() {
   };
 
   const handleLogout = () => {
+    setShowLogoutConfirm(false);
     localStorage.removeItem('humass_token');
     localStorage.removeItem('humass_user');
     toast.success('Anda berhasil keluar dari sesi.');
@@ -405,7 +430,7 @@ export default function ProfilePage() {
             <CustomButton
               variant="danger-outline"
               icon={LogOut}
-              onClick={handleLogout}
+              onClick={() => setShowLogoutConfirm(true)}
               className="w-full justify-center"
             >
               Keluar Sesi (Logout)
@@ -486,7 +511,7 @@ export default function ProfilePage() {
                   <input
                     type="text"
                     value={profileData.phone}
-                    onChange={(e) => handlePhoneChange(e.target.value)}
+                    onChange={handlePhoneChange}
                     placeholder="Contoh: 0812-3456-7890"
                     className={`w-full h-[36px] bg-white border ${
                       formErrors.phone ? 'border-rose-400 focus:border-rose-500 focus:ring-rose-500/20' : 'border-[#E2E8F0] focus:border-[#35C6D4] focus:ring-[#35C6D4]/30'
@@ -645,6 +670,17 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+        title="Konfirmasi Keluar"
+        message="Apakah Anda yakin ingin keluar dari sesi aplikasi HUMASS Polinela?"
+        confirmText="Ya, Keluar"
+        cancelText="Batal"
+        variant="danger"
+        icon={LogOut}
+      />
     </AdminLayout>
   );
 }

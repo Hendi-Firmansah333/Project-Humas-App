@@ -195,7 +195,7 @@ export default function LoginPage() {
               className="w-24 h-24 sm:w-28 sm:h-28 object-contain drop-shadow-sm animate-pulse"
             />
             <div className="flex items-center gap-2.5 mt-2">
-              <div className="w-5 h-5 border-2 border-[#005CDB] border-t-transparent rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-[#003D58] border-t-transparent rounded-full animate-spin" />
               <span className="text-xs font-semibold text-slate-500 tracking-wider uppercase">
                 Memuat...
               </span>
@@ -453,7 +453,7 @@ export default function LoginPage() {
             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-100 text-slate-700 text-xs font-semibold mb-3">
               <span>{modalData.fullName}</span>
               <span className="text-slate-400">•</span>
-              <span className="text-[#005CDB] font-bold">{modalData.roleLabel}</span>
+              <span className="text-[#003D58] font-bold">{modalData.roleLabel}</span>
             </div>
           )}
 
@@ -472,7 +472,7 @@ export default function LoginPage() {
             <button
               type="button"
               onClick={() => setModalData((prev) => ({ ...prev, isOpen: false }))}
-              className="w-full py-2.5 px-6 rounded-xl text-white text-sm font-semibold bg-[#005CDB] hover:bg-[#004FBD] active:bg-[#0044A5] transition-all shadow-[0px_4px_16px_rgba(0,92,219,0.3)] cursor-pointer"
+              className="w-full py-2.5 px-6 rounded-xl text-white text-sm font-semibold bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] transition-all shadow-[0px_4px_16px_rgba(0,61,88,0.25)] cursor-pointer"
             >
               Saya Mengerti
             </button>

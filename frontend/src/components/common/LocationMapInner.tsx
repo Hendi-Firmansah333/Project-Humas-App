@@ -410,7 +410,7 @@ export default function LocationMapInner({
 
             {isSearching && (
               <div className="absolute right-8 top-1/2 -translate-y-1/2">
-                <Loader2 className="w-3.5 h-3.5 text-[#005CDB] animate-spin" />
+                <Loader2 className="w-3.5 h-3.5 text-[#003D58] animate-spin" />
               </div>
             )}
 
@@ -534,9 +534,9 @@ export default function LocationMapInner({
         className="absolute top-3 right-3 z-20 bg-white/95 hover:bg-white text-slate-700 hover:text-teal-700 border border-slate-200/90 p-2.5 rounded-xl shadow-md transition-all active:scale-95 flex items-center justify-center disabled:opacity-50"
       >
         {isLocating ? (
-          <Loader2 className="w-4 h-4 text-[#005CDB] animate-spin" />
+          <Loader2 className="w-4 h-4 text-[#003D58] animate-spin" />
         ) : (
-          <Locate className="w-4 h-4 text-[#005CDB]" />
+          <Locate className="w-4 h-4 text-[#003D58]" />
         )}
       </button>
 
@@ -545,7 +545,7 @@ export default function LocationMapInner({
         <div className="absolute bottom-2.5 left-14 right-3 z-10 pointer-events-none">
           <div className="bg-white/90 backdrop-blur-md border border-slate-200/80 px-3 py-1.5 rounded-xl shadow-sm flex items-center justify-between text-[11px] text-slate-600">
             <div className="flex items-center gap-1.5 truncate">
-              <span className="text-[#005CDB] font-bold inline-flex items-center gap-1">
+              <span className="text-[#003D58] font-bold inline-flex items-center gap-1">
                 <Lightbulb className="w-3.5 h-3.5 shrink-0" /> Tips:
               </span>
               <span className="truncate">Klik peta atau geser pin merah untuk memindahkan titik.</span>

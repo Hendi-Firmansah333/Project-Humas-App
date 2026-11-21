@@ -562,63 +562,91 @@ export default function IncomingLettersPage() {
   if (loading) {
     return (
       <AdminLayout title="Modul Surat Masuk Humas">
-        <TableSkeleton statsCount={3} rows={5} />
+        <TableSkeleton statsCount={4} rows={5} />
       </AdminLayout>
     );
   }
 
   return (
     <AdminLayout title="Modul Surat Masuk Humas">
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Surat Masuk Aktif"
-          value={activeLetters.length}
-          subtitle="Belum disetujui / diproses"
-          icon={Mail}
-          iconBgClass="bg-sky-50"
-          iconColorClass="text-[#003D58]"
-        />
-        <StatCard
-          title="Menunggu Persetujuan"
-          value={activeLetters.filter((l) => l.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' || l.status === 'MENUNGGU_VERIFIKASI_ADMIN' || l.status === 'BARU').length}
-          subtitle="Perlu disposisi Kepala Humas"
-          icon={Clock}
-          iconBgClass="bg-amber-50"
-          iconColorClass="text-amber-600"
-        />
-        <StatCard
-          title="Sudah Ditugaskan"
-          value={letters.filter((l) => l.status === 'DITUGASKAN' || l.status === 'SELESAI').length}
-          subtitle="Sudah menjadi kegiatan peliputan"
-          icon={CheckCircle2}
-          iconBgClass="bg-blue-50"
-          iconColorClass="text-[#003D58]"
-        />
-        <StatCard
-          title="Surat di Riwayat"
-          value={letters.filter((l) => l.status === 'DISETUJUI' || l.status === 'DITUGASKAN' || l.status === 'SELESAI' || l.status === 'DITOLAK').length}
-          subtitle="Telah disetujui / diproses"
-          icon={Archive}
-          iconBgClass="bg-emerald-50"
-          iconColorClass="text-emerald-600"
-        />
-      </div>
+      <div className="space-y-5">
+        {/* Stat Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          <StatCard
+            title="Surat Masuk Aktif"
+            value={activeLetters.length}
+            subtitle="Belum disetujui / diproses"
+            icon={Mail}
+            iconBgClass="bg-sky-50"
+            iconColorClass="text-[#003D58]"
+          />
+          <StatCard
+            title="Menunggu Persetujuan"
+            value={activeLetters.filter((l) => l.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' || l.status === 'MENUNGGU_VERIFIKASI_ADMIN' || l.status === 'BARU').length}
+            subtitle="Perlu disposisi Kepala Humas"
+            icon={Clock}
+            iconBgClass="bg-amber-50"
+            iconColorClass="text-amber-600"
+          />
+          <StatCard
+            title="Sudah Ditugaskan"
+            value={letters.filter((l) => l.status === 'DITUGASKAN' || l.status === 'SELESAI').length}
+            subtitle="Sudah menjadi kegiatan peliputan"
+            icon={CheckCircle2}
+            iconBgClass="bg-blue-50"
+            iconColorClass="text-[#003D58]"
+          />
+          <StatCard
+            title="Surat di Riwayat"
+            value={letters.filter((l) => l.status === 'DISETUJUI' || l.status === 'DITUGASKAN' || l.status === 'SELESAI' || l.status === 'DITOLAK').length}
+            subtitle="Telah disetujui / diproses"
+            icon={Archive}
+            iconBgClass="bg-emerald-50"
+            iconColorClass="text-emerald-600"
+          />
+        </div>
 
-      {/* Main Content Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs">
-        <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+        {/* Header Banner & Controls */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-lg font-bold text-slate-900 tracking-tight">Daftar Surat Masuk Aktif</h1>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Kelola pencatatan surat masuk, berkas digital, dan pengajuan persetujuan Kepala Humas.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Link
+                href="/riwayat-surat"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-colors"
+                title="Lihat Surat yang Disetujui di Riwayat Surat"
+              >
+                <History className="w-4 h-4 text-[#003D58]" />
+                <span>Buka Riwayat Surat</span>
+              </Link>
+              <CustomButton variant="primary" icon={Plus} onClick={handleOpenCreate}>
+                Input Surat Masuk
+              </CustomButton>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-slate-100">
             <SearchBox
               value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Cari no. surat / pengirim / perihal..."
-              className="w-full sm:w-72"
+              onChange={(val) => {
+                setSearchQuery(val);
+                setCurrentPage(1);
+              }}
+              placeholder="Cari no. surat, pengirim, instansi, atau perihal..."
+              className="w-full sm:w-80 md:w-96"
             />
             <FilterDropdown
               placeholder="Semua Status Aktif"
               value={statusFilter}
-              onChange={setStatusFilter}
+              onChange={(val) => {
+                setStatusFilter(val);
+                setCurrentPage(1);
+              }}
               options={[
                 { label: 'Menunggu Persetujuan', value: 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' },
                 { label: 'Baru / Draft', value: 'BARU' },
@@ -626,33 +654,21 @@ export default function IncomingLettersPage() {
               className="w-full sm:w-56"
             />
           </div>
-          <div className="flex items-center gap-2">
-            <Link
-              href="/riwayat-surat"
-              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-colors"
-              title="Lihat Surat yang Disetujui di Riwayat Surat"
-            >
-              <History className="w-4 h-4 text-[#003D58]" />
-              <span className="hidden sm:inline">Buka Riwayat Surat</span>
-            </Link>
-            <CustomButton variant="primary" icon={Plus} onClick={handleOpenCreate}>
-              Input Surat Masuk
-            </CustomButton>
-          </div>
         </div>
 
-        <DataTable
-          columns={columns}
-          data={paginatedLetters}
-          emptyMessage="Tidak ada surat masuk aktif saat ini. Seluruh surat yang telah disetujui otomatis masuk ke Riwayat Surat."
-        />
-
-        <div className="p-4 border-t border-slate-100">
+        {/* Main Table Card */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <DataTable
+            columns={columns}
+            data={paginatedLetters}
+            emptyMessage="Tidak ada surat masuk aktif saat ini. Seluruh surat yang telah disetujui otomatis masuk ke Riwayat Surat."
+          />
           <PaginationBar
             currentPage={currentPage}
-            totalPages={totalPages}
+            totalPages={totalPages || 1}
             totalItems={filteredLetters.length}
             onPageChange={setCurrentPage}
+            itemName="surat"
           />
         </div>
       </div>
