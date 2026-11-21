@@ -230,12 +230,16 @@ export class LiveLocationGateway implements OnGatewayConnection {
       ...(typeof rawDto.isOnline === 'boolean' ? { isOnline: rawDto.isOnline } : {}),
     };
 
-    // Simpan ke database menggunakan user.id hasil verifikasi JWT (abaikan userId dari payload client)
-    const updated = await this.liveLocationService.updateLocation(authUser.id, dto);
+    try {
+      // Simpan ke database menggunakan user.id hasil verifikasi JWT (hanya role USER yang diizinkan)
+      const updated = await this.liveLocationService.updateLocation(authUser.id, dto);
 
-    // Broadcast hanya ke ruang admin terautentikasi (tidak membuka koordinat mentah ke socket USER lain)
-    this.server.to(ADMIN_ROOM).emit('locationUpdated', updated);
+      // Broadcast hanya ke ruang admin terautentikasi
+      this.server.to(ADMIN_ROOM).emit('locationUpdated', updated);
 
-    return { status: 'success', data: updated };
+      return { status: 'success', data: updated };
+    } catch (err: any) {
+      return { status: 'error', message: err?.message || 'Tidak diizinkan.' };
+    }
   }
 }

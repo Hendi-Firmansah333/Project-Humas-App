@@ -20,15 +20,15 @@ export default function CustomButton({
   ...props
 }: CustomButtonProps) {
   const baseStyles =
-    'font-semibold rounded-xl transition-all inline-flex items-center justify-center gap-2 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed shrink-0';
+    'font-bold rounded-full transition-all inline-flex items-center justify-center gap-2 cursor-pointer disabled:bg-[#DBDCE0] disabled:text-white disabled:border-transparent disabled:shadow-none disabled:cursor-not-allowed disabled:opacity-100 shrink-0';
 
   const variantStyles = {
-    primary: 'bg-[#006971] hover:bg-[#00555c] active:bg-[#004a50] text-white shadow-xs shadow-[#006971]/20',
-    secondary: 'bg-slate-100 hover:bg-slate-200 text-slate-700',
-    outline: 'bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 shadow-2xs',
-    danger: 'bg-red-600 hover:bg-red-700 text-white shadow-xs shadow-red-600/20',
-    'danger-outline': 'bg-white border border-red-200 hover:bg-red-50 text-red-600',
-    warning: 'bg-amber-500 hover:bg-amber-600 text-white shadow-xs shadow-amber-500/20',
+    primary: 'bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white shadow-xs shadow-[#003D58]/25',
+    secondary: 'bg-slate-100 hover:bg-slate-200 text-[#202938]',
+    outline: 'bg-white border-2 border-[#003D58] hover:bg-[#003D58]/10 text-[#003D58] shadow-2xs',
+    danger: 'bg-[#B8484A] hover:bg-[#A33D3F] active:bg-[#8E3234] text-white shadow-xs shadow-[#B8484A]/25',
+    'danger-outline': 'bg-white border border-[#B8484A] hover:bg-[#F9E9E9] text-[#B8484A]',
+    warning: 'bg-[#E99710] hover:bg-[#D4860B] active:bg-[#BF7608] text-white shadow-xs shadow-[#E99710]/25',
   };
 
   const sizeStyles = {
@@ -44,7 +44,7 @@ export default function CustomButton({
       {...props}
     >
       {Icon && iconPosition === 'left' && <Icon className="w-4 h-4 shrink-0" />}
-      <span>{children}</span>
+      <span className="inline-flex items-center gap-1.5 whitespace-nowrap">{children}</span>
       {Icon && iconPosition === 'right' && <Icon className="w-4 h-4 shrink-0" />}
     </button>
   );

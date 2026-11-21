@@ -1,7 +1,8 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
+import Link from 'next/link';
 import AdminLayout from '@/components/layout/AdminLayout';
 import {
   StatCard,
@@ -12,10 +13,13 @@ import {
   FilterDropdown,
   CustomButton,
   CustomModal,
+  ConfirmModal,
   PaginationBar,
-  LocationPicker,
+  StreetSearchInput,
+  CustomDatePicker,
+  CustomTimePicker,
+  TableSkeleton,
 } from '@/components/common';
-import DashboardSkeleton from '@/components/common/DashboardSkeleton';
 import {
   Mail,
   Plus,
@@ -26,40 +30,69 @@ import {
   Building,
   FileText,
   CalendarCheck2,
+  CalendarPlus,
   ExternalLink,
   AlertTriangle,
   Clock,
   CheckCircle2,
   RotateCcw,
   MapPin,
+  Archive,
+  XCircle,
+  History,
 } from 'lucide-react';
-import { IncomingLetter } from '@/types';
+import { IncomingLetter, User } from '@/types';
 import { formatDateID } from '@/utils/formatters';
 import { toast } from 'sonner';
-import { incomingLetterService } from '@/services';
+import { incomingLetterService, userService } from '@/services';
 import { getStoredUser } from '@/utils/session';
+import { openFileInNewTab, getFileViewUrl } from '@/utils/api-helpers';
 
 export default function IncomingLettersPage() {
   const router = useRouter();
   const [letters, setLetters] = useState<IncomingLetter[]>([]);
+  const [users, setUsers] = useState<User[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
   const itemsPerPage = 5;
+  const [currentUser, setCurrentUser] = useState<User | null>(null);
 
   // Modals
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
   const [isDeleteOpen, setIsDeleteOpen] = useState(false);
+  const [isRejectModalOpen, setIsRejectModalOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
   const [isCreateActivityOpen, setIsCreateActivityOpen] = useState(false);
   const [selectedLetter, setSelectedLetter] = useState<IncomingLetter | null>(null);
 
   // Form validation & UI states matching design reference
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [showValidationErrorBanner, setShowValidationErrorBanner] = useState(false);
-  const [showMapPicker, setShowMapPicker] = useState(false);
+
+  // File upload state (drag-and-drop berkas surat)
+  const [uploadedFile, setUploadedFile] = useState<{ name: string; base64: string } | null>(null);
+  const [isDraggingFile, setIsDraggingFile] = useState(false);
+  const dropZoneRef = useRef<HTMLLabelElement>(null);
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: React.ReactNode;
+    confirmText: string;
+    variant: 'primary' | 'warning' | 'danger';
+    onConfirm: () => Promise<void>;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Ya, Lanjutkan',
+    variant: 'primary',
+    onConfirm: async () => {},
+  });
+  const [isConfirming, setIsConfirming] = useState(false);
 
   // Letter Form State
   const [letterForm, setLetterForm] = useState({
@@ -72,7 +105,7 @@ export default function IncomingLettersPage() {
     destination: 'Kepala Bagian Humas Polinela',
     fileUrl: '',
     notes: '',
-    status: 'MENUNGGU_VERIFIKASI_ADMIN',
+    status: 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS',
     eventLocation: '',
     eventDate: '',
     startTime: '',
@@ -91,6 +124,10 @@ export default function IncomingLettersPage() {
     endTime: '16:00',
     location: '',
     description: '',
+    latitude: '',
+    longitude: '',
+    radius: '100',
+    picId: 0,
   });
 
   const loadLetters = async () => {
@@ -110,17 +147,34 @@ export default function IncomingLettersPage() {
       router.push('/dashboard');
       return;
     }
+    setCurrentUser(user as any);
 
     const init = async () => {
       setLoading(true);
-      await loadLetters();
+      await Promise.all([
+        loadLetters(),
+        userService.getAll().then((data) => {
+          const list = Array.isArray(data) ? data : (data as any)?.items || [];
+          setUsers(list);
+        }).catch(() => {}),
+      ]);
       setLoading(false);
     };
     init();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const filteredLetters = letters.filter((item) => {
+  // Hanya surat masuk aktif (belum disetujui/ditolak) yang tampil di modul Surat Masuk.
+  // Begitu disetujui oleh Kepala Humas, surat langsung berpindah ke Riwayat Surat!
+  const activeLetters = letters.filter(
+    (item) =>
+      item.status === 'BARU' ||
+      item.status === 'DRAFT' ||
+      item.status === 'MENUNGGU_VERIFIKASI_ADMIN' ||
+      item.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS'
+  );
+
+  const filteredLetters = activeLetters.filter((item) => {
     const matchSearch =
       (item.letterNumber || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.sender || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -183,7 +237,7 @@ export default function IncomingLettersPage() {
       destination: 'Kepala Bagian Humas Polinela',
       fileUrl: '',
       notes: '',
-      status: 'MENUNGGU_VERIFIKASI_ADMIN',
+      status: 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS',
       eventLocation: '',
       eventDate: '',
       startTime: '',
@@ -192,9 +246,9 @@ export default function IncomingLettersPage() {
       longitude: '',
       radius: '100',
     });
+    setUploadedFile(null);
     setFormErrors({});
     setShowValidationErrorBanner(false);
-    setShowMapPicker(false);
     setIsCreateOpen(true);
   };
 
@@ -219,22 +273,31 @@ export default function IncomingLettersPage() {
       longitude: letter.longitude != null ? String(letter.longitude) : '',
       radius: letter.radius != null ? String(letter.radius) : '100',
     });
+    // If letter already has a file, show it as already uploaded
+    setUploadedFile(letter.fileUrl ? { name: 'Berkas tersimpan', base64: letter.fileUrl } : null);
     setFormErrors({});
     setShowValidationErrorBanner(false);
-    setShowMapPicker(false);
     setIsEditOpen(true);
   };
 
   const handleOpenCreateActivity = (letter: IncomingLetter) => {
+    if (currentUser?.role !== 'SUPER_ADMIN') {
+      toast.error('Hanya Kepala Humas yang dapat membuat agenda kegiatan.');
+      return;
+    }
     setSelectedLetter(letter);
     setActivityForm({
       title: `Peliputan: ${letter.subject}`,
       category: 'Liputan Eksternal',
-      date: new Date().toISOString().split('T')[0],
-      startTime: '08:00',
-      endTime: '16:00',
-      location: letter.institution,
+      date: letter.eventDate ? letter.eventDate.split('T')[0] : new Date().toISOString().split('T')[0],
+      startTime: letter.startTime || '08:00',
+      endTime: letter.endTime || '16:00',
+      location: letter.eventLocation || letter.institution,
       description: `Kegiatan tindak lanjut dari Surat Masuk No. ${letter.letterNumber} (${letter.sender} - ${letter.institution}). Perihal: ${letter.subject}.`,
+      latitude: letter.latitude != null ? String(letter.latitude) : '',
+      longitude: letter.longitude != null ? String(letter.longitude) : '',
+      radius: letter.radius != null ? String(letter.radius) : '100',
+      picId: 0,
     });
     setIsCreateActivityOpen(true);
   };
@@ -283,31 +346,31 @@ export default function IncomingLettersPage() {
     }
   };
 
-  const handleVerifyAdmin = async (letter: IncomingLetter) => {
-    if (!confirm(`Verifikasi kelengkapan surat No. ${letter.letterNumber} dan kirim ke Kepala Humas untuk disetujui?`)) return;
-    try {
-      await incomingLetterService.verifyAdmin(letter.id);
-      toast.success('Surat telah diverifikasi dan dikirim ke Kepala Humas!');
-      await loadLetters();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Gagal memverifikasi surat.');
-    }
-  };
-
   const handleActivityFromLetterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!selectedLetter) return;
     try {
-      const act = await incomingLetterService.createActivity(selectedLetter.id, {
-        ...activityForm,
+      const payload: any = {
+        title: activityForm.title,
+        category: activityForm.category,
         date: `${activityForm.date}T08:00:00Z`,
-      });
+        startTime: activityForm.startTime,
+        endTime: activityForm.endTime,
+        location: activityForm.location,
+        description: activityForm.description,
+        radius: activityForm.radius ? parseFloat(activityForm.radius) : 100,
+      };
+      if (activityForm.latitude) payload.latitude = parseFloat(activityForm.latitude);
+      if (activityForm.longitude) payload.longitude = parseFloat(activityForm.longitude);
+      if (activityForm.picId && activityForm.picId > 0) payload.picId = Number(activityForm.picId);
+
+      const act = await incomingLetterService.createActivity(selectedLetter.id, payload);
       setIsCreateActivityOpen(false);
-      toast.success('Kegiatan berhasil dibuat dan dikirim ke Kepala Humas untuk persetujuan!');
+      toast.success('Kegiatan berhasil diajukan ke Kepala Humas!');
       await loadLetters();
       router.push(`/kegiatan/${act.id}`);
     } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Gagal membuat kegiatan dari surat.');
+      toast.error(err.response?.data?.message || 'Gagal mengajukan kegiatan dari surat.');
     }
   };
 
@@ -321,6 +384,70 @@ export default function IncomingLettersPage() {
     } catch {
       toast.error('Gagal menghapus surat masuk.');
     }
+  };
+
+  const handleApproveLetter = (id: number) => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Konfirmasi Persetujuan Surat',
+      message: 'Apakah Anda yakin ingin menyetujui surat masuk ini? Surat yang disetujui akan langsung dipindahkan ke Riwayat Surat.',
+      confirmText: 'Ya, Setujui Surat',
+      variant: 'primary',
+      onConfirm: async () => {
+        setIsConfirming(true);
+        try {
+          await incomingLetterService.approve(id);
+          toast.success('Surat masuk telah disetujui dan langsung dipindahkan ke Riwayat Surat.');
+          setIsDetailOpen(false);
+          await loadLetters();
+        } catch (err: any) {
+          toast.error(err.response?.data?.message || 'Gagal menyetujui surat masuk.');
+        } finally {
+          setIsConfirming(false);
+        }
+      },
+    });
+  };
+
+  const handleRejectLetter = async () => {
+    if (!selectedLetter) return;
+    if (!rejectReason.trim()) {
+      toast.error('Alasan penolakan surat wajib diisi.');
+      return;
+    }
+    try {
+      await incomingLetterService.reject(selectedLetter.id, rejectReason.trim());
+      toast.success('Surat masuk ditolak dan dipindahkan ke Riwayat Surat.');
+      setIsRejectModalOpen(false);
+      setIsDetailOpen(false);
+      setRejectReason('');
+      await loadLetters();
+    } catch (err: any) {
+      toast.error(err.response?.data?.message || 'Gagal menolak surat masuk.');
+    }
+  };
+
+  const handleCompleteLetter = (id: number) => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Konfirmasi Selesaikan Surat',
+      message: 'Tandai surat ini selesai dan simpan ke arsip Riwayat Surat?',
+      confirmText: 'Ya, Tandai Selesai',
+      variant: 'primary',
+      onConfirm: async () => {
+        setIsConfirming(true);
+        try {
+          await incomingLetterService.complete(id);
+          toast.success('Surat berhasil ditandai selesai dan dipindahkan ke Riwayat Surat.');
+          setIsDetailOpen(false);
+          await loadLetters();
+        } catch (err: any) {
+          toast.error(err.response?.data?.message || 'Gagal menyelesaikan surat masuk.');
+        } finally {
+          setIsConfirming(false);
+        }
+      },
+    });
   };
 
   const columns: Column<IncomingLetter>[] = [
@@ -383,27 +510,49 @@ export default function IncomingLettersPage() {
           >
             <Eye className="w-4 h-4" />
           </button>
-          {(item.status === 'BARU' || item.status === 'DRAFT' || item.status === 'MENUNGGU_VERIFIKASI_ADMIN' || item.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS') && (
+
+          {/* Persetujuan Langsung Kepala Humas */}
+          {currentUser?.role === 'SUPER_ADMIN' && item.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' && (
             <>
               <button
-                onClick={() => handleOpenEdit(item)}
-                className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
-                title="Edit Surat"
+                onClick={() => handleApproveLetter(item.id)}
+                className="px-2 py-1.5 rounded-lg border border-emerald-300 bg-emerald-50 hover:bg-emerald-100 text-emerald-800 font-bold text-xs transition-colors cursor-pointer inline-flex items-center gap-1 shadow-2xs"
+                title="Setujui Surat Masuk Ini"
               >
-                <Edit3 className="w-4 h-4" />
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                <span className="hidden sm:inline">Setujui</span>
               </button>
               <button
                 onClick={() => {
                   setSelectedLetter(item);
-                  setIsDeleteOpen(true);
+                  setIsRejectModalOpen(true);
                 }}
                 className="p-1.5 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 transition-colors cursor-pointer"
-                title="Hapus Surat"
+                title="Tolak Surat"
               >
-                <Trash2 className="w-4 h-4" />
+                <XCircle className="w-4 h-4" />
               </button>
             </>
           )}
+
+          {/* Edit dan Hapus selalu tersedia di tombol tabel */}
+          <button
+            onClick={() => handleOpenEdit(item)}
+            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
+            title="Edit Surat"
+          >
+            <Edit3 className="w-4 h-4" />
+          </button>
+          <button
+            onClick={() => {
+              setSelectedLetter(item);
+              setIsDeleteOpen(true);
+            }}
+            className="p-1.5 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 transition-colors cursor-pointer"
+            title="Hapus Surat"
+          >
+            <Trash2 className="w-4 h-4" />
+          </button>
         </div>
       ),
       className: 'text-right',
@@ -413,82 +562,113 @@ export default function IncomingLettersPage() {
   if (loading) {
     return (
       <AdminLayout title="Modul Surat Masuk Humas">
-        <DashboardSkeleton />
+        <TableSkeleton statsCount={4} rows={5} />
       </AdminLayout>
     );
   }
 
   return (
     <AdminLayout title="Modul Surat Masuk Humas">
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
-        <StatCard
-          title="Total Surat Masuk"
-          value={letters.length}
-          subtitle="Tercatat dalam sistem"
-          icon={Mail}
-          iconBgClass="bg-teal-50"
-          iconColorClass="text-teal-600"
-        />
-        <StatCard
-          title="Surat Baru / Diproses"
-          value={letters.filter((l) => l.status === 'BARU' || l.status === 'DIPROSES').length}
-          subtitle="Menunggu tindak lanjut"
-          icon={Clock}
-          iconBgClass="bg-amber-50"
-          iconColorClass="text-amber-600"
-        />
-        <StatCard
-          title="Sudah Ditindaklanjuti"
-          value={letters.filter((l) => l.status === 'DITINDAKLANJUTI' || l.status === 'SELESAI').length}
-          subtitle="Terhubung dengan kegiatan"
-          icon={CheckCircle2}
-          iconBgClass="bg-emerald-50"
-          iconColorClass="text-emerald-600"
-        />
-      </div>
-
-      {/* Main Content Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs">
-        <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
-            <SearchBox
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Cari no. surat / pengirim / perihal..."
-              className="w-full sm:w-72"
-            />
-            <FilterDropdown
-              placeholder="Semua Status"
-              value={statusFilter}
-              onChange={setStatusFilter}
-              options={[
-                { label: 'Menunggu Verifikasi', value: 'MENUNGGU_VERIFIKASI_ADMIN' },
-                { label: 'Menunggu Persetujuan', value: 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' },
-                { label: 'Disetujui', value: 'DISETUJUI' },
-                { label: 'Ditolak', value: 'DITOLAK' },
-                { label: 'Ditugaskan', value: 'DITUGASKAN' },
-              ]}
-              className="w-full sm:w-48"
-            />
-          </div>
-          <CustomButton variant="primary" icon={Plus} onClick={handleOpenCreate}>
-            Input Surat Masuk
-          </CustomButton>
+      <div className="space-y-5">
+        {/* Stat Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          <StatCard
+            title="Surat Masuk Aktif"
+            value={activeLetters.length}
+            subtitle="Belum disetujui / diproses"
+            icon={Mail}
+            iconBgClass="bg-sky-50"
+            iconColorClass="text-[#003D58]"
+          />
+          <StatCard
+            title="Menunggu Persetujuan"
+            value={activeLetters.filter((l) => l.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' || l.status === 'MENUNGGU_VERIFIKASI_ADMIN' || l.status === 'BARU').length}
+            subtitle="Perlu disposisi Kepala Humas"
+            icon={Clock}
+            iconBgClass="bg-amber-50"
+            iconColorClass="text-amber-600"
+          />
+          <StatCard
+            title="Sudah Ditugaskan"
+            value={letters.filter((l) => l.status === 'DITUGASKAN' || l.status === 'SELESAI').length}
+            subtitle="Sudah menjadi kegiatan peliputan"
+            icon={CheckCircle2}
+            iconBgClass="bg-blue-50"
+            iconColorClass="text-[#003D58]"
+          />
+          <StatCard
+            title="Surat di Riwayat"
+            value={letters.filter((l) => l.status === 'DISETUJUI' || l.status === 'DITUGASKAN' || l.status === 'SELESAI' || l.status === 'DITOLAK').length}
+            subtitle="Telah disetujui / diproses"
+            icon={Archive}
+            iconBgClass="bg-emerald-50"
+            iconColorClass="text-emerald-600"
+          />
         </div>
 
-        <DataTable
-          columns={columns}
-          data={paginatedLetters}
-          emptyMessage="Belum ada pencatatan surat masuk."
-        />
+        {/* Header Banner & Controls */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-lg font-bold text-slate-900 tracking-tight">Daftar Surat Masuk Aktif</h1>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Kelola pencatatan surat masuk, berkas digital, dan pengajuan persetujuan Kepala Humas.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <Link
+                href="/riwayat-surat"
+                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-colors"
+                title="Lihat Surat yang Disetujui di Riwayat Surat"
+              >
+                <History className="w-4 h-4 text-[#003D58]" />
+                <span>Buka Riwayat Surat</span>
+              </Link>
+              <CustomButton variant="primary" icon={Plus} onClick={handleOpenCreate}>
+                Input Surat Masuk
+              </CustomButton>
+            </div>
+          </div>
 
-        <div className="p-4 border-t border-slate-100">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-slate-100">
+            <SearchBox
+              value={searchQuery}
+              onChange={(val) => {
+                setSearchQuery(val);
+                setCurrentPage(1);
+              }}
+              placeholder="Cari no. surat, pengirim, instansi, atau perihal..."
+              className="w-full sm:w-80 md:w-96"
+            />
+            <FilterDropdown
+              placeholder="Semua Status Aktif"
+              value={statusFilter}
+              onChange={(val) => {
+                setStatusFilter(val);
+                setCurrentPage(1);
+              }}
+              options={[
+                { label: 'Menunggu Persetujuan', value: 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' },
+                { label: 'Baru / Draft', value: 'BARU' },
+              ]}
+              className="w-full sm:w-56"
+            />
+          </div>
+        </div>
+
+        {/* Main Table Card */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <DataTable
+            columns={columns}
+            data={paginatedLetters}
+            emptyMessage="Tidak ada surat masuk aktif saat ini. Seluruh surat yang telah disetujui otomatis masuk ke Riwayat Surat."
+          />
           <PaginationBar
             currentPage={currentPage}
-            totalPages={totalPages}
+            totalPages={totalPages || 1}
             totalItems={filteredLetters.length}
             onPageChange={setCurrentPage}
+            itemName="surat"
           />
         </div>
       </div>
@@ -501,382 +681,375 @@ export default function IncomingLettersPage() {
           setIsEditOpen(false);
         }}
         title={isEditOpen ? 'Edit Surat Masuk' : 'Input Surat Masuk Baru'}
+        subtitle="Kelola pencatatan surat masuk dan rencana tindak lanjut kegiatan."
         maxWidth="6xl"
       >
         <form noValidate onSubmit={isEditOpen ? handleEditSubmit : handleCreateSubmit} className="space-y-4 text-[12px]">
           {showValidationErrorBanner && (
-            <div className="bg-[rgba(254,242,242,0.9)] border border-[rgba(254,202,202,0.8)] text-[#B91C1C] rounded-[12px] p-[14px] text-[12px] font-[600] leading-[20px] shadow-xs">
-              Gagal menyimpan: Beberapa kolom wajib bertanda bintang (*) belum diisi. Silakan lengkapi data terlebih dahulu.
+            <div className="bg-[rgba(254,242,242,0.9)] border border-[rgba(254,202,202,0.8)] text-[#B91C1C] rounded-[10px] p-3 text-[12px] font-[600] leading-tight shadow-xs flex items-center gap-2">
+              <RotateCcw className="w-4 h-4 shrink-0 text-red-500" />
+              <span>Gagal menyimpan: Beberapa kolom wajib bertanda bintang (*) belum diisi. Silakan lengkapi data terlebih dahulu.</span>
             </div>
           )}
 
-          {/* Row 1: Nomor Surat & Tujuan Surat */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
-                Nomor Surat <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                placeholder="Cth: 001/DINAS-DKP/VIII/2026"
-                value={letterForm.letterNumber}
-                onChange={(e) => updateFormField('letterNumber', e.target.value)}
-                className={`w-full h-[36px] ${
-                  formErrors.letterNumber
-                    ? 'bg-[rgba(254,242,242,0.2)] border border-[#F87171] focus:ring-1 focus:ring-red-400'
-                    : 'bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25'
-                } rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all`}
-              />
-              {formErrors.letterNumber && (
-                <div className="text-[11px] text-[#EF4444] mt-1 flex items-center gap-1 font-[500]">
-                  <RotateCcw className="w-3 h-3 text-[#EF4444] shrink-0" />
-                  <span>{formErrors.letterNumber}</span>
-                </div>
-              )}
+          {/* ── BAGIAN 1: INFORMASI SURAT MASUK ── */}
+          <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3.5 space-y-3">
+            <div className="flex items-center gap-1.5 text-slate-700 font-bold text-[11px] uppercase tracking-wider border-b border-slate-200/60 pb-1.5">
+              <FileText className="w-3.5 h-3.5 text-[#003D58]" />
+              <span>Informasi Berkas Surat</span>
             </div>
-            <div>
-              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
-                Tujuan Surat <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="text"
-                value={letterForm.destination}
-                onChange={(e) => updateFormField('destination', e.target.value)}
-                placeholder="Kepala Bagian Humas Polinela"
-                className={`w-full h-[36px] ${
-                  formErrors.destination
-                    ? 'bg-[rgba(254,242,242,0.2)] border border-[#F87171] focus:ring-1 focus:ring-red-400'
-                    : 'bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25'
-                } rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all`}
-              />
-              {formErrors.destination && (
-                <div className="text-[11px] text-[#EF4444] mt-1 flex items-center gap-1 font-[500]">
-                  <RotateCcw className="w-3 h-3 text-[#EF4444] shrink-0" />
-                  <span>{formErrors.destination}</span>
-                </div>
-              )}
-            </div>
-          </div>
 
-          {/* Row 2: Tanggal Surat & Tanggal Diterima */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
-                Tanggal Surat <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
+            {/* Row 1: Nomor Surat & Tujuan Surat */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1">
+                  Nomor Surat <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Cth: 001/DINAS-DKP/VIII/2026"
+                  value={letterForm.letterNumber}
+                  onChange={(e) => updateFormField('letterNumber', e.target.value)}
+                  className={`w-full h-[36px] ${
+                    formErrors.letterNumber
+                      ? 'bg-[rgba(254,242,242,0.2)] border border-[#F87171] focus:ring-1 focus:ring-red-400'
+                      : 'bg-white border border-[#E2E8F0] focus:border-[#35C6D4] focus:ring-1 focus:ring-[#35C6D4]/30'
+                  } rounded-[8px] px-3 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all`}
+                />
+                {formErrors.letterNumber && (
+                  <div className="text-[11px] text-[#EF4444] mt-1 flex items-center gap-1 font-[500]">
+                    <RotateCcw className="w-3 h-3 text-[#EF4444] shrink-0" />
+                    <span>{formErrors.letterNumber}</span>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1">
+                  Tujuan Surat <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={letterForm.destination}
+                  onChange={(e) => updateFormField('destination', e.target.value)}
+                  placeholder="Kepala Bagian Humas Polinela"
+                  className={`w-full h-[36px] ${
+                    formErrors.destination
+                      ? 'bg-[rgba(254,242,242,0.2)] border border-[#F87171] focus:ring-1 focus:ring-red-400'
+                      : 'bg-white border border-[#E2E8F0] focus:border-[#35C6D4] focus:ring-1 focus:ring-[#35C6D4]/30'
+                  } rounded-[8px] px-3 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all`}
+                />
+                {formErrors.destination && (
+                  <div className="text-[11px] text-[#EF4444] mt-1 flex items-center gap-1 font-[500]">
+                    <RotateCcw className="w-3 h-3 text-[#EF4444] shrink-0" />
+                    <span>{formErrors.destination}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Row 2: Tanggal Surat & Tanggal Diterima */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <CustomDatePicker
+                label="Tanggal Surat"
+                required
                 value={letterForm.letterDate}
-                onChange={(e) => updateFormField('letterDate', e.target.value)}
-                className={`w-full h-[36px] ${
-                  formErrors.letterDate
-                    ? 'bg-[rgba(254,242,242,0.2)] border border-[#F87171] focus:ring-1 focus:ring-red-400'
-                    : 'bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25'
-                } rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all`}
+                error={formErrors.letterDate}
+                placeholder="Pilih tanggal surat..."
+                onChange={(val) => updateFormField('letterDate', val)}
               />
-              {formErrors.letterDate && (
-                <div className="text-[11px] text-[#EF4444] mt-1 flex items-center gap-1 font-[500]">
-                  <RotateCcw className="w-3 h-3 text-[#EF4444] shrink-0" />
-                  <span>{formErrors.letterDate}</span>
-                </div>
-              )}
-            </div>
-            <div>
-              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
-                Tanggal Diterima <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
+              <CustomDatePicker
+                label="Tanggal Diterima"
+                required
                 value={letterForm.receivedDate}
-                onChange={(e) => updateFormField('receivedDate', e.target.value)}
-                className={`w-full h-[36px] ${
-                  formErrors.receivedDate
-                    ? 'bg-[rgba(254,242,242,0.2)] border border-[#F87171] focus:ring-1 focus:ring-red-400'
-                    : 'bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25'
-                } rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all`}
+                error={formErrors.receivedDate}
+                placeholder="Pilih tanggal diterima..."
+                onChange={(val) => updateFormField('receivedDate', val)}
               />
-              {formErrors.receivedDate && (
-                <div className="text-[11px] text-[#EF4444] mt-1 flex items-center gap-1 font-[500]">
-                  <RotateCcw className="w-3 h-3 text-[#EF4444] shrink-0" />
-                  <span>{formErrors.receivedDate}</span>
-                </div>
-              )}
             </div>
-          </div>
 
-          {/* Row 3: Pengirim & Instansi */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Row 3: Pengirim & Instansi */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1">
+                  Pengirim Surat <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Cth: Kepala Dinas Kelautan"
+                  value={letterForm.sender}
+                  onChange={(e) => updateFormField('sender', e.target.value)}
+                  className={`w-full h-[36px] ${
+                    formErrors.sender
+                      ? 'bg-[rgba(254,242,242,0.2)] border border-[#F87171] focus:ring-1 focus:ring-red-400'
+                      : 'bg-white border border-[#E2E8F0] focus:border-[#35C6D4] focus:ring-1 focus:ring-[#35C6D4]/30'
+                  } rounded-[8px] px-3 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all`}
+                />
+                {formErrors.sender && (
+                  <div className="text-[11px] text-[#EF4444] mt-1 flex items-center gap-1 font-[500]">
+                    <RotateCcw className="w-3 h-3 text-[#EF4444] shrink-0" />
+                    <span>{formErrors.sender}</span>
+                  </div>
+                )}
+              </div>
+              <div>
+                <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1">
+                  Instansi / Lembaga <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  placeholder="Cth: Dinas Kelautan Provinsi Lampung"
+                  value={letterForm.institution}
+                  onChange={(e) => updateFormField('institution', e.target.value)}
+                  className={`w-full h-[36px] ${
+                    formErrors.institution
+                      ? 'bg-[rgba(254,242,242,0.2)] border border-[#F87171] focus:ring-1 focus:ring-red-400'
+                      : 'bg-white border border-[#E2E8F0] focus:border-[#35C6D4] focus:ring-1 focus:ring-[#35C6D4]/30'
+                  } rounded-[8px] px-3 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all`}
+                />
+                {formErrors.institution && (
+                  <div className="text-[11px] text-[#EF4444] mt-1 flex items-center gap-1 font-[500]">
+                    <RotateCcw className="w-3 h-3 text-[#EF4444] shrink-0" />
+                    <span>{formErrors.institution}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Row 4: Perihal Surat */}
             <div>
-              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
-                Pengirim <span className="text-red-500">*</span>
+              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1">
+                Perihal Surat <span className="text-red-500">*</span>
               </label>
               <input
                 type="text"
-                placeholder="Cth: Kepala Dinas Kelautan"
-                value={letterForm.sender}
-                onChange={(e) => updateFormField('sender', e.target.value)}
+                placeholder="Cth: Permohonan Peliputan Seminar Nasional Perikanan"
+                value={letterForm.subject}
+                onChange={(e) => updateFormField('subject', e.target.value)}
                 className={`w-full h-[36px] ${
-                  formErrors.sender
+                  formErrors.subject
                     ? 'bg-[rgba(254,242,242,0.2)] border border-[#F87171] focus:ring-1 focus:ring-red-400'
-                    : 'bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25'
-                } rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all`}
+                    : 'bg-white border border-[#E2E8F0] focus:border-[#35C6D4] focus:ring-1 focus:ring-[#35C6D4]/30'
+                } rounded-[8px] px-3 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all`}
               />
-              {formErrors.sender && (
+              {formErrors.subject && (
                 <div className="text-[11px] text-[#EF4444] mt-1 flex items-center gap-1 font-[500]">
                   <RotateCcw className="w-3 h-3 text-[#EF4444] shrink-0" />
-                  <span>{formErrors.sender}</span>
+                  <span>{formErrors.subject}</span>
                 </div>
               )}
             </div>
+
+            {/* Row 5: Upload Berkas Surat */}
             <div>
-              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
-                Instansi <span className="text-red-500">*</span>
+              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1">
+                Berkas / Dokumen Surat
+                <span className="ml-1 text-[10px] font-normal text-slate-400">(PDF, JPG, PNG — maks. 5 MB)</span>
               </label>
-              <input
-                type="text"
-                placeholder="Cth: Dinas Kelautan Provinsi Lampung"
-                value={letterForm.institution}
-                onChange={(e) => updateFormField('institution', e.target.value)}
-                className={`w-full h-[36px] ${
-                  formErrors.institution
-                    ? 'bg-[rgba(254,242,242,0.2)] border border-[#F87171] focus:ring-1 focus:ring-red-400'
-                    : 'bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25'
-                } rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all`}
-              />
-              {formErrors.institution && (
-                <div className="text-[11px] text-[#EF4444] mt-1 flex items-center gap-1 font-[500]">
-                  <RotateCcw className="w-3 h-3 text-[#EF4444] shrink-0" />
-                  <span>{formErrors.institution}</span>
+
+              {uploadedFile ? (
+                /* Preview card setelah file dipilih */
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3 p-3 rounded-xl border border-blue-200 bg-blue-50">
+                    <div className="w-9 h-9 rounded-lg bg-blue-100 flex items-center justify-center shrink-0">
+                      {uploadedFile.base64.startsWith('data:image') ? (
+                        <img
+                          src={uploadedFile.base64}
+                          alt="preview"
+                          className="w-9 h-9 rounded-lg object-cover"
+                        />
+                      ) : (
+                        <FileText className="w-4 h-4 text-[#003D58]" />
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-blue-900 truncate">{uploadedFile.name}</p>
+                      <p className="text-[10px] text-blue-600 mt-0.5">File siap diunggah</p>
+                    </div>
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      {/* Tombol Lihat Preview di Tab Baru */}
+                      <a
+                        href={getFileViewUrl(uploadedFile.base64)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold text-[#003D58] bg-white border border-blue-200 hover:bg-blue-50 shadow-2xs transition-colors cursor-pointer"
+                        title="Buka berkas di tab baru"
+                      >
+                        <ExternalLink className="w-3 h-3" />
+                        Buka di Tab Baru
+                      </a>
+                      {/* Tombol Hapus */}
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setUploadedFile(null);
+                          updateFormField('fileUrl', '');
+                        }}
+                        className="text-slate-400 hover:text-red-500 transition-colors cursor-pointer p-1"
+                        title="Hapus file"
+                      >
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* Inline image preview (hanya untuk gambar) */}
+                  {uploadedFile.base64.startsWith('data:image') && (
+                    <div className="rounded-xl overflow-hidden border border-slate-200 bg-slate-50 max-h-48">
+                      <img
+                        src={uploadedFile.base64}
+                        alt={uploadedFile.name}
+                        className="w-full max-h-48 object-contain"
+                      />
+                    </div>
+                  )}
                 </div>
-              )}
-            </div>
-          </div>
-
-          {/* Row 4: Perihal Surat */}
-          <div>
-            <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
-              Perihal Surat <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="Cth: Permohonan Peliputan Seminar"
-              value={letterForm.subject}
-              onChange={(e) => updateFormField('subject', e.target.value)}
-              className={`w-full h-[36px] ${
-                formErrors.subject
-                  ? 'bg-[rgba(254,242,242,0.2)] border border-[#F87171] focus:ring-1 focus:ring-red-400'
-                  : 'bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25'
-              } rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all`}
-            />
-            {formErrors.subject && (
-              <div className="text-[11px] text-[#EF4444] mt-1 flex items-center gap-1 font-[500]">
-                <RotateCcw className="w-3 h-3 text-[#EF4444] shrink-0" />
-                <span>{formErrors.subject}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Row 5: Link File Surat */}
-          <div>
-            <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Link File Surat</label>
-            <input
-              type="url"
-              placeholder="https://drive.google.com/..."
-              value={letterForm.fileUrl}
-              onChange={(e) => updateFormField('fileUrl', e.target.value)}
-              className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
-            />
-          </div>
-
-          {/* Row 6: Lokasi Kegiatan */}
-          <div>
-            <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
-              Lokasi Kegiatan <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              placeholder="Masukkan lokasi kegiatan"
-              value={letterForm.eventLocation}
-              onChange={(e) => updateFormField('eventLocation', e.target.value)}
-              className={`w-full h-[36px] ${
-                formErrors.eventLocation
-                  ? 'bg-[rgba(254,242,242,0.2)] border border-[#F87171] focus:ring-1 focus:ring-red-400'
-                  : 'bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25'
-              } rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all`}
-            />
-            {formErrors.eventLocation && (
-              <div className="text-[11px] text-[#EF4444] mt-1 flex items-center gap-1 font-[500]">
-                <RotateCcw className="w-3 h-3 text-[#EF4444] shrink-0" />
-                <span>{formErrors.eventLocation}</span>
-              </div>
-            )}
-          </div>
-
-          {/* Row 7: Tanggal Pelaksanaan, Jam Mulai & Jam Selesai */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
-                Tanggal Pelaksanaan <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="date"
-                value={letterForm.eventDate}
-                onChange={(e) => updateFormField('eventDate', e.target.value)}
-                className={`w-full h-[36px] ${
-                  formErrors.eventDate
-                    ? 'bg-[rgba(254,242,242,0.2)] border border-[#F87171] focus:ring-1 focus:ring-red-400'
-                    : 'bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25'
-                } rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all`}
-              />
-              {formErrors.eventDate && (
-                <div className="text-[11px] text-[#EF4444] mt-1 flex items-center gap-1 font-[500]">
-                  <RotateCcw className="w-3 h-3 text-[#EF4444] shrink-0" />
-                  <span>{formErrors.eventDate}</span>
-                </div>
-              )}
-            </div>
-            <div>
-              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
-                Jam Mulai <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="time"
-                value={letterForm.startTime}
-                onChange={(e) => updateFormField('startTime', e.target.value)}
-                className={`w-full h-[36px] ${
-                  formErrors.startTime
-                    ? 'bg-[rgba(254,242,242,0.2)] border border-[#F87171] focus:ring-1 focus:ring-red-400'
-                    : 'bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25'
-                } rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all`}
-              />
-              {formErrors.startTime && (
-                <div className="text-[11px] text-[#EF4444] mt-1 flex items-center gap-1 font-[500]">
-                  <RotateCcw className="w-3 h-3 text-[#EF4444] shrink-0" />
-                  <span>{formErrors.startTime}</span>
-                </div>
-              )}
-            </div>
-            <div>
-              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Jam Selesai (Opsional)</label>
-              <input
-                type="time"
-                value={letterForm.endTime}
-                onChange={(e) => updateFormField('endTime', e.target.value)}
-                className={`w-full h-[36px] ${
-                  formErrors.endTime
-                    ? 'bg-[rgba(254,242,242,0.2)] border border-[#F87171] focus:ring-1 focus:ring-red-400'
-                    : 'bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25'
-                } rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all`}
-              />
-              {formErrors.endTime && (
-                <div className="text-[11px] text-[#EF4444] mt-1 flex items-center gap-1 font-[500]">
-                  <RotateCcw className="w-3 h-3 text-[#EF4444] shrink-0" />
-                  <span>{formErrors.endTime}</span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Section: Koordinat GPS Box */}
-          <div className="bg-[rgba(248,250,252,0.8)] border border-[rgba(226,232,240,0.9)] rounded-[12px] p-[14px] space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-[700] text-[#475569] tracking-[0.5px] uppercase">
-                KOORDINAT GPS LOKASI & RADIUS ABSENSI (OPSIONAL)
-              </span>
-              <button
-                type="button"
-                onClick={() => setShowMapPicker(!showMapPicker)}
-                className="text-[11px] text-[#0D9488] hover:text-[#0F766E] font-[600] flex items-center gap-1 underline underline-offset-2 transition-colors cursor-pointer"
-              >
-                <MapPin className="w-3.5 h-3.5" />
-                {showMapPicker ? 'Tutup Peta' : 'Pilih dari Peta'}
-              </button>
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-[11px] font-[400] text-[#64748B] mb-1">Latitude</label>
-                <input
-                  type="text"
-                  placeholder="-5.3582"
-                  value={letterForm.latitude}
-                  onChange={(e) => updateFormField('latitude', e.target.value)}
-                  className="w-full h-[30px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] placeholder:text-[#94A3B8] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-[400] text-[#64748B] mb-1">Longitude</label>
-                <input
-                  type="text"
-                  placeholder="--:--"
-                  value={letterForm.longitude}
-                  onChange={(e) => updateFormField('longitude', e.target.value)}
-                  className="w-full h-[30px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] placeholder:text-[#94A3B8] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
-                />
-              </div>
-              <div>
-                <label className="block text-[11px] font-[400] text-[#64748B] mb-1">Radius (Meter)</label>
-                <input
-                  type="number"
-                  placeholder="100"
-                  value={letterForm.radius}
-                  onChange={(e) => updateFormField('radius', e.target.value)}
-                  className="w-full h-[30px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] placeholder:text-[#94A3B8] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
-                />
-              </div>
-            </div>
-
-            {/* Collapsible Interactive Pinpoint & Campus Presets */}
-            {showMapPicker && (
-              <div className="pt-2 border-t border-slate-200 mt-2">
-                <LocationPicker
-                  location={letterForm.eventLocation}
-                  latitude={letterForm.latitude || -5.3582}
-                  longitude={letterForm.longitude || 105.2345}
-                  radius={letterForm.radius || '100'}
-                  onChange={(locData) => {
-                    setLetterForm((prev) => ({
-                      ...prev,
-                      eventLocation: locData.location || prev.eventLocation,
-                      latitude: locData.latitude,
-                      longitude: locData.longitude,
-                      radius: locData.radius,
-                    }));
+              ) : (
+                /* Drop Zone via native <label> + <input type="file"> */
+                <label
+                  htmlFor="surat-file-input"
+                  ref={dropZoneRef}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    setIsDraggingFile(false);
+                    const file = e.dataTransfer.files?.[0];
+                    if (!file) return;
+                    if (file.size > 5 * 1024 * 1024) { toast.error('Ukuran file maksimal 5 MB.'); return; }
+                    const reader = new FileReader();
+                    reader.onload = () => {
+                      const base64 = reader.result as string;
+                      setUploadedFile({ name: file.name, base64 });
+                      updateFormField('fileUrl', base64);
+                    };
+                    reader.readAsDataURL(file);
                   }}
-                />
-              </div>
-            )}
+                  onDragOver={(e) => { e.preventDefault(); setIsDraggingFile(true); }}
+                  onDragLeave={() => setIsDraggingFile(false)}
+                  className={`w-full rounded-xl border-2 border-dashed cursor-pointer transition-colors p-5 flex flex-col items-center justify-center gap-2 text-center select-none ${
+                    isDraggingFile
+                      ? 'border-[#35C6D4] bg-[#E0F7F9]'
+                      : 'border-slate-200 bg-slate-50 hover:border-[#35C6D4] hover:bg-[#E0F7F9]/40'
+                  }`}
+                >
+                  <input
+                    id="surat-file-input"
+                    type="file"
+                    accept=".pdf,.jpg,.jpeg,.png,.webp,.doc,.docx"
+                    className="sr-only hidden"
+                    onChange={(e) => {
+                      const file = e.target.files?.[0];
+                      if (!file) return;
+                      if (file.size > 5 * 1024 * 1024) { toast.error('Ukuran file maksimal 5 MB.'); return; }
+                      const reader = new FileReader();
+                      reader.onload = () => {
+                        const base64 = reader.result as string;
+                        setUploadedFile({ name: file.name, base64 });
+                        updateFormField('fileUrl', base64);
+                      };
+                      reader.readAsDataURL(file);
+                    }}
+                  />
+                  <div className="w-9 h-9 rounded-full bg-[#E0F7F9] flex items-center justify-center pointer-events-none">
+                    <FileText className="w-4 h-4 text-[#007985]" />
+                  </div>
+                  <div className="pointer-events-none">
+                    <p className="text-[12px] font-semibold text-slate-700">
+                      {isDraggingFile ? 'Lepas file di sini' : 'Seret & lepas file, atau klik untuk pilih'}
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">PDF, JPG, PNG, DOC — maks. 5 MB</p>
+                  </div>
+                </label>
+              )}
+            </div>
           </div>
 
-          {/* Row 8: Keterangan Tambahan */}
-          <div>
-            <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Keterangan Tambahan</label>
-            <input
-              type="text"
-              placeholder="Catatan tambahan untuk tim peliputan..."
-              value={letterForm.notes}
-              onChange={(e) => updateFormField('notes', e.target.value)}
-              className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
+          {/* ── BAGIAN 2: JADWAL & LOKASI KEGIATAN ── */}
+          <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3.5 space-y-3">
+            <div className="flex items-center gap-1.5 text-slate-700 font-bold text-[11px] uppercase tracking-wider border-b border-slate-200/60 pb-1.5">
+              <Calendar className="w-3.5 h-3.5 text-[#003D58]" />
+              <span>Agenda Waktu & Lokasi Kegiatan</span>
+            </div>
+
+            {/* Tanggal Pelaksanaan, Jam Mulai & Jam Selesai */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <CustomDatePicker
+                label="Tanggal Acara"
+                required
+                value={letterForm.eventDate}
+                error={formErrors.eventDate}
+                placeholder="Pilih tanggal..."
+                onChange={(val) => updateFormField('eventDate', val)}
+              />
+              <CustomTimePicker
+                label="Jam Mulai"
+                required
+                value={letterForm.startTime}
+                error={formErrors.startTime}
+                placeholder="Contoh: 08:30"
+                onChange={(val) => updateFormField('startTime', val)}
+              />
+              <CustomTimePicker
+                label="Jam Selesai"
+                value={letterForm.endTime}
+                error={formErrors.endTime}
+                placeholder="Contoh: 12:00"
+                onChange={(val) => updateFormField('endTime', val)}
+              />
+            </div>
+
+            {/* PENCARIAN JALAN & LOKASI KEGIATAN */}
+            <StreetSearchInput
+              label="Cari Jalan & Lokasi Kegiatan"
+              required
+              value={letterForm.eventLocation}
+              error={formErrors.eventLocation}
+              placeholder="Ketik nama jalan, gedung, atau instansi (cth: Jl. Soekarno Hatta, GSG Polinela)..."
+              latitude={letterForm.latitude}
+              longitude={letterForm.longitude}
+              radius={letterForm.radius}
+              onRadiusChange={(rad) => updateFormField('radius', rad)}
+              onChange={(loc, coords) => {
+                updateFormField('eventLocation', loc);
+                if (coords) {
+                  setLetterForm((prev) => ({
+                    ...prev,
+                    latitude: coords.lat,
+                    longitude: coords.lng,
+                  }));
+                }
+              }}
             />
+
+            {/* Keterangan Tambahan */}
+            <div>
+              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1">Keterangan / Catatan Tambahan</label>
+              <input
+                type="text"
+                placeholder="Catatan tambahan untuk tim peliputan (cth: Bawa tripod, dresscode batik)..."
+                value={letterForm.notes}
+                onChange={(e) => updateFormField('notes', e.target.value)}
+                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#35C6D4] focus:ring-1 focus:ring-[#35C6D4]/30 rounded-[8px] px-3 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
+              />
+            </div>
           </div>
 
           {/* Modal Footer */}
-          <div className="flex justify-end items-center gap-3 pt-3.5 border-t border-[#F1F5F9] bg-[#F8FAFC] -mx-5 -mb-5 px-6 py-3 rounded-b-2xl">
+          <div className="flex justify-end items-center gap-2.5 pt-3 border-t border-slate-100">
             <button
               type="button"
               onClick={() => {
                 setIsCreateOpen(false);
                 setIsEditOpen(false);
               }}
-              className="h-[34px] px-5 bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[#475569] rounded-[8px] text-[12px] font-[500] cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-colors"
+              className="h-[36px] px-4 bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[#475569] rounded-[8px] text-[12px] font-[500] cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-colors"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="h-[34px] px-5 bg-[#32B0C5] hover:bg-[#289eb1] text-white rounded-[8px] text-[12px] font-[500] cursor-pointer shadow-[0_1px_2px_rgba(20,184,166,0.2)] transition-colors"
+              className="h-[36px] px-5 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white rounded-[8px] text-[12px] font-[600] cursor-pointer shadow-xs shadow-[#003D58]/25 transition-all flex items-center gap-1.5"
             >
-              {isEditOpen ? 'Simpan Perubahan' : 'Simpan Surat'}
+              <CheckCircle2 className="w-4 h-4" />
+              <span>{isEditOpen ? 'Simpan Perubahan' : 'Simpan Surat Masuk'}</span>
             </button>
           </div>
         </form>
@@ -888,107 +1061,164 @@ export default function IncomingLettersPage() {
         onClose={() => setIsCreateActivityOpen(false)}
         title="Buat Kegiatan dari Surat Masuk"
         subtitle={selectedLetter ? `Referensi Surat: ${selectedLetter.letterNumber}` : ''}
-        maxWidth="3xl"
+        maxWidth="6xl"
       >
         <form onSubmit={handleActivityFromLetterSubmit} className="space-y-4 text-[12px]">
-          <div className="bg-teal-50 border border-teal-200 rounded-[10px] p-3.5 text-teal-900 space-y-1 text-[12px]">
-            <p className="font-bold">Informasi Sumber Surat:</p>
-            <p>• <strong>No. Surat:</strong> {selectedLetter?.letterNumber}</p>
-            <p>• <strong>Pengirim:</strong> {selectedLetter?.sender} ({selectedLetter?.institution})</p>
-            <p>• <strong>Perihal:</strong> {selectedLetter?.subject}</p>
-          </div>
+          {/* Card 1: Informasi Sumber Rujukan Surat */}
+          {selectedLetter && (
+            <div className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3.5 space-y-2.5">
+              <div className="flex items-center gap-1.5 text-slate-700 font-bold text-[11px] uppercase tracking-wider border-b border-slate-200/60 pb-1.5">
+                <FileText className="w-3.5 h-3.5 text-[#003D58] shrink-0" />
+                <span>Informasi Rujukan Surat Masuk</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                <div className="bg-white/80 border border-slate-200/80 rounded-lg p-2.5 flex items-center gap-2 min-w-0">
+                  <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block leading-tight">No. Surat</span>
+                    <span className="font-bold text-slate-800 truncate block mt-0.5">{selectedLetter.letterNumber}</span>
+                  </div>
+                </div>
+                <div className="bg-white/80 border border-slate-200/80 rounded-lg p-2.5 flex items-center gap-2 min-w-0">
+                  <Building className="w-4 h-4 text-slate-400 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block leading-tight">Pengirim / Instansi</span>
+                    <span className="font-bold text-slate-800 truncate block mt-0.5">{selectedLetter.sender || selectedLetter.institution}</span>
+                  </div>
+                </div>
+                <div className="bg-white/80 border border-slate-200/80 rounded-lg p-2.5 flex items-center gap-2 min-w-0">
+                  <MapPin className="w-4 h-4 text-[#003D58] shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] text-[#003D58] uppercase font-semibold block leading-tight">Lokasi Acara</span>
+                    <span className="font-bold text-[#003D58] truncate block mt-0.5 bg-sky-50 px-2 py-0.5 rounded border border-sky-200/70 inline-block max-w-full">
+                      {selectedLetter.eventLocation || 'Lokasi belum ditentukan'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              {/* Row 2: Perihal Surat Full-Width (Never Overlaps) */}
+              <div className="bg-white/80 border border-slate-200/80 rounded-lg p-2.5 flex items-start gap-2.5 min-w-0">
+                <FileText className="w-4 h-4 text-[#003D58] shrink-0 mt-0.5" />
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block leading-tight mb-0.5">Perihal Surat</span>
+                  <p className="font-medium text-slate-700 text-xs leading-relaxed break-words">
+                    {selectedLetter.subject}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
 
-          <div>
-            <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
-              Judul Kegiatan Peliputan <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
-              required
-              value={activityForm.title}
-              onChange={(e) => setActivityForm({ ...activityForm, title: e.target.value })}
-              className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
-            />
-          </div>
+          {/* Card 2: Rencana Peliputan */}
+          <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3.5 space-y-3.5">
+            <div className="flex items-center gap-1.5 text-slate-700 font-bold text-[11px] uppercase tracking-wider border-b border-slate-200/60 pb-1.5">
+              <CalendarCheck2 className="w-3.5 h-3.5 text-[#003D58]" />
+              <span>Rencana Agenda Kegiatan Peliputan</span>
+            </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
               <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
-                Tanggal Pelaksanaan <span className="text-red-500">*</span>
+                Judul Kegiatan Peliputan <span className="text-red-500">*</span>
               </label>
               <input
-                type="date"
+                type="text"
+                required
+                value={activityForm.title}
+                onChange={(e) => setActivityForm({ ...activityForm, title: e.target.value })}
+                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#003D58] focus:ring-1 focus:ring-[#003D58]/30 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
+              />
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <CustomDatePicker
+                label="Tanggal Pelaksanaan"
                 required
                 value={activityForm.date}
-                onChange={(e) => setActivityForm({ ...activityForm, date: e.target.value })}
-                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
+                placeholder="Pilih tanggal..."
+                onChange={(val) => setActivityForm({ ...activityForm, date: val })}
               />
-            </div>
-            <div>
-              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
-                Jam Mulai <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="time"
+              <CustomTimePicker
+                label="Jam Mulai"
                 required
                 value={activityForm.startTime}
-                onChange={(e) => setActivityForm({ ...activityForm, startTime: e.target.value })}
-                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
+                placeholder="Contoh: 08:30"
+                onChange={(val) => setActivityForm({ ...activityForm, startTime: val })}
               />
-            </div>
-            <div>
-              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
-                Jam Selesai <span className="text-red-500">*</span>
-              </label>
-              <input
-                type="time"
+              <CustomTimePicker
+                label="Jam Selesai"
                 required
                 value={activityForm.endTime}
-                onChange={(e) => setActivityForm({ ...activityForm, endTime: e.target.value })}
-                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
+                placeholder="Contoh: 12:00"
+                onChange={(val) => setActivityForm({ ...activityForm, endTime: val })}
               />
             </div>
-          </div>
 
-          <div>
-            <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
-              Lokasi Pelaksanaan <span className="text-red-500">*</span>
-            </label>
-            <input
-              type="text"
+            {/* Personel PIC Lapangan (Opsional) */}
+            <div>
+              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
+                Personel PIC Lapangan <span className="text-slate-400 font-normal">(Opsional)</span>
+              </label>
+              <select
+                value={activityForm.picId || 0}
+                onChange={(e) => setActivityForm({ ...activityForm, picId: Number(e.target.value) })}
+                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#003D58] focus:ring-1 focus:ring-[#003D58]/30 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all cursor-pointer"
+              >
+                <option value={0}>Otomatis Ditentukan Sistem (Anggota Humas) / Disposisi Kepala Humas</option>
+                {users.filter((u) => u.role === 'USER' && u.status === 'AKTIF').map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.fullName} ({u.roleLabel || 'Anggota Humas'})
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Pencarian Jalan & Lokasi Kegiatan (Persis seperti Input Surat) */}
+            <StreetSearchInput
+              label="Cari Jalan & Lokasi Kegiatan"
               required
               value={activityForm.location}
-              onChange={(e) => setActivityForm({ ...activityForm, location: e.target.value })}
-              className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
+              placeholder="Ketik nama jalan, gedung, atau instansi (cth: Jl. Soekarno Hatta, GSG Polinela)..."
+              latitude={activityForm.latitude}
+              longitude={activityForm.longitude}
+              radius={activityForm.radius}
+              onRadiusChange={(rad) => setActivityForm((prev) => ({ ...prev, radius: rad }))}
+              onChange={(loc, coords) => {
+                setActivityForm((prev) => ({
+                  ...prev,
+                  location: loc,
+                  ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
+                }));
+              }}
             />
-          </div>
 
-          <div>
-            <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
-              Deskripsi &amp; Rencana Pelaksanaan <span className="text-red-500">*</span>
-            </label>
-            <textarea
-              rows={3}
-              required
-              value={activityForm.description}
-              onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}
-              className="w-full min-h-[70px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] p-3 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all resize-none"
-            />
+            <div>
+              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
+                Deskripsi &amp; Rencana Pelaksanaan <span className="text-red-500">*</span>
+              </label>
+              <textarea
+                rows={3}
+                required
+                value={activityForm.description}
+                onChange={(e) => setActivityForm({ ...activityForm, description: e.target.value })}
+                className="w-full min-h-[70px] bg-white border border-[#E2E8F0] focus:border-[#003D58] focus:ring-1 focus:ring-[#003D58]/30 rounded-[8px] p-3 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all resize-none"
+              />
+            </div>
           </div>
 
           <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
             <button
               type="button"
               onClick={() => setIsCreateActivityOpen(false)}
-              className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-[8px] transition-colors cursor-pointer"
+              className="h-[36px] px-4 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-[600] rounded-[8px] transition-colors cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-gradient-to-r from-[#0D9488] to-[#14B8A6] hover:from-[#0F766E] hover:to-[#0D9488] text-white text-[12px] font-semibold rounded-[8px] shadow-xs transition-all cursor-pointer"
+              className="h-[36px] px-5 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-[600] rounded-[8px] shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer flex items-center gap-1.5"
             >
-              Ajukan Kegiatan ke Kepala Humas
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Ajukan Kegiatan ke Kepala Humas</span>
             </button>
           </div>
         </form>
@@ -1000,7 +1230,7 @@ export default function IncomingLettersPage() {
         onClose={() => setIsDetailOpen(false)}
         title="Detail Surat Masuk"
         subtitle={selectedLetter ? `Nomor: ${selectedLetter.letterNumber}` : undefined}
-        maxWidth="3xl"
+        maxWidth="2xl"
       >
         {selectedLetter && (
           <div className="space-y-4 text-xs">
@@ -1011,15 +1241,100 @@ export default function IncomingLettersPage() {
                 <StatusBadge status={selectedLetter.status} />
               </div>
               <div className="flex items-center gap-1.5 text-slate-600 font-medium text-xs">
-                <CalendarCheck2 className="w-4 h-4 text-teal-600 shrink-0" />
+                <CalendarCheck2 className="w-4 h-4 text-[#003D58] shrink-0" />
                 <span>Diterima: <strong>{formatDateID(selectedLetter.receivedDate.split('T')[0])}</strong></span>
               </div>
             </div>
 
+            {/* Banner Khusus: Surat Disetujui Kepala Humas */}
+            {selectedLetter.status === 'DISETUJUI' && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-700 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-bold text-emerald-950">
+                      Surat Masuk Telah Disetujui oleh Kepala Humas
+                    </h5>
+                    <p className="text-[11px] text-emerald-700 mt-0.5 leading-relaxed">
+                      {currentUser?.role === 'SUPER_ADMIN'
+                        ? 'Surat ini resmi disetujui. Silakan tindak lanjuti segera dengan membuat agenda kegiatan peliputan bagi tim, atau selesaikan dan arsipkan ke Riwayat Surat.'
+                        : 'Surat ini resmi disetujui dan sedang menunggu penugasan kegiatan oleh Kepala Humas.'}
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  {currentUser?.role === 'SUPER_ADMIN' && (
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setIsDetailOpen(false);
+                        handleOpenCreateActivity(selectedLetter);
+                      }}
+                      className="px-3.5 py-2 bg-[#003D58] hover:bg-[#002f44] text-white rounded-lg text-xs font-bold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                    >
+                      <CalendarPlus className="w-4 h-4" />
+                      <span>Buat Agenda Kegiatan</span>
+                    </button>
+                  )}
+                  <button
+                    type="button"
+                    onClick={() => handleCompleteLetter(selectedLetter.id)}
+                    className="px-3 py-2 bg-white hover:bg-slate-50 border border-slate-300 text-slate-700 rounded-lg text-xs font-semibold inline-flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                    title="Arsipkan ke Riwayat Surat"
+                  >
+                    <Archive className="w-3.5 h-3.5 text-slate-500" />
+                    <span>Selesaikan</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Quick Approval untuk Kepala Humas */}
+            {currentUser?.role === 'SUPER_ADMIN' && selectedLetter.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs">
+                <div className="flex items-start gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-700 flex items-center justify-center shrink-0">
+                    <Clock className="w-5 h-5 text-amber-600" />
+                  </div>
+                  <div>
+                    <h5 className="text-xs font-bold text-amber-950">
+                      Menunggu Keputusan Anda (Kepala Humas)
+                    </h5>
+                    <p className="text-[11px] text-amber-700 mt-0.5 leading-relaxed">
+                      Apakah Anda menyetujui surat masuk ini untuk diagendakan peliputan oleh tim?
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2 shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => handleApproveLetter(selectedLetter.id)}
+                    className="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg text-xs font-bold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                  >
+                    <CheckCircle2 className="w-4 h-4" />
+                    <span>Setujui Surat</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setIsDetailOpen(false);
+                      setIsRejectModalOpen(true);
+                    }}
+                    className="px-3 py-2 bg-white hover:bg-red-50 border border-red-300 text-red-600 rounded-lg text-xs font-semibold inline-flex items-center gap-1 shadow-2xs transition-colors cursor-pointer"
+                  >
+                    <XCircle className="w-3.5 h-3.5 text-red-500" />
+                    <span>Tolak</span>
+                  </button>
+                </div>
+              </div>
+            )}
+
             {/* Perihal Highlight Card */}
-            <div className="bg-teal-50/70 border border-teal-200/80 rounded-xl p-4">
-              <div className="flex items-center gap-1.5 text-teal-800 text-[11px] font-bold uppercase tracking-wider mb-1.5">
-                <FileText className="w-4 h-4 text-teal-600" />
+            <div className="bg-sky-50/70 border border-sky-200/80 rounded-xl p-4">
+              <div className="flex items-center gap-1.5 text-[#003D58] text-[11px] font-bold uppercase tracking-wider mb-1.5">
+                <FileText className="w-4 h-4 text-[#003D58]" />
                 <span>Perihal Surat</span>
               </div>
               <h4 className="text-sm sm:text-base font-bold text-slate-900 leading-snug">
@@ -1044,7 +1359,7 @@ export default function IncomingLettersPage() {
                     Tujuan Surat
                   </span>
                   <span className="font-bold text-slate-800 flex items-center gap-1.5">
-                    <Building className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                    <Building className="w-3.5 h-3.5 text-[#003D58] shrink-0" />
                     {selectedLetter.destination || 'Kepala Bagian Humas Polinela'}
                   </span>
                 </div>
@@ -1086,7 +1401,7 @@ export default function IncomingLettersPage() {
                     Tanggal Diterima Humas
                   </span>
                   <span className="font-medium text-slate-700 flex items-center gap-1.5">
-                    <CalendarCheck2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                    <CalendarCheck2 className="w-3.5 h-3.5 text-[#003D58] shrink-0" />
                     {formatDateID(selectedLetter.receivedDate.split('T')[0])}
                   </span>
                 </div>
@@ -1097,7 +1412,7 @@ export default function IncomingLettersPage() {
             {(selectedLetter.eventLocation || selectedLetter.eventDate) && (
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                  <MapPin className="w-4 h-4 text-teal-600 shrink-0" />
+                  <MapPin className="w-4 h-4 text-[#003D58] shrink-0" />
                   <span>Jadwal &amp; Lokasi Rencana Pelaksanaan</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -1121,17 +1436,24 @@ export default function IncomingLettersPage() {
                   </div>
                 </div>
 
-                {/* Koordinat GPS & Radius */}
-                {(selectedLetter.latitude || selectedLetter.longitude) && (
+                {/* Tautan Lokasi di Peta */}
+                {(selectedLetter.latitude || selectedLetter.longitude || selectedLetter.eventLocation) && (
                   <div className="pt-2 border-t border-slate-200 flex flex-wrap items-center justify-between gap-2 text-[11px]">
-                    <span className="text-slate-600">
-                      <strong>Koordinat GPS:</strong> {selectedLetter.latitude}, {selectedLetter.longitude} (Radius: {selectedLetter.radius || 100}m)
+                    <span className="text-slate-600 flex items-center gap-1 font-medium">
+                      <MapPin className="w-3.5 h-3.5 text-[#003D58]" />
+                      <span>Lokasi Tersimpan di Sistem</span>
                     </span>
                     <a
-                      href={`https://www.google.com/maps?q=${selectedLetter.latitude},${selectedLetter.longitude}`}
+                      href={
+                        selectedLetter.latitude && selectedLetter.longitude
+                          ? `https://www.google.com/maps?q=${selectedLetter.latitude},${selectedLetter.longitude}`
+                          : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(
+                              selectedLetter.eventLocation || 'Polinela Bandar Lampung'
+                            )}`
+                      }
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-teal-700 hover:text-teal-800 font-semibold flex items-center gap-1 underline underline-offset-2"
+                      className="text-[#003D58] hover:text-[#002F44] font-semibold flex items-center gap-1 underline underline-offset-2"
                     >
                       <ExternalLink className="w-3 h-3" />
                       Buka di Google Maps
@@ -1156,94 +1478,37 @@ export default function IncomingLettersPage() {
             {/* Lampiran Berkas File Surat */}
             {selectedLetter.fileUrl ? (
               <a
-                href={selectedLetter.fileUrl}
+                href={getFileViewUrl(selectedLetter.fileUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between p-3.5 rounded-xl bg-white border border-teal-200 hover:border-teal-400 hover:bg-teal-50/40 shadow-2xs transition-all group cursor-pointer"
+                className="p-3.5 rounded-xl bg-white border border-blue-200 hover:border-blue-400 hover:bg-blue-50/40 shadow-2xs transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group cursor-pointer"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                    <FileText className="w-5 h-5" />
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#003D58] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <FileText className="w-5 h-5 text-[#003D58]" />
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800 group-hover:text-teal-700 transition-colors">
-                      Buka Berkas Digital Surat (Google Drive / Online Link)
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800 group-hover:text-[#003D58] transition-colors truncate">
+                      Berkas Surat Digital
                     </p>
                     <p className="text-[11px] text-slate-400 truncate max-w-xs sm:max-w-md">
-                      {selectedLetter.fileUrl}
+                      {selectedLetter.fileUrl.startsWith('data:') ? 'Dokumen Terunggah Langsung' : selectedLetter.fileUrl}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 text-xs font-semibold text-teal-600 shrink-0">
-                  <span>Buka Dokumen</span>
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#35C6D4] group-hover:bg-[#2CB4C1] px-3.5 py-1.5 rounded-lg shadow-xs shrink-0 transition-colors">
                   <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Buka di Tab Baru</span>
                 </div>
               </a>
             ) : (
               <div className="p-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center text-xs text-slate-400">
-                Tidak ada tautan berkas digital yang dilampirkan.
+                Tidak ada berkas digital yang dilampirkan.
               </div>
             )}
 
-            {/* Kegiatan Terkait Surat */}
-            <div className="space-y-2 pt-1">
-              <div className="flex items-center justify-between">
-                <p className="font-bold text-xs text-slate-800 flex items-center gap-1.5">
-                  <CalendarCheck2 className="w-4 h-4 text-teal-600 shrink-0" />
-                  Kegiatan Terkait Surat Ini
-                </p>
-                {(!selectedLetter.activities || selectedLetter.activities.length === 0) && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsDetailOpen(false);
-                      handleOpenCreateActivity(selectedLetter);
-                    }}
-                    className="text-[11px] text-teal-600 hover:text-teal-700 font-semibold flex items-center gap-1 cursor-pointer transition-colors"
-                  >
-                    <Plus className="w-3 h-3" />
-                    Buat Kegiatan Sekarang
-                  </button>
-                )}
-              </div>
-
-              {(!selectedLetter.activities || selectedLetter.activities.length === 0) ? (
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 text-center text-xs text-slate-500">
-                  Belum ada kegiatan yang terhubung dengan surat masuk ini.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {selectedLetter.activities.map((act) => (
-                    <div
-                      key={act.id}
-                      className="flex items-center justify-between p-3 rounded-xl border border-slate-200 bg-white hover:border-slate-300 transition-colors"
-                    >
-                      <div>
-                        <p className="font-bold text-xs text-slate-800">{act.title}</p>
-                        <p className="text-[11px] text-slate-500 mt-0.5">
-                          Pelaksanaan: {formatDateID(act.date.split('T')[0])}
-                        </p>
-                      </div>
-                      <StatusBadge status={act.status} />
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Footer Buttons */}
-            <div className="flex items-center justify-between pt-3 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => {
-                  setIsDetailOpen(false);
-                  handleOpenEdit(selectedLetter);
-                }}
-                className="px-3.5 py-2 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors"
-              >
-                <Edit3 className="w-3.5 h-3.5 text-slate-500" />
-                Edit Surat
-              </button>
+            <div className="flex items-center justify-end pt-3 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setIsDetailOpen(false)}
@@ -1285,6 +1550,73 @@ export default function IncomingLettersPage() {
           </div>
         </div>
       </CustomModal>
+
+      {/* Reject Confirmation Modal for Kepala Humas */}
+      <CustomModal
+        isOpen={isRejectModalOpen}
+        onClose={() => {
+          setIsRejectModalOpen(false);
+          setRejectReason('');
+        }}
+        title="Tolak Surat Masuk"
+        maxWidth="md"
+      >
+        <div className="space-y-4">
+          <div className="p-3 bg-red-50 border border-red-200 rounded-xl flex items-center gap-2 text-red-800 text-xs">
+            <AlertTriangle className="w-4 h-4 text-red-600 shrink-0" />
+            <span>Anda akan menolak surat <strong>{selectedLetter?.letterNumber}</strong>. Mohon berikan alasan penolakan.</span>
+          </div>
+          <div>
+            <label className="block text-xs font-semibold text-slate-700 mb-1">
+              Alasan Penolakan <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              required
+              rows={3}
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder="Cth: Jadwal bertabrakan dengan agenda wisuda, atau berkas kurang lengkap..."
+              className="w-full bg-white border border-slate-200 focus:border-red-400 focus:ring-1 focus:ring-red-400 rounded-lg p-2.5 text-xs text-slate-800 focus:outline-none"
+            />
+          </div>
+          <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+            <button
+              type="button"
+              onClick={() => {
+                setIsRejectModalOpen(false);
+                setRejectReason('');
+              }}
+              className="px-3.5 py-2 border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 rounded-lg text-xs font-semibold cursor-pointer"
+            >
+              Batal
+            </button>
+            <button
+              type="button"
+              onClick={handleRejectLetter}
+              className="px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg text-xs font-bold shadow-xs cursor-pointer"
+            >
+              Konfirmasi Tolak Surat
+            </button>
+          </div>
+        </div>
+      </CustomModal>
+
+      {/* Modal detail dan lainnya tetap */}
+
+      {/* Universal Action Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        onClose={() => setConfirmState((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={async () => {
+          await confirmState.onConfirm();
+          setConfirmState((prev) => ({ ...prev, isOpen: false }));
+        }}
+        title={confirmState.title}
+        message={confirmState.message}
+        confirmText={confirmState.confirmText}
+        variant={confirmState.variant}
+        isLoading={isConfirming}
+      />
     </AdminLayout>
   );
 }

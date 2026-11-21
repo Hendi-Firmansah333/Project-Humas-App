@@ -4,7 +4,7 @@ import { CreateActivityDto } from './dto/create-activity.dto';
 import { UpdateActivityDto } from './dto/update-activity.dto';
 import { CheckInDto } from './dto/check-in.dto';
 import { DocumentationDto } from './dto/documentation.dto';
-import { ActivityStatus, CheckInStatus } from '@prisma/client';
+import { ActivityStatus, CheckInStatus, NotificationType, Role, UserStatus } from '@prisma/client';
 import { buildPaginatedResult, parsePagination } from '../common/utils/pagination.util';
 import { mapActivityForMobile } from '../common/mappers/mobile.mapper';
 import { RealtimeEventsService } from '../events/realtime-events.service';
@@ -75,6 +75,30 @@ export class ActivitiesService {
     },
   };
 
+  private async notifySuperAdmins(
+    title: string,
+    message: string,
+    link: string,
+    type: NotificationType = NotificationType.INFO,
+  ) {
+    const superAdmins = await this.prisma.user.findMany({
+      where: { role: Role.SUPER_ADMIN, status: UserStatus.AKTIF, deletedAt: null },
+      select: { id: true },
+    });
+
+    if (superAdmins.length === 0) return;
+
+    await this.prisma.notification.createMany({
+      data: superAdmins.map((u) => ({
+        userId: u.id,
+        title,
+        message,
+        type,
+        link,
+      })),
+    });
+  }
+
   private async syncStatus() {
     const nowMs = Date.now();
     if (nowMs - this.lastSyncAt < ActivitiesService.SYNC_TTL_MS) {
@@ -131,7 +155,7 @@ export class ActivitiesService {
       endDateTime.setHours(parseInt(endParts[0] || '23', 10), parseInt(endParts[1] || '59', 10), 59, 999);
 
       if (now > endDateTime) {
-        currentStatus = ActivityStatus.MENUNGGU_VERIFIKASI;
+        currentStatus = ActivityStatus.MENUNGGU_PERSETUJUAN_AKHIR;
       } else if (now >= startDateTime && now <= endDateTime) {
         currentStatus = ActivityStatus.SEDANG_BERLANGSUNG;
       } else {
@@ -144,21 +168,31 @@ export class ActivitiesService {
     }
 
     if (updates.length > 0) {
-      await Promise.all([
-        ...updates.map((u) =>
+      await Promise.all(
+        updates.map((u) =>
           this.prisma.activity.update({
             where: { id: u.id },
             data: { status: u.status },
           }),
         ),
-        this.prisma.notification.createMany({
-          data: updates.map((u) => ({
-            title: 'Status Kegiatan Berubah',
-            message: `Status kegiatan "${u.title}" kini berubah menjadi ${u.status}.`,
-            type: 'INFO',
-          })),
-        }),
-      ]);
+      );
+      for (const u of updates) {
+        if (u.status === ActivityStatus.MENUNGGU_PERSETUJUAN_AKHIR) {
+          await this.notifySuperAdmins(
+            'Kegiatan Menunggu Persetujuan Akhir',
+            `Kegiatan "${u.title}" telah selesai dilaksanakan dan menunggu persetujuan akhir Kepala Humas.`,
+            '/persetujuan?tab=akhir',
+          );
+        } else {
+          await this.prisma.notification.create({
+            data: {
+              title: 'Status Kegiatan Berubah',
+              message: `Status kegiatan "${u.title}" kini berubah menjadi ${u.status}.`,
+              type: 'INFO',
+            },
+          });
+        }
+      }
       this.eventsService.emitMultiple(['activities', 'notifications'], 'status_synced');
     }
   }
@@ -232,14 +266,17 @@ export class ActivitiesService {
       throw new BadRequestException('Daftar anggota tidak boleh berisi anggota duplikat.');
     }
 
-    // Verify PIC is role USER
+    // Verify PIC is role USER and status AKTIF
     const picUser = await this.prisma.user.findUnique({ where: { id: dto.picId } });
     if (!picUser) throw new NotFoundException('PIC tidak ditemukan.');
     if (picUser.role !== 'USER') {
-      throw new BadRequestException('Hanya pengguna dengan role Anggota yang dapat ditugaskan sebagai PIC.');
+      throw new BadRequestException('Admin Humas dan Kepala Humas tidak dapat ditugaskan sebagai PIC kegiatan.');
+    }
+    if (picUser.status !== 'AKTIF') {
+      throw new BadRequestException('Akun nonaktif tidak dapat ditugaskan sebagai PIC kegiatan.');
     }
 
-    // Verify all members have role USER
+    // Verify all members have role USER and status AKTIF
     if (ids.length > 0) {
       const invalidMembers = await this.prisma.user.findMany({
         where: { id: { in: ids }, role: { not: 'USER' } },
@@ -248,7 +285,18 @@ export class ActivitiesService {
       if (invalidMembers.length > 0) {
         const names = invalidMembers.map((m) => m.fullName).join(', ');
         throw new BadRequestException(
-          `Pengguna berikut bukan Anggota Humas: ${names}. Hanya akun dengan role Anggota yang boleh ditugaskan.`,
+          `Admin Humas dan Kepala Humas (${names}) tidak dapat ditugaskan sebagai anggota kegiatan.`,
+        );
+      }
+
+      const inactiveMembers = await this.prisma.user.findMany({
+        where: { id: { in: ids }, status: { not: 'AKTIF' } },
+        select: { fullName: true },
+      });
+      if (inactiveMembers.length > 0) {
+        const names = inactiveMembers.map((m) => m.fullName).join(', ');
+        throw new BadRequestException(
+          `Akun nonaktif (${names}) tidak dapat ditugaskan dalam kegiatan apapun.`,
         );
       }
     }
@@ -269,7 +317,7 @@ export class ActivitiesService {
 
     let initialStatus: ActivityStatus = ActivityStatus.AKAN_DATANG;
     if (now > endDateTime) {
-      initialStatus = ActivityStatus.MENUNGGU_VERIFIKASI;
+      initialStatus = ActivityStatus.MENUNGGU_PERSETUJUAN_AKHIR;
     } else if (now >= startDateTime && now <= endDateTime) {
       initialStatus = ActivityStatus.SEDANG_BERLANGSUNG;
     }
@@ -538,7 +586,10 @@ export class ActivitiesService {
       const picUser = await this.prisma.user.findUnique({ where: { id: data.picId } });
       if (!picUser) throw new NotFoundException('PIC tidak ditemukan.');
       if (picUser.role !== 'USER') {
-        throw new BadRequestException('Hanya pengguna dengan role Anggota yang dapat ditugaskan sebagai PIC.');
+        throw new BadRequestException('Admin Humas dan Kepala Humas tidak dapat ditugaskan sebagai PIC kegiatan.');
+      }
+      if (picUser.status !== 'AKTIF') {
+        throw new BadRequestException('Akun nonaktif tidak dapat ditugaskan sebagai PIC kegiatan.');
       }
     }
 
@@ -550,7 +601,7 @@ export class ActivitiesService {
       throw new BadRequestException('Daftar anggota tidak boleh berisi anggota duplikat.');
     }
 
-    // Verify all members have role USER
+    // Verify all members have role USER and status AKTIF
     if (nextMemberIds.length > 0) {
       const invalidMembers = await this.prisma.user.findMany({
         where: { id: { in: nextMemberIds }, role: { not: 'USER' } },
@@ -559,7 +610,18 @@ export class ActivitiesService {
       if (invalidMembers.length > 0) {
         const names = invalidMembers.map((m) => m.fullName).join(', ');
         throw new BadRequestException(
-          `Pengguna berikut bukan Anggota Humas: ${names}. Hanya akun dengan role Anggota yang boleh ditugaskan.`,
+          `Admin Humas dan Kepala Humas (${names}) tidak dapat ditugaskan sebagai anggota kegiatan.`,
+        );
+      }
+
+      const inactiveMembers = await this.prisma.user.findMany({
+        where: { id: { in: nextMemberIds }, status: { not: 'AKTIF' } },
+        select: { fullName: true },
+      });
+      if (inactiveMembers.length > 0) {
+        const names = inactiveMembers.map((m) => m.fullName).join(', ');
+        throw new BadRequestException(
+          `Akun nonaktif (${names}) tidak dapat ditugaskan dalam kegiatan apapun.`,
         );
       }
     }
@@ -807,45 +869,58 @@ export class ActivitiesService {
         fileType: 'application/link',
       },
     });
+    let resultActivity = activity;
+    let uploadedAt: Date;
+
     if (existingDoc) {
       const userObj = await this.prisma.user.findUnique({ where: { id: userId } });
       const canEdit = existingDoc.uploaderId === userId || activity.picId === userId || userObj?.role === 'ADMIN' || userObj?.role === 'SUPER_ADMIN';
-      if (canEdit) {
-        await this.prisma.media.update({
-          where: { id: existingDoc.id },
-          data: { fileUrl: dto.driveUrl },
-        });
-        this.eventsService.emit('activities', 'documentation_updated', activityId);
-        return {
-          item: {
-            ...mapActivityForMobile(activity, false, userId),
-            documentationUrl: dto.driveUrl,
-            docStatus: 'Sudah Upload',
-            uploadedAt: existingDoc.createdAt,
-          },
-        };
-      } else {
+      if (!canEdit) {
         throw new BadRequestException('Link Google Drive untuk kegiatan ini sudah tersedia.');
       }
+      await this.prisma.media.update({
+        where: { id: existingDoc.id },
+        data: { fileUrl: dto.driveUrl },
+      });
+      uploadedAt = existingDoc.createdAt;
+      this.eventsService.emit('activities', 'documentation_updated', activityId);
+    } else {
+      const media = await this.prisma.media.create({
+        data: {
+          fileName: 'documentation',
+          fileUrl: dto.driveUrl,
+          fileType: 'application/link',
+          uploaderId: userId,
+          activityId,
+        },
+      });
+      uploadedAt = media.createdAt;
     }
 
-    const media = await this.prisma.media.create({
-      data: {
-        fileName: 'documentation',
-        fileUrl: dto.driveUrl,
-        fileType: 'application/link',
-        uploaderId: userId,
-        activityId,
-      },
-    });
+    if (
+      activity.status === ActivityStatus.DIKEMBALIKAN ||
+      activity.status === ActivityStatus.PERLU_PERBAIKAN ||
+      activity.status === ActivityStatus.MENUNGGU_VERIFIKASI
+    ) {
+      resultActivity = await this.prisma.activity.update({
+        where: { id: activityId },
+        data: { status: ActivityStatus.MENUNGGU_PERSETUJUAN_AKHIR },
+        include: this.activityInclude,
+      });
+      await this.notifySuperAdmins(
+        'Perbaikan Dokumentasi Kegiatan Dikirim',
+        `Dokumentasi kegiatan "${activity.title}" telah diperbarui dan menunggu persetujuan akhir Kepala Humas.`,
+        '/persetujuan?tab=akhir',
+      );
+    }
 
     this.eventsService.emit('activities', 'documentation_created', activityId);
     return {
       item: {
-        ...mapActivityForMobile(activity, false, userId),
+        ...mapActivityForMobile(resultActivity, false, userId),
         documentationUrl: dto.driveUrl,
         docStatus: 'Sudah Upload',
-        uploadedAt: media.createdAt,
+        uploadedAt,
       },
     };
   }
@@ -968,14 +1043,17 @@ export class ActivitiesService {
       throw new BadRequestException('Daftar anggota tidak boleh berisi anggota duplikat.');
     }
 
-    // Verify PIC has role USER (Tim Humas)
+    // Verify PIC has role USER (Anggota Humas) and is AKTIF
     const picUser = await this.prisma.user.findUnique({ where: { id: picId } });
     if (!picUser) throw new NotFoundException('PIC tidak ditemukan.');
     if (picUser.role !== 'USER') {
-      throw new BadRequestException('PIC harus berasal dari akun Tim Humas.');
+      throw new BadRequestException('Admin Humas dan Kepala Humas tidak dapat ditugaskan sebagai PIC kegiatan.');
+    }
+    if (picUser.status !== 'AKTIF') {
+      throw new BadRequestException('Akun nonaktif tidak dapat ditugaskan sebagai PIC kegiatan.');
     }
 
-    // Verify all members have role USER (Tim Humas)
+    // Verify all members have role USER (Anggota Humas) and status AKTIF
     if (memberIds.length > 0) {
       const invalidMembers = await this.prisma.user.findMany({
         where: { id: { in: memberIds }, role: { not: 'USER' } },
@@ -984,7 +1062,18 @@ export class ActivitiesService {
       if (invalidMembers.length > 0) {
         const names = invalidMembers.map((m) => m.fullName).join(', ');
         throw new BadRequestException(
-          `Pengguna berikut bukan Tim Humas: ${names}. Anggota kegiatan harus berasal dari akun Tim Humas.`
+          `Admin Humas dan Kepala Humas (${names}) tidak dapat ditugaskan sebagai anggota kegiatan.`
+        );
+      }
+
+      const inactiveMembers = await this.prisma.user.findMany({
+        where: { id: { in: memberIds }, status: { not: 'AKTIF' } },
+        select: { fullName: true },
+      });
+      if (inactiveMembers.length > 0) {
+        const names = inactiveMembers.map((m) => m.fullName).join(', ');
+        throw new BadRequestException(
+          `Akun nonaktif (${names}) tidak dapat ditugaskan dalam kegiatan apapun.`
         );
       }
     }
@@ -1171,7 +1260,10 @@ export class ActivitiesService {
 
   async approveFinish(id: number, userId: number, notes?: string) {
     const activity = await this.findOne(id);
-    if (activity.status !== ActivityStatus.MENUNGGU_PERSETUJUAN_AKHIR) {
+    if (
+      activity.status !== ActivityStatus.MENUNGGU_PERSETUJUAN_AKHIR &&
+      activity.status !== ActivityStatus.MENUNGGU_VERIFIKASI
+    ) {
       throw new BadRequestException('Kegiatan tidak sedang menunggu persetujuan akhir.');
     }
 

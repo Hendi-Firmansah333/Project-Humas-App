@@ -16,11 +16,12 @@ export default function SearchBox({
 }: SearchBoxProps) {
   return (
     <div
-      className={`relative flex items-center w-full sm:w-64 md:w-80 h-10 bg-slate-50 border border-slate-200 rounded-xl px-3.5 focus-within:bg-white focus-within:ring-2 focus-within:ring-teal-500/20 focus-within:border-teal-600 transition-all ${className}`}
+      className={`relative flex items-center w-full sm:w-64 md:w-80 h-10 bg-slate-50 border border-slate-200 rounded-xl px-3.5 focus-within:bg-white focus-within:ring-2 focus-within:ring-[#003D58]/15 focus-within:border-[#003D58] transition-all ${className}`}
     >
       <Search className="w-4 h-4 text-slate-400 shrink-0 mr-2.5" />
       <input
         type="text"
+        aria-label={placeholder}
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}

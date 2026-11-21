@@ -2,9 +2,12 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { usePathname, useRouter } from 'next/navigation';
+import Image from 'next/image';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { getStoredUser, isSuperAdmin } from '@/utils/session';
 import { User as UserType } from '@/types';
+import ConfirmModal from '@/components/common/ConfirmModal';
+import { toast } from 'sonner';
 import {
   LayoutDashboard,
   LayoutGrid,
@@ -15,7 +18,6 @@ import {
   Wrench,
   Users,
   BarChart3,
-  User,
   LogOut,
   Building2,
   ChevronLeft,
@@ -26,6 +28,9 @@ import {
   Package,
   Mail,
   ShieldCheck,
+  UserPlus,
+  CheckCircle2,
+  Camera,
 } from 'lucide-react';
 
 /* ===================== NAV STRUCTURE ===================== */
@@ -37,12 +42,12 @@ type NavItem =
       name: string;
       icon: React.ElementType;
       id: string;
-      children: { name: string; href: string; icon: React.ElementType }[];
+      badge?: number;
+      children: { name: string; href: string; icon: React.ElementType; badgeKey?: string }[];
     };
 
 function getSidebarSections(role?: string): { label: string; items: NavItem[] }[] {
   const dashboardItem: NavItem = { type: 'item', name: 'Dashboard', href: '/dashboard', icon: LayoutGrid };
-  const profilItem: NavItem = { type: 'item', name: 'Profil', href: '/profil', icon: User };
 
   if (role === 'SUPER_ADMIN') {
     return [
@@ -53,7 +58,19 @@ function getSidebarSections(role?: string): { label: string; items: NavItem[] }[
       {
         label: 'OPERASIONAL',
         items: [
-          { type: 'item', name: 'Persetujuan', href: '/persetujuan', icon: ShieldCheck, badge: -2 } as NavItem,
+          {
+            type: 'group',
+            name: 'Persetujuan',
+            icon: ShieldCheck,
+            id: 'persetujuan',
+            badge: -2,
+            children: [
+              { name: 'Persetujuan Surat', href: '/persetujuan?tab=surat', icon: Mail, badgeKey: 'surat' },
+              { name: 'Penugasan Tim', href: '/persetujuan?tab=penugasan', icon: UserPlus, badgeKey: 'penugasan' },
+              { name: 'Persetujuan Akhir', href: '/persetujuan?tab=akhir', icon: CheckCircle2, badgeKey: 'akhir' },
+              { name: 'Persetujuan Content Plan', href: '/persetujuan?tab=konten', icon: Camera, badgeKey: 'konten' },
+            ],
+          } as NavItem,
           { type: 'item', name: 'Kegiatan', href: '/kegiatan', icon: CalendarCheck2 } as NavItem,
           { type: 'item', name: 'Content Plan', href: '/content-plan', icon: FileText } as NavItem,
           { type: 'item', name: 'Inventaris & Peminjaman', href: '/peminjaman-alat', icon: Wrench } as NavItem,
@@ -70,6 +87,7 @@ function getSidebarSections(role?: string): { label: string; items: NavItem[] }[
             icon: History,
             id: 'riwayat',
             children: [
+              { name: 'Riwayat Surat Masuk', href: '/riwayat-surat', icon: Mail },
               { name: 'Riwayat Kegiatan', href: '/riwayat-kegiatan', icon: ClipboardList },
               { name: 'Riwayat Content Plan', href: '/riwayat-content-plan', icon: FileText },
               { name: 'Riwayat Peminjaman', href: '/riwayat-peminjaman', icon: Package },
@@ -77,10 +95,6 @@ function getSidebarSections(role?: string): { label: string; items: NavItem[] }[
           } as NavItem,
           { type: 'item', name: 'Laporan', href: '/laporan', icon: BarChart3 } as NavItem,
         ],
-      },
-      {
-        label: 'AKUN',
-        items: [profilItem],
       },
     ];
   }
@@ -100,7 +114,6 @@ function getSidebarSections(role?: string): { label: string; items: NavItem[] }[
           { type: 'item', name: 'Live Location Tim', href: '/live-location', icon: MapPin } as NavItem,
           { type: 'item', name: 'Inventaris & Peminjaman', href: '/peminjaman-alat', icon: Wrench } as NavItem,
           { type: 'item', name: 'Jadwal Piket', href: '/jadwal-piket', icon: Calendar } as NavItem,
-          { type: 'item', name: 'Verifikasi Kelengkapan', href: '/verifikasi-kegiatan', icon: ClipboardList, badge: -1 } as NavItem,
         ],
       },
       {
@@ -112,6 +125,7 @@ function getSidebarSections(role?: string): { label: string; items: NavItem[] }[
             icon: History,
             id: 'riwayat',
             children: [
+              { name: 'Riwayat Surat Masuk', href: '/riwayat-surat', icon: Mail },
               { name: 'Riwayat Kegiatan', href: '/riwayat-kegiatan', icon: ClipboardList },
               { name: 'Riwayat Content Plan', href: '/riwayat-content-plan', icon: FileText },
               { name: 'Riwayat Peminjaman', href: '/riwayat-peminjaman', icon: Package },
@@ -120,10 +134,6 @@ function getSidebarSections(role?: string): { label: string; items: NavItem[] }[
           { type: 'item', name: 'Laporan', href: '/laporan', icon: BarChart3 } as NavItem,
           { type: 'item', name: 'Pengguna', href: '/pengguna', icon: Users } as NavItem,
         ],
-      },
-      {
-        label: 'AKUN',
-        items: [profilItem],
       },
     ];
   }
@@ -150,10 +160,16 @@ export default function Sidebar({
   className = '',
 }: SidebarProps) {
   const pathname = usePathname();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const [currentUser, setCurrentUser] = useState<UserType | null>(null);
-  const [verificationBadgeCount, setVerificationBadgeCount] = useState(0);
   const [approvalBadgeCount, setApprovalBadgeCount] = useState(0);
+  const [badgeDetail, setBadgeDetail] = useState({
+    surat: 0,
+    penugasan: 0,
+    akhir: 0,
+    konten: 0,
+  });
 
   useEffect(() => {
     setCurrentUser(getStoredUser());
@@ -167,21 +183,6 @@ export default function Sidebar({
       try {
         const { activityService, contentService, incomingLetterService } = await import('@/services');
 
-        if (currentUser.role === 'ADMIN') {
-          const [actRes, cpRes] = await Promise.all([
-            activityService.getAll({ status: 'MENUNGGU_VERIFIKASI', page: 1, pageSize: 1 }).catch(() => ({ total: 0, items: [] })),
-            contentService.getAll({ page: 1, pageSize: 100 }).catch(() => ({ total: 0, items: [] })),
-          ]);
-
-          const actCount = (actRes as any)?.total ?? (actRes as any)?.items?.length ?? 0;
-          const cpItems = (cpRes as any)?.items ?? [];
-          const cpCount = cpItems.filter((item: any) =>
-            item.status === 'MENUNGGU_VERIFIKASI_ADMIN' || item.status === 'MENUNGGU'
-          ).length;
-
-          setVerificationBadgeCount(actCount + cpCount);
-        }
-
         if (currentUser.role === 'SUPER_ADMIN') {
           const [letterRes, actRes, cpRes] = await Promise.all([
             incomingLetterService.getAll().catch(() => []),
@@ -192,17 +193,28 @@ export default function Sidebar({
           const letters = Array.isArray(letterRes) ? letterRes : [];
           const letterCount = letters.filter((l: any) =>
             l.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' ||
+            l.status === 'MENUNGGU_VERIFIKASI_ADMIN' ||
             l.status === 'MENUNGGU_PERSETUJUAN' ||
             l.status === 'BARU'
           ).length;
 
+          const penugasanCount = letters.filter((l: any) => l.status === 'DISETUJUI').length;
+
           const actCount = (actRes as any)?.total ?? (actRes as any)?.items?.length ?? 0;
           const cpItems = (cpRes as any)?.items ?? [];
           const cpCount = cpItems.filter((item: any) =>
-            item.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' || item.status === 'MENUNGGU'
+            item.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' ||
+            item.status === 'MENUNGGU' ||
+            item.status === 'MENUNGGU_VERIFIKASI_ADMIN'
           ).length;
 
           setApprovalBadgeCount(letterCount + actCount + cpCount);
+          setBadgeDetail({
+            surat: letterCount,
+            penugasan: penugasanCount,
+            akhir: actCount,
+            konten: cpCount,
+          });
         }
       } catch (err) {
         console.error('Error fetching sidebar badges:', err);
@@ -216,56 +228,93 @@ export default function Sidebar({
 
   // Track open/closed state of collapsible groups
   const [openGroups, setOpenGroups] = useState<Record<string, boolean>>(() => {
-    // Auto-open riwayat group if current path is a riwayat page
-    const riwayatPaths = ['/riwayat-kegiatan', '/riwayat-content-plan', '/riwayat-peminjaman'];
-    return { riwayat: riwayatPaths.some((p) => pathname.startsWith(p)) };
+    const riwayatPaths = ['/riwayat-surat', '/riwayat-kegiatan', '/riwayat-content-plan', '/riwayat-peminjaman'];
+    const isRiwayat = riwayatPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`));
+    const isPersetujuan = pathname === '/persetujuan' || pathname.startsWith('/persetujuan/');
+    return {
+      riwayat: isRiwayat,
+      persetujuan: isPersetujuan,
+    };
   });
+
+  // Keep accordion opened when on matching routes
+  useEffect(() => {
+    const riwayatPaths = ['/riwayat-surat', '/riwayat-kegiatan', '/riwayat-content-plan', '/riwayat-peminjaman'];
+    if (riwayatPaths.some((p) => pathname === p || pathname.startsWith(`${p}/`))) {
+      setOpenGroups((prev) => ({ ...prev, riwayat: true }));
+    }
+    if (pathname === '/persetujuan' || pathname.startsWith('/persetujuan/')) {
+      setOpenGroups((prev) => ({ ...prev, persetujuan: true }));
+    }
+  }, [pathname]);
 
   const toggleGroup = (id: string) => {
     setOpenGroups((prev) => ({ ...prev, [id]: !prev[id] }));
   };
 
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
   const handleLogout = () => {
+    setShowLogoutConfirm(false);
     localStorage.removeItem('humass_token');
     localStorage.removeItem('humass_user');
+    toast.success('Anda berhasil keluar dari sesi.');
     router.push('/login');
   };
 
-  const isActive = (href: string) =>
-    pathname === href || pathname.startsWith(`${href}/`);
+  const isActive = (href: string) => {
+    if (href.includes('?')) {
+      const [path, query] = href.split('?');
+      if (pathname !== path) return false;
+      const targetTab = new URLSearchParams(query).get('tab');
+      const currentTab = searchParams?.get('tab') || 'surat';
+      return currentTab === targetTab;
+    }
+    return pathname === href || pathname.startsWith(`${href}/`);
+  };
 
   const isGroupActive = (children: { href: string }[]) =>
-    children.some((c) => isActive(c.href));
+    children.some((c) => {
+      const path = c.href.split('?')[0];
+      return pathname === path || pathname.startsWith(`${path}/`);
+    });
 
   return (
     <aside
-      className={`bg-white border-r border-slate-200 flex flex-col shrink-0 h-screen sticky top-0 z-40 transition-all duration-300 ${
-        isCollapsed ? 'w-[72px]' : 'w-64'
+      className={`bg-white border-r border-slate-200/80 flex flex-col shrink-0 h-screen sticky top-0 z-40 transition-all duration-300 ${
+        isCollapsed ? 'w-[72px]' : 'w-[280px]'
       } ${className}`}
     >
       {/* ── Logo Area ─────────────────────────────── */}
       <div
-        className={`h-16 flex items-center border-b border-slate-100 shrink-0 transition-all ${
-          isCollapsed ? 'justify-center px-2' : 'px-5 gap-3 justify-between'
+        className={`h-[78px] flex items-center border-b border-[#F1F5F9] shrink-0 transition-all ${
+          isCollapsed ? 'justify-center px-2' : 'px-4 justify-between'
         }`}
       >
         <Link
           href="/dashboard"
-          className="flex items-center gap-3 overflow-hidden hover:opacity-90 transition-opacity"
+          className="flex items-center gap-2.5 overflow-hidden hover:opacity-95 transition-opacity"
           title="Kembali ke Dashboard"
         >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            alt="HUMAS POLINELA"
-            className="w-8 h-8 object-contain shrink-0"
-            src="/logo-humas.png"
+          <Image
+            src="/prima-symbol-clean-v10.png"
+            alt="PRIMA"
+            width={30}
+            height={30}
+            priority
+            className="w-[30px] h-[30px] object-contain shrink-0"
           />
           {!isCollapsed && (
-            <div className="truncate">
-              <h1 className="font-bold text-sm text-slate-900 leading-tight">HUMAS POLINELA</h1>
-              <p className="text-[11px] text-slate-400 font-medium leading-tight">
-                {currentUser?.role === 'SUPER_ADMIN' ? 'Kepala Humas' : currentUser?.role === 'ADMIN' ? 'Admin Humas' : 'Tim Humas'}
-              </p>
+            <div className="flex flex-col justify-center min-w-0">
+              <span className="font-extrabold text-[12px] text-[#0F172A] tracking-[0.3px] uppercase leading-[14px] font-['Poppins']">
+                PUBLIC RELATION
+              </span>
+              <span className="font-extrabold text-[12px] text-[#0F172A] tracking-[0.3px] uppercase leading-[14px] font-['Poppins']">
+                MANAGEMENT
+              </span>
+              <span className="font-medium text-[11px] text-[#8E9CAE] leading-[14px] mt-0.5 font-['Poppins']">
+                {currentUser?.role === 'SUPER_ADMIN' ? 'Kepala Humas' : 'Admin Humas'}
+              </span>
             </div>
           )}
         </Link>
@@ -273,11 +322,12 @@ export default function Sidebar({
         {/* Desktop Collapse Toggle */}
         {onToggleCollapse && !isCollapsed && (
           <button
+            type="button"
             onClick={onToggleCollapse}
-            className="hidden lg:flex p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer shrink-0"
+            className="hidden lg:flex w-7 h-7 items-center justify-center rounded-lg text-[#8E9CAE] hover:text-slate-600 hover:bg-slate-50 transition-colors cursor-pointer shrink-0 ml-1"
             title="Tutup Sidebar"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-5 h-5 stroke-[2]" />
           </button>
         )}
       </div>
@@ -304,38 +354,52 @@ export default function Sidebar({
                   const Icon = item.icon;
                   // Resolve dynamic badge count
                   const itemBadge = (item as { badge?: number }).badge;
-                  const badgeCount = itemBadge === -1 ? verificationBadgeCount : itemBadge === -2 ? approvalBadgeCount : (itemBadge || 0);
+                  const badgeCount = itemBadge === -2 ? approvalBadgeCount : (itemBadge || 0);
                   return (
                     <Link
                       key={item.name}
                       href={item.href || '#'}
                       onClick={onCloseMobile}
                       title={isCollapsed ? item.name : undefined}
-                      className={`flex items-center rounded-xl text-sm transition-all relative group ${
-                        isCollapsed ? 'justify-center py-3 px-0' : 'gap-3 px-3.5 py-2.5'
+                      style={
+                        active
+                          ? {
+                              background: '#003D58',
+                              boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)',
+                            }
+                          : undefined
+                      }
+                      className={`flex items-center text-xs sm:text-[13px] transition-all relative group cursor-pointer ${
+                        isCollapsed ? 'justify-center py-2.5 px-0 rounded-xl mx-1' : 'gap-3 px-3.5 py-2.5 rounded-xl'
                       } ${
                         active
-                          ? 'bg-[#e8f5f3] text-[#006971] font-bold shadow-2xs'
-                          : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
+                          ? 'text-[#FFF9F9] font-bold'
+                          : 'text-[#64748B] hover:bg-slate-100/70 hover:text-[#0F172A] font-medium'
                       }`}
                     >
-                      <div className="relative shrink-0">
+                      <div className="relative shrink-0 flex items-center justify-center">
                         <Icon
-                          className={`w-[18px] h-[18px] ${
-                            active ? 'text-[#006971]' : 'text-slate-400 group-hover:text-slate-600'
+                          className={`w-[18px] h-[18px] transition-colors ${
+                            active ? 'text-[#FFF9F9]' : 'text-[#67686D] group-hover:text-slate-900'
                           }`}
                         />
                         {badgeCount > 0 && isCollapsed && (
-                          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-red-500 text-white text-[9px] font-bold px-1 ring-2 ring-white animate-pulse">
+                          <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-[#E11D48] text-white text-[9px] font-bold px-1 ring-2 ring-white animate-pulse">
                             {badgeCount > 99 ? '99+' : badgeCount}
                           </span>
                         )}
                       </div>
                       {!isCollapsed && (
                         <>
-                          <span className="truncate leading-none flex-1">{item.name}</span>
+                          <span className="truncate leading-5 flex-1 font-['Poppins'] whitespace-nowrap">{item.name}</span>
                           {badgeCount > 0 && (
-                            <span className="min-w-[20px] h-5 flex items-center justify-center rounded-full bg-red-500 text-white text-[10px] font-bold px-1.5 shrink-0">
+                            <span
+                              className={`min-w-[20px] h-5 flex items-center justify-center rounded-full text-[10px] font-bold px-1.5 shrink-0 ${
+                                active
+                                  ? 'bg-[#E11D48] text-white'
+                                  : 'bg-[#E11D48] text-white'
+                              }`}
+                            >
                               {badgeCount > 99 ? '99+' : badgeCount}
                             </span>
                           )}
@@ -349,64 +413,121 @@ export default function Sidebar({
                   const Icon = item.icon;
                   const groupActive = isGroupActive(item.children || []);
                   const isOpen = item.id ? openGroups[item.id] : false;
+                  const groupBadge = item.id === 'persetujuan' ? approvalBadgeCount : 0;
 
                   return (
                     <div key={item.id || item.name}>
                       {/* Group Header Button */}
                       <button
                         onClick={() => {
-                          if (isCollapsed) return;
+                          if (isCollapsed) {
+                            if (item.id === 'riwayat') {
+                              router.push('/riwayat-surat');
+                            } else if (item.id === 'persetujuan') {
+                              router.push('/persetujuan?tab=surat');
+                            }
+                            return;
+                          }
                           if (item.id) toggleGroup(item.id);
                         }}
-                        title={isCollapsed ? item.name : undefined}
-                        className={`w-full flex items-center rounded-xl text-sm transition-all relative group ${
-                          isCollapsed ? 'justify-center py-3 px-0' : 'gap-3 px-3.5 py-2.5 justify-between'
+                        title={
+                          isCollapsed
+                            ? `${item.name} (${item.id === 'persetujuan' ? 'Buka Persetujuan Surat' : 'Buka Riwayat Surat'})`
+                            : undefined
+                        }
+                        style={
+                          groupActive && !isOpen
+                            ? {
+                                background: '#003D58',
+                                boxShadow: '0px 4px 4px rgba(0, 0, 0, 0.25)',
+                              }
+                            : undefined
+                        }
+                        className={`w-full flex items-center text-xs sm:text-[13px] transition-all relative group cursor-pointer ${
+                          isCollapsed ? 'justify-center py-2.5 px-0 rounded-xl mx-1' : 'gap-3 px-3.5 py-2.5 rounded-xl justify-between'
                         } ${
-                          groupActive
-                            ? 'bg-[#e8f5f3] text-[#006971] font-bold'
-                            : 'text-slate-600 hover:bg-slate-50 hover:text-slate-900 font-medium'
-                        } cursor-pointer`}
+                          groupActive && !isOpen
+                            ? 'text-[#FFF9F9] font-bold'
+                            : groupActive && isOpen
+                            ? 'bg-[#F0F9FF] text-[#003D58] font-bold'
+                            : 'text-[#64748B] hover:bg-slate-100/70 hover:text-[#0F172A] font-medium'
+                        }`}
                       >
                         <div className={`flex items-center ${isCollapsed ? '' : 'gap-3'}`}>
-                          <Icon
-                            className={`w-[18px] h-[18px] shrink-0 ${
-                              groupActive ? 'text-[#006971]' : 'text-slate-400 group-hover:text-slate-600'
-                            }`}
-                          />
-                          {!isCollapsed && <span className="truncate leading-none">{item.name}</span>}
+                          <div className="relative shrink-0 flex items-center justify-center">
+                            <Icon
+                              className={`w-[18px] h-[18px] shrink-0 transition-colors ${
+                                groupActive && !isOpen
+                                  ? 'text-[#FFF9F9]'
+                                  : groupActive && isOpen
+                                  ? 'text-[#003D58]'
+                                  : 'text-[#67686D] group-hover:text-slate-900'
+                              }`}
+                            />
+                            {groupBadge > 0 && isCollapsed && (
+                              <span className="absolute -top-1.5 -right-1.5 min-w-[16px] h-4 flex items-center justify-center rounded-full bg-[#E11D48] text-white text-[9px] font-bold px-1 ring-2 ring-white animate-pulse">
+                                {groupBadge > 99 ? '99+' : groupBadge}
+                              </span>
+                            )}
+                          </div>
+                          {!isCollapsed && <span className="truncate leading-5 font-['Poppins'] whitespace-nowrap">{item.name}</span>}
                         </div>
                         {!isCollapsed && (
-                          <ChevronDown
-                            className={`w-3.5 h-3.5 text-slate-400 transition-transform duration-200 shrink-0 ${
-                              isOpen ? 'rotate-180' : ''
-                            }`}
-                          />
+                          <div className="flex items-center gap-1.5 shrink-0">
+                            {groupBadge > 0 && (
+                              <span className="min-w-[20px] h-5 flex items-center justify-center rounded-full text-[10px] font-bold px-1.5 shrink-0 bg-[#E11D48] text-white">
+                                {groupBadge > 99 ? '99+' : groupBadge}
+                              </span>
+                            )}
+                            <ChevronDown
+                              className={`w-3.5 h-3.5 transition-transform duration-200 shrink-0 ${
+                                groupActive && !isOpen
+                                  ? 'text-white'
+                                  : 'text-slate-400'
+                              } ${isOpen ? 'rotate-180' : ''}`}
+                            />
+                          </div>
                         )}
                       </button>
 
                       {/* Children */}
                       {!isCollapsed && isOpen && (
-                        <div className="mt-0.5 ml-4 pl-3 border-l-2 border-slate-100 space-y-0.5">
+                        <div className="mt-1 ml-4 pl-3 border-l-2 border-slate-100 space-y-1">
                           {(item.children || []).map((child) => {
                             const childActive = isActive(child.href);
                             const ChildIcon = child.icon;
+                            const childCount = child.badgeKey ? badgeDetail[child.badgeKey as keyof typeof badgeDetail] : 0;
+
                             return (
                               <Link
                                 key={child.name}
                                 href={child.href}
                                 onClick={onCloseMobile}
-                                className={`flex items-center gap-2.5 rounded-lg text-[13px] px-3 py-2 transition-all ${
+                                style={
                                   childActive
-                                    ? 'bg-[#006971]/5 text-[#005058] font-semibold'
-                                    : 'text-slate-500 hover:bg-slate-50 hover:text-slate-800 font-medium'
+                                    ? {
+                                        background: '#003D58',
+                                        boxShadow: '0px 2px 4px rgba(0, 0, 0, 0.2)',
+                                      }
+                                    : undefined
+                                }
+                                className={`flex items-center gap-2.5 rounded-xl text-xs px-3.5 py-2 transition-all ${
+                                  childActive
+                                    ? 'text-[#FFF9F9] font-bold'
+                                    : 'text-[#64748B] hover:bg-slate-100/70 hover:text-[#0F172A] font-medium'
                                 }`}
                               >
                                 <ChildIcon
-                                  className={`w-4 h-4 shrink-0 ${
-                                    childActive ? 'text-[#006971]' : 'text-slate-400'
+                                  className={`w-3.5 h-3.5 shrink-0 transition-colors ${
+                                    childActive ? 'text-[#FFF9F9]' : 'text-slate-400'
                                   }`}
                                 />
-                                <span className="truncate">{child.name}</span>
+                                <span className="truncate leading-5 font-['Poppins'] whitespace-nowrap flex-1">{child.name}</span>
+                                {childCount > 0 && (
+                                  <span className="min-w-[18px] h-4.5 flex items-center justify-center rounded-full text-[9px] font-bold px-1.5 shrink-0 bg-[#E11D48] text-white ml-auto">
+                                    {childCount}
+                                  </span>
+                                )}
                               </Link>
                             );
                           })}
@@ -416,7 +537,7 @@ export default function Sidebar({
                       {/* Collapsed: show children indicator */}
                       {isCollapsed && isGroupActive(item.children || []) && (
                         <div className="flex justify-center mt-0.5">
-                          <span className="w-1 h-1 rounded-full bg-[#006971]" />
+                          <span className="w-1.5 h-1.5 rounded-full bg-[#003D58]" />
                         </div>
                       )}
                     </div>
@@ -444,18 +565,31 @@ export default function Sidebar({
       )}
 
       {/* ── Footer: Logout ────────────────────────── */}
-      <div className="px-2.5 py-3 border-t border-slate-100 shrink-0">
+      <div className="px-3 py-3 border-t border-slate-100 shrink-0">
         <button
-          onClick={handleLogout}
+          type="button"
+          onClick={() => setShowLogoutConfirm(true)}
           title={isCollapsed ? 'Keluar' : undefined}
-          className={`w-full flex items-center rounded-xl text-sm font-medium text-red-500 hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer ${
-            isCollapsed ? 'justify-center py-3 px-0' : 'gap-3 px-3.5 py-2.5'
+          className={`w-full flex items-center rounded-xl text-sm font-medium text-[#EF4444] hover:bg-red-50 hover:text-red-600 transition-colors cursor-pointer ${
+            isCollapsed ? 'justify-center py-2.5 px-0' : 'gap-3 px-3.5 py-2.5'
           }`}
         >
-          <LogOut className="w-[18px] h-[18px] shrink-0" />
-          {!isCollapsed && <span>Keluar</span>}
+          <LogOut className="w-5 h-5 text-[#EF4444] shrink-0 stroke-[2]" />
+          {!isCollapsed && <span className="font-['Poppins'] font-medium leading-5">Keluar</span>}
         </button>
       </div>
+
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={handleLogout}
+        title="Konfirmasi Keluar"
+        message="Apakah Anda yakin ingin keluar dari sesi aplikasi HUMASS Polinela?"
+        confirmText="Ya, Keluar"
+        cancelText="Batal"
+        variant="danger"
+        icon={LogOut}
+      />
     </aside>
   );
 }

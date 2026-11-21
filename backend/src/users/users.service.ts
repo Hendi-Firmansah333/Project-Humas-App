@@ -23,6 +23,18 @@ export class UsersService {
     @Optional() private eventsService?: RealtimeEventsService,
   ) {}
 
+  private getDefaultRoleLabel(role: Role): string {
+    switch (role) {
+      case Role.SUPER_ADMIN:
+        return 'Kepala Humas';
+      case Role.ADMIN:
+        return 'Admin Humas';
+      case Role.USER:
+      default:
+        return 'Anggota Humas';
+    }
+  }
+
   async create(createUserDto: CreateUserDto) {
     const existing = await this.prisma.user.findFirst({
       where: {
@@ -36,12 +48,33 @@ export class UsersService {
       throw new ConflictException('Username atau Email sudah terdaftar.');
     }
 
+    const targetRole = createUserDto.role || Role.USER;
+
+    if (targetRole === Role.ADMIN) {
+      const adminCount = await this.prisma.user.count({
+        where: { role: Role.ADMIN, deletedAt: null },
+      });
+      if (adminCount >= 1) {
+        throw new BadRequestException('Tidak dapat menambahkan Admin Humas baru. Hanya boleh ada satu akun Admin Humas di sistem.');
+      }
+    }
+
+    if (targetRole === Role.SUPER_ADMIN) {
+      const superAdminCount = await this.prisma.user.count({
+        where: { role: Role.SUPER_ADMIN, deletedAt: null },
+      });
+      if (superAdminCount >= 1) {
+        throw new BadRequestException('Tidak dapat menambahkan Kepala Humas baru. Hanya boleh ada satu akun Kepala Humas di sistem.');
+      }
+    }
+
     const hashedPassword = await bcrypt.hash(createUserDto.password, 10);
     const user = await this.prisma.user.create({
       data: {
         ...createUserDto,
         password: hashedPassword,
-        role: createUserDto.role || Role.USER,
+        role: targetRole,
+        roleLabel: createUserDto.roleLabel || this.getDefaultRoleLabel(targetRole),
         status: createUserDto.status || UserStatus.AKTIF,
       },
     });
@@ -100,12 +133,60 @@ export class UsersService {
       throw new NotFoundException(`Personel dengan ID #${id} tidak ditemukan.`);
     }
 
-    if (updateUserDto.role && updateUserDto.role !== Role.SUPER_ADMIN && existingUser.role === Role.SUPER_ADMIN) {
-      const superAdminCount = await this.prisma.user.count({
-        where: { role: Role.SUPER_ADMIN, deletedAt: null },
-      });
-      if (superAdminCount <= 1) {
-        throw new BadRequestException('Tidak dapat mengubah role Kepala Humas (Super Admin) terakhir.');
+    if (updateUserDto.username || updateUserDto.email) {
+      const conflictConditions = [
+        updateUserDto.username ? { username: updateUserDto.username } : undefined,
+        updateUserDto.email ? { email: updateUserDto.email } : undefined,
+      ].filter(Boolean) as any[];
+
+      if (conflictConditions.length > 0) {
+        const conflictUser = await this.prisma.user.findFirst({
+          where: {
+            id: { not: id },
+            OR: conflictConditions,
+          },
+        });
+        if (conflictUser) {
+          throw new ConflictException('Username atau Email sudah digunakan oleh akun lain.');
+        }
+      }
+    }
+
+    if (updateUserDto.role) {
+      if (updateUserDto.role === Role.ADMIN && existingUser.role !== Role.ADMIN) {
+        const adminCount = await this.prisma.user.count({
+          where: { role: Role.ADMIN, deletedAt: null },
+        });
+        if (adminCount >= 1) {
+          throw new BadRequestException('Hanya boleh ada satu akun Admin Humas di sistem.');
+        }
+      }
+
+      if (updateUserDto.role !== Role.ADMIN && existingUser.role === Role.ADMIN) {
+        const adminCount = await this.prisma.user.count({
+          where: { role: Role.ADMIN, deletedAt: null },
+        });
+        if (adminCount <= 1) {
+          throw new BadRequestException('Tidak dapat mengubah role satu-satunya akun Admin Humas.');
+        }
+      }
+
+      if (updateUserDto.role === Role.SUPER_ADMIN && existingUser.role !== Role.SUPER_ADMIN) {
+        const superAdminCount = await this.prisma.user.count({
+          where: { role: Role.SUPER_ADMIN, deletedAt: null },
+        });
+        if (superAdminCount >= 1) {
+          throw new BadRequestException('Hanya boleh ada satu akun Kepala Humas di sistem.');
+        }
+      }
+
+      if (updateUserDto.role !== Role.SUPER_ADMIN && existingUser.role === Role.SUPER_ADMIN) {
+        const superAdminCount = await this.prisma.user.count({
+          where: { role: Role.SUPER_ADMIN, deletedAt: null },
+        });
+        if (superAdminCount <= 1) {
+          throw new BadRequestException('Tidak dapat mengubah role Kepala Humas (Super Admin) terakhir.');
+        }
       }
     }
 
@@ -114,13 +195,19 @@ export class UsersService {
       hashedPassword = await bcrypt.hash(updateUserDto.password, 10);
     }
 
+    const resultingRole = updateUserDto.role || existingUser.role;
     const updated = await this.prisma.user.update({
       where: { id },
       data: {
         ...updateUserDto,
+        roleLabel: updateUserDto.role ? (updateUserDto.roleLabel || this.getDefaultRoleLabel(updateUserDto.role)) : updateUserDto.roleLabel,
         password: hashedPassword,
       },
     });
+
+    if (resultingRole === Role.ADMIN || resultingRole === Role.SUPER_ADMIN) {
+      await this.prisma.location.deleteMany({ where: { userId: id } });
+    }
 
     const { password, ...result } = updated;
     return result;
@@ -141,6 +228,15 @@ export class UsersService {
       }
     }
 
+    if (user.role === Role.ADMIN) {
+      const adminCount = await this.prisma.user.count({
+        where: { role: Role.ADMIN, deletedAt: null },
+      });
+      if (adminCount <= 1) {
+        throw new BadRequestException('Tidak dapat menghapus satu-satunya akun Admin Humas.');
+      }
+    }
+
     await this.prisma.user.update({
       where: { id },
       data: { deletedAt: new Date() },
@@ -149,6 +245,13 @@ export class UsersService {
   }
 
   async updatePassword(id: number, dto: UpdatePasswordDto) {
+    const user = await this.prisma.user.findFirst({
+      where: { id, deletedAt: null },
+      select: { id: true },
+    });
+    if (!user) {
+      throw new NotFoundException(`Personel dengan ID #${id} tidak ditemukan.`);
+    }
     if (dto.password !== dto.confirmPassword) {
       throw new BadRequestException('Password baru dan konfirmasi password tidak cocok.');
     }

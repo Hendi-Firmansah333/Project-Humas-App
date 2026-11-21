@@ -46,11 +46,22 @@ export class DashboardService {
           where: {
             deletedAt: null,
             members: { some: { userId } },
-            status: { in: [ActivityStatus.DISETUJUI, ActivityStatus.DITUGASKAN, ActivityStatus.SEDANG_BERLANGSUNG] },
+            status: { notIn: [ActivityStatus.DITOLAK, ActivityStatus.DIBATALKAN] },
           },
-          take: 5,
-          orderBy: { date: 'asc' },
-          include: { pic: { select: { id: true, fullName: true, roleLabel: true } } },
+          take: 10,
+          orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+          include: {
+            pic: { select: { id: true, fullName: true, roleLabel: true } },
+            members: {
+              include: {
+                user: { select: { id: true, fullName: true, username: true, roleLabel: true, avatar: true } },
+              },
+            },
+            loans: {
+              where: { deletedAt: null },
+              include: { items: { include: { equipment: { select: { name: true } } } } },
+            },
+          },
         }),
         this.prisma.contentPlan.findMany({
           where: { picId: userId, deletedAt: null },
@@ -119,7 +130,14 @@ export class DashboardService {
         upcomingActivitiesList: myUpcomingActivities,
         upcomingContentPlansList: myContentPlans,
         recentNotifications: myRecentNotifications,
+        todaySchedules: await this.prisma.dutySchedule.findMany({
+          where: { deletedAt: null },
+          take: 6,
+          include: { user: { select: { id: true, fullName: true, username: true, roleLabel: true, avatar: true } } },
+          orderBy: { date: 'desc' },
+        }),
         actionItems,
+        agendaAnalytics: await this.getAgendaAnalytics('3m'),
       };
     }
 
@@ -172,11 +190,22 @@ export class DashboardService {
     ] = await Promise.all([
       // Kegiatan Statuses
       this.prisma.activity.count({ where: { deletedAt: null } }),
-      this.prisma.activity.count({ where: { status: ActivityStatus.MENUNGGU_PERSETUJUAN, deletedAt: null } }),
+      this.prisma.activity.count({
+        where: {
+          status: {
+            in: [
+              ActivityStatus.MENUNGGU_PERSETUJUAN,
+              ActivityStatus.MENUNGGU_PERSETUJUAN_AKHIR,
+              ActivityStatus.MENUNGGU_VERIFIKASI,
+            ],
+          },
+          deletedAt: null,
+        },
+      }),
       this.prisma.activity.count({ where: { status: ActivityStatus.DISETUJUI, deletedAt: null } }),
       this.prisma.activity.count({ where: { status: ActivityStatus.DITUGASKAN, deletedAt: null } }),
       this.prisma.activity.count({ where: { status: ActivityStatus.SEDANG_BERLANGSUNG, deletedAt: null } }),
-      this.prisma.activity.count({ where: { status: ActivityStatus.MENUNGGU_VERIFIKASI, deletedAt: null } }),
+      this.prisma.activity.count({ where: { status: ActivityStatus.MENUNGGU_PERSETUJUAN_AKHIR, deletedAt: null } }),
       this.prisma.activity.count({ where: { status: ActivityStatus.SELESAI, deletedAt: null } }),
       this.prisma.activity.count({ where: { status: ActivityStatus.DITOLAK, deletedAt: null } }),
 
@@ -231,10 +260,26 @@ export class DashboardService {
         orderBy: { createdAt: 'desc' },
       }),
       this.prisma.activity.findMany({
-        where: { status: { in: [ActivityStatus.DISETUJUI, ActivityStatus.DITUGASKAN, ActivityStatus.SEDANG_BERLANGSUNG] }, deletedAt: null },
-        take: 5,
-        orderBy: { date: 'asc' },
-        include: { pic: { select: { id: true, fullName: true, username: true, roleLabel: true, avatar: true } } },
+        where: {
+          deletedAt: null,
+          status: {
+            notIn: [ActivityStatus.DITOLAK, ActivityStatus.DIBATALKAN],
+          },
+        },
+        take: 10,
+        orderBy: [{ date: 'desc' }, { createdAt: 'desc' }],
+        include: {
+          pic: { select: { id: true, fullName: true, username: true, roleLabel: true, avatar: true } },
+          members: {
+            include: {
+              user: { select: { id: true, fullName: true, username: true, roleLabel: true, avatar: true } },
+            },
+          },
+          loans: {
+            where: { deletedAt: null },
+            include: { items: { include: { equipment: { select: { name: true } } } } },
+          },
+        },
       }),
       this.prisma.contentPlan.findMany({
         where: { status: { in: [ContentStatus.DRAFT, ContentStatus.MENUNGGU, ContentStatus.PROSES, ContentStatus.REVISI] }, deletedAt: null },
@@ -274,7 +319,7 @@ export class DashboardService {
         where: { status: ActivityStatus.DISETUJUI, deletedAt: null },
       });
       const pendingFinalApprovalCount = await this.prisma.activity.count({
-        where: { status: ActivityStatus.MENUNGGU_PERSETUJUAN_AKHIR, deletedAt: null },
+        where: { status: { in: [ActivityStatus.MENUNGGU_PERSETUJUAN_AKHIR, ActivityStatus.MENUNGGU_VERIFIKASI] }, deletedAt: null },
       });
       const attentionActivitiesCount = await this.prisma.activity.count({
         where: { status: ActivityStatus.DIKEMBALIKAN, deletedAt: null },
@@ -290,9 +335,6 @@ export class DashboardService {
       const newLettersCount = await this.prisma.incomingLetter.count({
         where: { status: { in: ['MENUNGGU_PERSETUJUAN', 'BARU'] }, deletedAt: null },
       });
-      const pendingVerificationCount = await this.prisma.activity.count({
-        where: { status: ActivityStatus.MENUNGGU_VERIFIKASI, deletedAt: null },
-      });
       const overdueLoansCount = await this.prisma.equipmentLoan.count({
         where: { status: LoanStatus.TERLAMBAT, deletedAt: null },
       });
@@ -302,7 +344,6 @@ export class DashboardService {
 
       actionItems = [
         { id: 'surat-baru', label: 'Surat Baru', count: newLettersCount, link: '/surat-masuk' },
-        { id: 'kegiatan-verifikasi', label: 'Kegiatan Menunggu Verifikasi', count: pendingVerificationCount, link: '/verifikasi-kegiatan' },
         { id: 'peminjaman-terlambat', label: 'Peminjaman Terlambat', count: overdueLoansCount, link: '/peminjaman-alat' },
         { id: 'inventaris-rusak', label: 'Inventaris Perlu Diperbarui', count: brokenEquipmentCount, link: '/peminjaman-alat' },
       ];
@@ -360,6 +401,23 @@ export class DashboardService {
       upcomingActivitiesList,
       upcomingContentPlansList,
       dueLoansList,
+      todaySchedules: await (async () => {
+        const now = new Date();
+        const start = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+        const end = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+        const scheds = await this.prisma.dutySchedule.findMany({
+          where: { date: { gte: start, lte: end }, deletedAt: null },
+          include: { user: { select: { id: true, fullName: true, username: true, roleLabel: true, avatar: true } } },
+          orderBy: { startTime: 'asc' },
+        });
+        if (scheds.length > 0) return scheds;
+        return this.prisma.dutySchedule.findMany({
+          where: { deletedAt: null },
+          take: 6,
+          include: { user: { select: { id: true, fullName: true, username: true, roleLabel: true, avatar: true } } },
+          orderBy: { date: 'desc' },
+        });
+      })(),
       recentAuditLogs: recentAuditLogs.map((log) => ({
         id: log.id,
         user: log.user?.fullName || 'Sistem',
@@ -369,6 +427,199 @@ export class DashboardService {
       })),
       monthlyStats,
       actionItems,
+      agendaAnalytics: await this.getAgendaAnalytics('3m'),
+    };
+  }
+
+  async getAgendaAnalytics(period: string = '3m') {
+    const fullMonthNames = [
+      'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+      'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+    ];
+    const shortMonthNames = [
+      'Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun',
+      'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des',
+    ];
+
+    const now = new Date();
+    let startDate: Date | null = null;
+    const endDate = new Date(now.getFullYear(), now.getMonth() + 1, 0, 23, 59, 59, 999);
+
+    if (period === '3m') {
+      startDate = new Date(now.getFullYear(), now.getMonth() - 2, 1, 0, 0, 0, 0);
+    } else if (period === '6m') {
+      startDate = new Date(now.getFullYear(), now.getMonth() - 5, 1, 0, 0, 0, 0);
+    } else if (period === 'year') {
+      startDate = new Date(now.getFullYear(), 0, 1, 0, 0, 0, 0);
+    }
+
+    const activities = await this.prisma.activity.findMany({
+      where: {
+        deletedAt: null,
+        status: { notIn: [ActivityStatus.DITOLAK, ActivityStatus.DIBATALKAN] },
+        ...(startDate ? { date: { gte: startDate, lte: endDate } } : {}),
+      },
+      select: {
+        id: true,
+        category: true,
+        date: true,
+        suratId: true,
+      },
+      orderBy: { date: 'asc' },
+    });
+
+    // Build ordered list of months in the selected period
+    const monthBuckets: Array<{ year: number; monthIdx: number; label: string; shortLabel: string }> = [];
+    if (period === '3m' || period === '6m') {
+      const count = period === '3m' ? 3 : 6;
+      for (let i = count - 1; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        monthBuckets.push({
+          year: d.getFullYear(),
+          monthIdx: d.getMonth(),
+          label: fullMonthNames[d.getMonth()],
+          shortLabel: shortMonthNames[d.getMonth()],
+        });
+      }
+    } else if (period === 'year') {
+      for (let m = 0; m <= now.getMonth(); m++) {
+        monthBuckets.push({
+          year: now.getFullYear(),
+          monthIdx: m,
+          label: fullMonthNames[m],
+          shortLabel: shortMonthNames[m],
+        });
+      }
+    } else {
+      // 'all': collect distinct year-month from activities, or fallback to last 3 months
+      if (activities.length === 0) {
+        for (let i = 2; i >= 0; i--) {
+          const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+          monthBuckets.push({
+            year: d.getFullYear(),
+            monthIdx: d.getMonth(),
+            label: fullMonthNames[d.getMonth()],
+            shortLabel: shortMonthNames[d.getMonth()],
+          });
+        }
+      } else {
+        const firstDate = new Date(activities[0].date);
+        const lastDate = new Date(Math.max(now.getTime(), new Date(activities[activities.length - 1].date).getTime()));
+        let cur = new Date(firstDate.getFullYear(), firstDate.getMonth(), 1);
+        const limit = new Date(lastDate.getFullYear(), lastDate.getMonth(), 1);
+        while (cur <= limit && monthBuckets.length < 24) {
+          monthBuckets.push({
+            year: cur.getFullYear(),
+            monthIdx: cur.getMonth(),
+            label: fullMonthNames[cur.getMonth()],
+            shortLabel: shortMonthNames[cur.getMonth()],
+          });
+          cur = new Date(cur.getFullYear(), cur.getMonth() + 1, 1);
+        }
+      }
+    }
+
+    // Aggregate per month and per category
+    const categoryMap = new Map<string, number>();
+    const monthTotalsMap = new Map<string, { total: number; internal: number; eksternal: number }>();
+
+    for (const b of monthBuckets) {
+      monthTotalsMap.set(`${b.year}-${b.monthIdx}`, { total: 0, internal: 0, eksternal: 0 });
+    }
+
+    let totalInternal = 0;
+    let totalEksternal = 0;
+
+    for (const act of activities) {
+      const cat = (act.category || 'Lainnya').trim();
+      categoryMap.set(cat, (categoryMap.get(cat) || 0) + 1);
+
+      const d = new Date(act.date);
+      const key = `${d.getFullYear()}-${d.getMonth()}`;
+      const catLower = cat.toLowerCase();
+      const isEksternal =
+        act.suratId !== null ||
+        catLower.includes('eksternal') ||
+        catLower.includes('undangan');
+
+      if (isEksternal) {
+        totalEksternal += 1;
+      } else {
+        totalInternal += 1;
+      }
+
+      const bucket = monthTotalsMap.get(key);
+      if (bucket) {
+        bucket.total += 1;
+        if (isEksternal) bucket.eksternal += 1;
+        else bucket.internal += 1;
+      }
+    }
+
+    const serviceFrequencies = Array.from(categoryMap.entries())
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count);
+
+    const monthlyTotals = monthBuckets.map((b) => {
+      const stats = monthTotalsMap.get(`${b.year}-${b.monthIdx}`) || { total: 0, internal: 0, eksternal: 0 };
+      return {
+        month: b.label,
+        shortMonth: b.shortLabel,
+        count: stats.total,
+      };
+    });
+
+    // Ringkasan Layanan Humas: Total on top, then newest to oldest month (matching reference chart)
+    const monthComparisonRows = [...monthBuckets]
+      .reverse()
+      .map((b) => {
+        const stats = monthTotalsMap.get(`${b.year}-${b.monthIdx}`) || { total: 0, internal: 0, eksternal: 0 };
+        return {
+          month: b.label,
+          eksternal: stats.eksternal,
+          internal: stats.internal,
+        };
+      });
+
+    const serviceComparison = [
+      { month: 'Total', eksternal: totalEksternal, internal: totalInternal },
+      ...monthComparisonRows,
+    ];
+
+    let busiestMonth = { month: monthBuckets[monthBuckets.length - 1]?.label || '-', count: 0 };
+    for (const m of monthlyTotals) {
+      if (m.count >= busiestMonth.count) {
+        busiestMonth = { month: m.month, count: m.count };
+      }
+    }
+
+    const firstBucket = monthBuckets[0];
+    const lastBucket = monthBuckets[monthBuckets.length - 1];
+    const monthsRangeLabel =
+      firstBucket && lastBucket
+        ? firstBucket.label === lastBucket.label
+          ? firstBucket.label
+          : `${firstBucket.label}–${lastBucket.label}`
+        : '-';
+    const periodLabel =
+      firstBucket && lastBucket
+        ? firstBucket.year === lastBucket.year
+          ? `${monthsRangeLabel.toUpperCase()} ${lastBucket.year}`
+          : `${firstBucket.label.toUpperCase()} ${firstBucket.year} – ${lastBucket.label.toUpperCase()} ${lastBucket.year}`
+        : `${now.getFullYear()}`;
+
+    return {
+      period,
+      periodLabel,
+      totalActivities: activities.length,
+      monthsCovered: monthBuckets.length,
+      monthsRangeLabel,
+      busiestMonth,
+      serviceFrequencies,
+      monthlyTotals,
+      serviceComparison,
+      totalInternal,
+      totalEksternal,
     };
   }
 

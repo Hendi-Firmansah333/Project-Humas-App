@@ -7,6 +7,9 @@ import {
   CustomModal,
   SearchBox,
   UserAvatar,
+  CustomDatePicker,
+  CustomTimePicker,
+  FilterDropdown,
 } from '@/components/common';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -23,6 +26,7 @@ import {
   Check,
   AlertCircle,
   FileText,
+  Search,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { scheduleService, userService } from '@/services';
@@ -123,12 +127,31 @@ export default function SchedulePage() {
   }, [searchMember, statusFilter, dayFilter, monthFilter, yearFilter]);
 
   useEffect(() => {
+    if (calendarRef.current && (monthFilter || yearFilter)) {
+      const calendarApi = calendarRef.current.getApi();
+      const currentDate = calendarApi.getDate();
+      const currentYear = currentDate.getFullYear();
+      const currentMonth = currentDate.getMonth();
+
+      const targetYear = yearFilter ? Number(yearFilter) : currentYear;
+      const targetMonth = monthFilter ? Number(monthFilter) - 1 : currentMonth;
+
+      const targetDate = new Date(targetYear, targetMonth, 1);
+      calendarApi.gotoDate(targetDate);
+    }
+  }, [monthFilter, yearFilter]);
+
+  useEffect(() => {
     setMounted(true);
 
     const init = async () => {
       try {
         const users = await userService.getAll();
-        const members = (Array.isArray(users) ? users : []).map(userToMemberOption);
+        // Hanya Anggota Humas (role USER) yang berstatus AKTIF yang dapat dijadwalkan piket
+        const eligibleUsers = (Array.isArray(users) ? users : []).filter(
+          (u: any) => u.role === 'USER' && u.status === 'AKTIF'
+        );
+        const members = eligibleUsers.map(userToMemberOption);
         setMembersList(members);
         setSelectedMemberFilters(members.map((m) => m.id));
         if (members.length > 0) {
@@ -232,137 +255,188 @@ export default function SchedulePage() {
 
   return (
     <AdminLayout title="Jadwal Piket Tim Humas">
-      {/* Spacing & Responsive Filter Bar */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+      {/* Top Filter Bar - Figma Spec: 18px radius, Poppins font, 40px inputs */}
+      <div className="bg-white rounded-[18px] border border-[#E2E8F0] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)] grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 mb-6">
         <div className="flex flex-col">
-          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Cari Jadwal</label>
-          <SearchBox
-            value={searchMember}
-            onChange={setSearchMember}
-            placeholder="Nama personel / lokasi..."
+          <label className="block text-[11px] font-bold text-[#90A1B9] uppercase tracking-[0.55px] font-['Poppins'] mb-1.5">
+            Cari Jadwal
+          </label>
+          <div className="relative flex items-center w-full h-[40px] bg-[#F8FAFC] border border-[#E2E8F0] rounded-[14px] px-3.5 focus-within:bg-white focus-within:border-[#003D58] focus-within:ring-1 focus-within:ring-[#003D58]/20 transition-all">
+            <Search className="w-4 h-4 text-[#90A1B9] shrink-0 mr-2.5" />
+            <input
+              type="text"
+              value={searchMember}
+              onChange={(e) => setSearchMember(e.target.value)}
+              placeholder="Nama personel / lokasi..."
+              className="w-full bg-transparent text-xs text-[#45556C] placeholder:text-[#90A1B9] focus:outline-none font-['Poppins']"
+            />
+          </div>
+        </div>
+
+        <div className="flex flex-col">
+          <label className="block text-[11px] font-bold text-[#90A1B9] uppercase tracking-[0.55px] font-['Poppins'] mb-1.5">
+            Hari Piket
+          </label>
+          <FilterDropdown
+            value={dayFilter}
+            onChange={(val) => setDayFilter(val)}
+            placeholder="Semua Hari"
+            options={[
+              { value: 'Senin', label: 'Senin' },
+              { value: 'Selasa', label: 'Selasa' },
+              { value: 'Rabu', label: 'Rabu' },
+              { value: 'Kamis', label: 'Kamis' },
+              { value: 'Jumat', label: 'Jumat' },
+              { value: 'Sabtu', label: 'Sabtu' },
+              { value: 'Minggu', label: 'Minggu' },
+            ]}
             className="w-full"
+            icon={false}
           />
         </div>
+
         <div className="flex flex-col">
-          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Hari Piket</label>
-          <select
-            value={dayFilter}
-            onChange={(e) => setDayFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-850 py-2.5 px-3 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 transition-all font-medium"
-          >
-            <option value="">Semua Hari</option>
-            <option value="Senin">Senin</option>
-            <option value="Selasa">Selasa</option>
-            <option value="Rabu">Rabu</option>
-            <option value="Kamis">Kamis</option>
-            <option value="Jumat">Jumat</option>
-            <option value="Sabtu">Sabtu</option>
-            <option value="Minggu">Minggu</option>
-          </select>
-        </div>
-        <div className="flex flex-col">
-          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Status</label>
-          <select
+          <label className="block text-[11px] font-bold text-[#90A1B9] uppercase tracking-[0.55px] font-['Poppins'] mb-1.5">
+            Status
+          </label>
+          <FilterDropdown
             value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-850 py-2.5 px-3 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 transition-all font-medium"
-          >
-            <option value="">Semua Status</option>
-            <option value="AKAN_DATANG">Akan Datang</option>
-            <option value="SEDANG_BERLANGSUNG">Sedang Berlangsung</option>
-            <option value="SELESAI">Selesai</option>
-          </select>
+            onChange={(val) => setStatusFilter(val)}
+            placeholder="Semua Status"
+            options={[
+              { value: 'AKAN_DATANG', label: 'Akan Datang' },
+              { value: 'SEDANG_BERLANGSUNG', label: 'Sedang Berlangsung' },
+              { value: 'SELESAI', label: 'Selesai' },
+            ]}
+            className="w-full"
+            icon={false}
+          />
         </div>
+
         <div className="flex flex-col">
-          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Bulan</label>
-          <select
+          <label className="block text-[11px] font-bold text-[#90A1B9] uppercase tracking-[0.55px] font-['Poppins'] mb-1.5">
+            Bulan
+          </label>
+          <FilterDropdown
             value={monthFilter}
-            onChange={(e) => setMonthFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-850 py-2.5 px-3 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 transition-all font-medium"
-          >
-            <option value="">Semua Bulan</option>
-            {['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'].map((m, idx) => (
-              <option key={idx} value={String(idx + 1)}>{m}</option>
-            ))}
-          </select>
+            onChange={(val) => setMonthFilter(val)}
+            placeholder="Semua Bulan"
+            options={['Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'].map((m, idx) => ({
+              value: String(idx + 1),
+              label: m,
+            }))}
+            className="w-full"
+            icon={false}
+          />
         </div>
+
         <div className="flex flex-col">
-          <label className="block text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-1">Tahun</label>
-          <select
+          <label className="block text-[11px] font-bold text-[#90A1B9] uppercase tracking-[0.55px] font-['Poppins'] mb-1.5">
+            Tahun
+          </label>
+          <FilterDropdown
             value={yearFilter}
-            onChange={(e) => setYearFilter(e.target.value)}
-            className="w-full bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-850 py-2.5 px-3 focus:outline-none focus:bg-white focus:ring-2 focus:ring-teal-500/20 transition-all font-medium"
-          >
-            <option value="">Semua Tahun</option>
-            <option value="2025">2025</option>
-            <option value="2026">2026</option>
-            <option value="2027">2027</option>
-          </select>
+            onChange={(val) => setYearFilter(val)}
+            placeholder="Semua Tahun"
+            options={[
+              { value: '2025', label: '2025' },
+              { value: '2026', label: '2026' },
+              { value: '2027', label: '2027' },
+            ]}
+            className="w-full"
+            icon={false}
+          />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6 items-start">
-        {/* Calendar Sidebar - 1 Column */}
-        <div className="lg:col-span-1 space-y-6">
-          {/* Quick Action Box */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4">
-            <div>
-              <h3 className="text-base font-bold text-slate-800">Manajemen Piket</h3>
-              <p className="text-xs text-slate-400 mt-0.5">Atur & jadwalkan jam bertugas tim humas</p>
+      {/* Main Content Layout: Sidebar (~382px) + Calendar (Flex-1) */}
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
+        {/* Left Sidebar - Width ~382px in Figma */}
+        <div className="w-full lg:w-[360px] xl:w-[382px] shrink-0 space-y-6">
+          {/* Card 1: Manajemen Piket */}
+          <div className="bg-white rounded-[18px] border border-[#E2E8F0] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+            <div className="mb-4">
+              <h3 className="text-base font-bold text-[#1D293D] font-['Poppins']">Manajemen Piket</h3>
+              <p className="text-xs text-[#90A1B9] mt-0.5 font-['Poppins']">Atur & jadwalkan jam bertugas tim humas</p>
             </div>
-            <CustomButton
-              variant="primary"
-              icon={Plus}
-              className="w-full"
+            <button
               onClick={() => {
                 setFormDate(new Date().toISOString().split('T')[0]);
                 setIsAssignOpen(true);
               }}
+              className="w-full h-[40px] bg-[#003D58] hover:bg-[#002f44] text-white font-semibold text-sm rounded-[14px] shadow-[0_1px_2px_rgba(53,198,212,0.25)] flex items-center justify-center gap-2 transition-all cursor-pointer font-['Poppins']"
             >
-              Tambah Jadwal Piket
-            </CustomButton>
+              <Plus className="w-4 h-4 text-white" />
+              <span>Tambah Jadwal Piket</span>
+            </button>
           </div>
 
-          {/* Member Filter Sidebar */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-5 shadow-xs space-y-4 max-h-[500px] overflow-y-auto">
-            <div className="flex items-center justify-between">
+          {/* Card 2: Filter Personel */}
+          <div className="bg-white rounded-[18px] border border-[#E2E8F0] p-5 shadow-[0_1px_2px_rgba(0,0,0,0.05)]">
+            <div className="flex items-center justify-between pb-1">
               <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-teal-600" />
-                <h4 className="text-sm font-bold text-slate-800">Filter Personel</h4>
+                <Filter className="w-4 h-4 text-[#051C42]" />
+                <h4 className="text-base font-bold text-[#051C42] font-['Poppins']">Filter personel</h4>
               </div>
               <button
                 onClick={() => setSelectedMemberFilters(membersList.map((m) => m.id))}
-                className="text-[11px] font-semibold text-teal-600 hover:underline cursor-pointer"
+                className="text-xs font-bold text-[#003D58] hover:underline cursor-pointer font-['Poppins']"
               >
                 Reset
               </button>
             </div>
 
-            <div className="space-y-2.5 pt-1">
+            <p className="text-xs text-[#4A5A78] font-['Poppins'] mb-3">
+              {selectedMemberFilters.length} dari {membersList.length} dipilih
+            </p>
+
+            <div className="space-y-1.5 max-h-[400px] overflow-y-auto pr-1">
               {membersList.map((m) => {
                 const isSelected = selectedMemberFilters.includes(m.id);
+                const initials = m.name
+                  ? m.name
+                      .split(' ')
+                      .map((n) => n[0])
+                      .slice(0, 2)
+                      .join('')
+                      .toUpperCase()
+                  : 'TH';
+
                 return (
                   <div
                     key={m.id}
                     onClick={() => toggleMemberFilter(m.id)}
-                    className={`p-3 rounded-xl border transition-all cursor-pointer flex items-center justify-between text-xs ${
-                      isSelected ? m.bgClass : 'bg-slate-50 border-slate-200 opacity-60'
-                    }`}
+                    className={`p-2.5 rounded-[14px] transition-all cursor-pointer flex items-center justify-between border ${
+                      isSelected
+                        ? 'bg-white border-[#E2E8F0] shadow-xs'
+                        : 'bg-slate-50/70 border-slate-100 opacity-60'
+                    } hover:bg-slate-50`}
                   >
                     <div className="flex items-center gap-2.5 min-w-0">
-                      <UserAvatar src={m.avatar} name={m.name} size="sm" />
+                      {m.avatar ? (
+                        <img
+                          src={m.avatar}
+                          alt={m.name}
+                          className="w-7 h-7 rounded-full object-cover shrink-0"
+                        />
+                      ) : (
+                        <div className="w-7 h-7 rounded-full bg-sky-50 text-[#003D58] font-bold text-xs flex items-center justify-center shrink-0 font-['Poppins']">
+                          {initials}
+                        </div>
+                      )}
                       <div className="truncate">
-                        <p className="font-bold truncate text-slate-800">{m.name}</p>
-                        <p className="text-[10px] text-slate-400 truncate">{m.role}</p>
+                        <p className="text-sm font-bold text-[#051C42] truncate font-['Poppins']">{m.name}</p>
+                        <p className="text-[11px] text-[#4A5A78] truncate font-['Poppins']">{m.role || 'Tim Humas'}</p>
                       </div>
                     </div>
                     <div
-                      className={`w-4 h-4 rounded flex items-center justify-center shrink-0 border ${
-                        isSelected ? 'bg-current text-white border-transparent' : 'border-slate-300'
+                      className={`w-4 h-4 rounded-[4px] flex items-center justify-center shrink-0 transition-all ${
+                        isSelected
+                          ? 'bg-[#51FCE4] text-[#003D58]'
+                          : 'border border-slate-300 bg-white'
                       }`}
-                      style={{ backgroundColor: isSelected ? m.color : undefined }}
                     >
-                      {isSelected && <Check className="w-3 h-3 text-white" />}
+                      {isSelected && <Check className="w-3 h-3 text-[#003D58] stroke-[3]" />}
                     </div>
                   </div>
                 );
@@ -371,13 +445,15 @@ export default function SchedulePage() {
           </div>
         </div>
 
-        {/* FullCalendar Section - 3 Columns */}
-        <div className="lg:col-span-3 bg-white rounded-2xl border border-slate-200 p-6 shadow-xs min-h-[720px] flex flex-col">
+        {/* Right Section: FullCalendar Card */}
+        <div className="flex-1 min-w-0 bg-white rounded-[18px] border border-[#E2E8F0] p-6 shadow-[0_1px_2px_rgba(0,0,0,0.05)] min-h-[720px] flex flex-col">
           {mounted ? (
             <FullCalendar
               ref={calendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, interactionPlugin]}
               initialView="dayGridMonth"
+              firstDay={0}
+              dayHeaderFormat={{ weekday: 'short' }}
               headerToolbar={{
                 left: 'prev,next today',
                 center: 'title',
@@ -399,10 +475,32 @@ export default function SchedulePage() {
               eventDrop={handleEventDrop}
               height="auto"
               locale="id"
+              eventContent={(eventInfo) => {
+                const dotColor = eventInfo.event.backgroundColor || '#E99710';
+                const shift = eventInfo.event.extendedProps?.shift || '';
+                const startTime = shift.split(' - ')[0] || '';
+                const hour = startTime ? startTime.split(':')[0] : '';
+                return (
+                  <div className="flex items-center gap-1.5 px-1 py-0.5 truncate text-[11px] hover:opacity-80 transition-opacity cursor-pointer">
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0"
+                      style={{ backgroundColor: dotColor }}
+                    />
+                    {hour && (
+                      <span className="font-semibold text-slate-700 shrink-0 font-['Poppins'] text-[11px]">
+                        {hour}
+                      </span>
+                    )}
+                    <span className="truncate font-bold text-[#1D293D] font-['Poppins'] text-[11px]">
+                      {eventInfo.event.title}
+                    </span>
+                  </div>
+                );
+              }}
             />
           ) : (
             <div className="w-full h-[600px] bg-slate-50 rounded-xl flex items-center justify-center text-slate-400 text-xs gap-2">
-              <div className="w-5 h-5 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+              <div className="w-5 h-5 border-2 border-[#003D58] border-t-transparent rounded-full animate-spin" />
               Memuat Jadwal Piket...
             </div>
           )}
@@ -415,16 +513,16 @@ export default function SchedulePage() {
         onClose={() => setIsAssignOpen(false)}
         title="Penugasan Jadwal Piket"
         subtitle={`Tanggal: ${formDate}`}
-        maxWidth="6xl"
+        maxWidth="xl"
       >
-        <form onSubmit={handleAssignSubmit} className="space-y-4 text-[12px]">
+        <form onSubmit={handleAssignSubmit} className="space-y-5 text-[12px]">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Pilih Personel Bertugas *</label>
               <select
                 value={formMemberId}
                 onChange={(e) => setFormMemberId(Number(e.target.value))}
-                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all cursor-pointer"
+                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#003D58] focus:ring-1 focus:ring-[#003D58]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all cursor-pointer"
               >
                 {membersList.map((m) => (
                   <option key={m.id} value={m.id}>
@@ -434,60 +532,49 @@ export default function SchedulePage() {
               </select>
             </div>
 
-            <div>
-              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Tanggal Piket *</label>
-              <input
-                type="date"
-                required
-                value={formDate}
-                onChange={(e) => setFormDate(e.target.value)}
-                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
-              />
-            </div>
+            <CustomDatePicker
+              label="Tanggal Piket"
+              required
+              value={formDate}
+              onChange={(val) => setFormDate(val)}
+            />
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div>
-              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Jam Mulai (WIB) *</label>
-              <input
-                type="time"
-                required
-                value={formStartTime}
-                onChange={(e) => setFormStartTime(e.target.value)}
-                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Jam Selesai (WIB) *</label>
-              <input
-                type="time"
-                required
-                value={formEndTime}
-                onChange={(e) => setFormEndTime(e.target.value)}
-                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
-              />
-            </div>
-            <div>
-              <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Lokasi Posko / Piket *</label>
-              <input
-                type="text"
-                required
-                value={formLocation}
-                onChange={(e) => setFormLocation(e.target.value)}
-                placeholder="Contoh: Kantor Humas"
-                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
-              />
-            </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <CustomTimePicker
+              label="Jam Mulai (WIB)"
+              required
+              value={formStartTime}
+              onChange={(val) => setFormStartTime(val)}
+            />
+            <CustomTimePicker
+              label="Jam Selesai (WIB)"
+              required
+              value={formEndTime}
+              onChange={(val) => setFormEndTime(val)}
+            />
+          </div>
+
+          <div>
+            <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Lokasi Posko / Piket *</label>
+            <input
+              type="text"
+              required
+              value={formLocation}
+              onChange={(e) => setFormLocation(e.target.value)}
+              placeholder="Contoh: Kantor Humas"
+              className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#003D58] focus:ring-1 focus:ring-[#003D58]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
+            />
           </div>
 
           <div>
             <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Catatan Tugas Tambahan</label>
             <textarea
-              rows={2}
+              rows={3}
               value={formNote}
               onChange={(e) => setFormNote(e.target.value)}
               placeholder="Tuliskan arahan khusus piket..."
-              className="w-full min-h-[70px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] p-3 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all resize-none"
+              className="w-full min-h-[96px] bg-white border border-[#E2E8F0] focus:border-[#003D58] focus:ring-1 focus:ring-[#003D58]/25 rounded-[8px] p-3 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all resize-none"
             />
           </div>
 
@@ -501,7 +588,7 @@ export default function SchedulePage() {
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-gradient-to-r from-[#0D9488] to-[#14B8A6] hover:from-[#0F766E] hover:to-[#0D9488] text-white text-[12px] font-semibold rounded-[8px] shadow-xs transition-all cursor-pointer"
+              className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-[8px] shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
             >
               Simpan Jadwal
             </button>
@@ -522,21 +609,21 @@ export default function SchedulePage() {
               <UserAvatar src={selectedEvent.extendedProps.avatar} name={selectedEvent.extendedProps.memberName} size="md" />
               <div>
                 <p className="font-bold text-sm text-slate-800">{selectedEvent.extendedProps.memberName}</p>
-                <p className="text-xs text-teal-600 font-semibold mt-0.5">{selectedEvent.extendedProps.role}</p>
+                <p className="text-xs text-[#003D58] font-semibold mt-0.5">{selectedEvent.extendedProps.role}</p>
               </div>
             </div>
 
             <div className="space-y-2.5 text-xs text-slate-700">
               <div className="flex items-center gap-2.5">
-                <Clock className="w-4 h-4 text-teal-600 shrink-0" />
+                <Clock className="w-4 h-4 text-[#003D58] shrink-0" />
                 <span><strong>Shift Waktu:</strong> {selectedEvent.extendedProps.shift}</span>
               </div>
               <div className="flex items-center gap-2.5">
-                <MapPin className="w-4 h-4 text-teal-600 shrink-0" />
+                <MapPin className="w-4 h-4 text-[#003D58] shrink-0" />
                 <span><strong>Lokasi Posko:</strong> {selectedEvent.extendedProps.location}</span>
               </div>
               <div className="flex items-center gap-2.5">
-                <FileText className="w-4 h-4 text-teal-600 shrink-0" />
+                <FileText className="w-4 h-4 text-[#003D58] shrink-0" />
                 <span>
                   <strong>Status Piket: </strong>
                   <span className={`font-semibold px-2 py-0.5 rounded-md text-[10px] uppercase ${
@@ -551,7 +638,7 @@ export default function SchedulePage() {
                 </span>
               </div>
               {selectedEvent.extendedProps.note && (
-                <div className="p-3 bg-teal-50/50 rounded-xl border border-teal-100/80 text-teal-900 mt-2">
+                <div className="p-3 bg-blue-50/50 rounded-xl border border-blue-100/80 text-blue-900 mt-2">
                   <p className="font-semibold mb-0.5">Catatan:</p>
                   <p>{selectedEvent.extendedProps.note}</p>
                 </div>

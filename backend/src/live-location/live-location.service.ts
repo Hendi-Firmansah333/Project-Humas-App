@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import { Role, ActivityStatus } from '@prisma/client';
@@ -22,7 +22,13 @@ export class LiveLocationService {
       user = userOrMobile;
     }
 
-    const where: any = { deletedAt: null };
+    const where: any = {
+      deletedAt: null,
+      user: {
+        role: Role.USER,
+        deletedAt: null,
+      },
+    };
 
     const locations = await this.prisma.location.findMany({
       where,
@@ -112,6 +118,15 @@ export class LiveLocationService {
   }
 
   async updateLocation(userId: number, dto: UpdateLocationDto) {
+    const user = await this.prisma.user.findFirst({
+      where: { id: userId, deletedAt: null },
+      select: { id: true, role: true },
+    });
+
+    if (!user || user.role !== Role.USER) {
+      throw new ForbiddenException('Admin Humas dan Kepala Humas tidak dapat membagikan atau muncul di Live Location.');
+    }
+
     const updated = await this.prisma.location.upsert({
       where: { userId },
       update: {

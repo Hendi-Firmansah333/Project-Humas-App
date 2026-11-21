@@ -40,7 +40,7 @@ export default function DataTable<T extends Record<string, any>>({
           {loading ? (
             <tr>
               <td colSpan={columns.length} className="py-12 text-center text-slate-400 text-xs">
-                <div className="w-6 h-6 border-2 border-teal-600 border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                <div className="w-6 h-6 border-2 border-[#003D58] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                 Memuat data...
               </td>
             </tr>

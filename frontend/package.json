@@ -6,7 +6,11 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "security:audit": "npm audit --audit-level=high",
+    "security:lint": "node ../scripts/security/eslint-security-report.js . src"
   },
   "dependencies": {
     "@base-ui/react": "^1.6.0",
@@ -39,12 +43,14 @@
     "zod": "^4.4.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.65.1",
     "@tailwindcss/postcss": "^4",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.2.10",
+    "eslint-plugin-security": "^4.2.1",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

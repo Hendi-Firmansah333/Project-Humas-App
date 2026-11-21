@@ -26,6 +26,10 @@ const securityHeaders = [
 const nextConfig: NextConfig = {
   // Mengizinkan hot-reload dev dari localhost maupun network LAN / VirtualBox
   allowedDevOrigins: ["localhost:3000", "127.0.0.1:3000", "192.168.56.1:3000"],
+  devIndicators: false,
+  compress: true,
+  poweredByHeader: false,
+  productionBrowserSourceMaps: false,
   async headers() {
     return [
       {
@@ -33,6 +37,25 @@ const nextConfig: NextConfig = {
         headers: securityHeaders,
       },
     ];
+  },
+  experimental: {
+    optimizePackageImports: [
+      "lucide-react",
+      "recharts",
+      "@fullcalendar/core",
+      "@fullcalendar/react",
+      "@fullcalendar/daygrid",
+      "@fullcalendar/timegrid",
+      "@fullcalendar/interaction",
+      "@base-ui/react",
+      "framer-motion",
+      "date-fns",
+      "clsx",
+      "tailwind-merge",
+      "sonner",
+      "@/components/common",
+      "@/services",
+    ],
   },
 };
 

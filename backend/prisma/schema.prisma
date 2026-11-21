@@ -150,6 +150,7 @@ model User {
   username       String           @unique
   email          String           @unique
   phone          String?
+  nip            String?
   password       String
   role           Role             @default(ADMIN)
   roleLabel      String           @default("Admin Humas")
@@ -348,7 +349,7 @@ model ContentPlan {
   id           Int           @id @default(autoincrement())
   title        String
   category     String?
-  platform     Platform      @default(INSTAGRAM)
+  platform     String        @default("INSTAGRAM")
   contentType  String        @default("Reels")
   picId        Int
   pic          User          @relation("ContentPic", fields: [picId], references: [id])
@@ -360,6 +361,7 @@ model ContentPlan {
   thumbnailUrl String?
   draftUrl     String?
   videoUrl     String?
+  rawMaterialUrl String?
   submittedAt  DateTime?
   media        Media[]       @relation("ContentPlanMedia")
 

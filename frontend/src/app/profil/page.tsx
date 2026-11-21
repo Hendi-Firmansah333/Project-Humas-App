@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/layout/AdminLayout';
-import { CustomButton, StatusBadge } from '@/components/common';
+import { CustomButton, StatusBadge, ConfirmModal } from '@/components/common';
 import DashboardSkeleton from '@/components/common/DashboardSkeleton';
 import {
   User,
@@ -48,6 +48,7 @@ export default function ProfilePage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [accountStatus, setAccountStatus] = useState('AKTIF');
   const [stats, setStats] = useState({ activities: 0, contentPlans: 0, loans: 0 });
 
@@ -334,7 +335,7 @@ export default function ProfilePage() {
             <CustomButton
               variant="danger-outline"
               icon={LogOut}
-              onClick={handleLogout}
+              onClick={() => setShowLogoutConfirm(true)}
               className="w-full justify-center"
             >
               Keluar Sesi (Logout)
@@ -503,6 +504,21 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={() => {
+          setShowLogoutConfirm(false);
+          handleLogout();
+        }}
+        title="Konfirmasi Keluar"
+        message="Apakah Anda yakin ingin keluar dari sesi aplikasi HUMASS Polinela?"
+        confirmText="Ya, Keluar"
+        cancelText="Batal"
+        variant="danger"
+        icon={LogOut}
+      />
     </AdminLayout>
   );
 }

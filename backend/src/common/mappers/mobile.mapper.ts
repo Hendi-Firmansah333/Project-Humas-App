@@ -17,7 +17,7 @@ const activityStatusLabel: Record<ActivityStatus, string> = {
   DITOLAK: 'Ditolak',
   DITUGASKAN: 'Ditugaskan',
   SEDANG_BERLANGSUNG: 'Sedang Berlangsung',
-  MENUNGGU_VERIFIKASI: 'Menunggu Verifikasi',
+  MENUNGGU_VERIFIKASI: 'Menunggu Persetujuan Akhir',
   MENUNGGU_PERSETUJUAN_AKHIR: 'Menunggu Persetujuan Akhir',
   SELESAI: 'Selesai',
   DIKEMBALIKAN: 'Dikembalikan',
@@ -31,14 +31,14 @@ const contentStatusToMobile: Record<ContentStatus, string> = {
   DRAFT: 'belumDikerjakan',
   DITUGASKAN: 'belumDikerjakan',
   DALAM_PENGERJAAN: 'sedangDikerjakan',
-  MENUNGGU_VERIFIKASI_ADMIN: 'menungguVerifikasiAdmin',
+  MENUNGGU_VERIFIKASI_ADMIN: 'menungguPersetujuanKepalaHumas',
   MENUNGGU_PERSETUJUAN_KEPALA_HUMAS: 'menungguPersetujuanKepalaHumas',
   DISETUJUI: 'disetujui',
   REVISI: 'perluRevisi',
   PUBLISHED: 'selesai',
   SELESAI: 'selesai',
   DIBATALKAN: 'ditolak',
-  MENUNGGU: 'menungguVerifikasiAdmin',
+  MENUNGGU: 'menungguPersetujuanKepalaHumas',
   PROSES: 'sedangDikerjakan',
 };
 
@@ -166,8 +166,13 @@ function resolveMobileContentStatus(plan: ContentPlan) {
   if (plan.status === 'DISETUJUI') return 'disetujui';
   if (plan.status === 'REVISI') return 'perluRevisi';
   if (plan.status === 'DIBATALKAN') return 'ditolak';
-  if (plan.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS') return 'menungguPersetujuanKepalaHumas';
-  if (plan.status === 'MENUNGGU_VERIFIKASI_ADMIN' || plan.status === 'MENUNGGU') return 'menungguVerifikasiAdmin';
+  if (
+    plan.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' ||
+    plan.status === 'MENUNGGU_VERIFIKASI_ADMIN' ||
+    plan.status === 'MENUNGGU'
+  ) {
+    return 'menungguPersetujuanKepalaHumas';
+  }
   if (plan.status === 'DALAM_PENGERJAAN' || plan.status === 'PROSES') return 'sedangDikerjakan';
   return 'belumDikerjakan';
 }
@@ -207,14 +212,15 @@ export function mapContentPlanForMobile(
     progress:
       plan.status === 'SELESAI' || plan.status === 'PUBLISHED' || plan.status === 'DISETUJUI'
         ? 100
-        : plan.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS'
+        : plan.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' ||
+            plan.status === 'MENUNGGU_VERIFIKASI_ADMIN' ||
+            plan.status === 'MENUNGGU'
           ? 90
-          : plan.status === 'MENUNGGU_VERIFIKASI_ADMIN' || plan.status === 'MENUNGGU'
-            ? 75
-            : plan.status === 'DALAM_PENGERJAAN' || plan.status === 'PROSES' || plan.status === 'REVISI'
-              ? 50
-              : 0,
+          : plan.status === 'DALAM_PENGERJAAN' || plan.status === 'PROSES' || plan.status === 'REVISI'
+            ? 50
+            : 0,
     videoLink: plan.videoUrl || plan.draftUrl,
+    rawMaterialUrl: plan.rawMaterialUrl ?? null,
     posterPath: plan.thumbnailUrl,
     videoFileName: plan.videoUrl ? plan.videoUrl.split('/').pop() : null,
     revisionNote: plan.revisionNote ?? null,

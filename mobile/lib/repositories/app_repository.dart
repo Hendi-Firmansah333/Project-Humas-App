@@ -565,8 +565,8 @@ class AppRepository {
       caption: caption,
       posterPath: posterPath,
       videoFileName: videoFileName,
-      status: sendToReview ? ContentPlanStatus.menungguVerifikasiAdmin : ContentPlanStatus.sedangDikerjakan,
-      progress: sendToReview ? 75 : 50,
+      status: sendToReview ? ContentPlanStatus.menungguPersetujuanKepalaHumas : ContentPlanStatus.sedangDikerjakan,
+      progress: sendToReview ? 90 : 50,
     );
     _replaceContentPlan(updated);
     await _persist();

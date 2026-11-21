@@ -53,3 +53,6 @@ mobile/ios/.symlinks/
 mobile/windows/flutter/ephemeral/
 mobile/linux/flutter/ephemeral/
 mobile/macos/Flutter/ephemeral/
+
+# Local Windows batch scripts
+*.bat

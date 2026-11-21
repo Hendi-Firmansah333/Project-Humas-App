@@ -20,15 +20,18 @@ export default function PaginationBar({
   const end = Math.min(currentPage * 10, totalItems);
 
   return (
-    <div className="flex items-center justify-between px-6 py-4 bg-slate-50/60 border-t border-slate-200 text-xs text-slate-500">
+    <div className="flex items-center justify-between px-6 py-4 bg-slate-50/60 border-t border-slate-200 text-xs text-slate-600">
       <div>
-        Menampilkan <span className="font-semibold text-slate-700">{start}</span> hingga{' '}
-        <span className="font-semibold text-slate-700">{end}</span> dari{' '}
-        <span className="font-semibold text-slate-700">{totalItems}</span> {itemName}
+        Menampilkan <span className="font-semibold text-slate-800">{start}</span> hingga{' '}
+        <span className="font-semibold text-slate-800">{end}</span> dari{' '}
+        <span className="font-semibold text-slate-800">{totalItems}</span> {itemName}
       </div>
 
       <div className="flex items-center gap-1.5">
         <button
+          type="button"
+          aria-label="Halaman sebelumnya"
+          title="Halaman sebelumnya"
           onClick={() => onPageChange(Math.max(1, currentPage - 1))}
           disabled={currentPage === 1}
           className="w-8 h-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
@@ -39,10 +42,12 @@ export default function PaginationBar({
         {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
           <button
             key={page}
+            type="button"
+            aria-label={`Halaman ${page}`}
             onClick={() => onPageChange(page)}
-            className={`w-8 h-8 rounded-lg font-medium transition-colors cursor-pointer ${
+            className={`w-8 h-8 rounded-lg font-semibold transition-all cursor-pointer ${
               currentPage === page
-                ? 'bg-teal-600 text-white shadow-xs'
+                ? 'bg-[#003D58] text-white shadow-xs shadow-[#003D58]/25'
                 : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
             }`}
           >
@@ -51,6 +56,9 @@ export default function PaginationBar({
         ))}
 
         <button
+          type="button"
+          aria-label="Halaman berikutnya"
+          title="Halaman berikutnya"
           onClick={() => onPageChange(Math.min(totalPages, currentPage + 1))}
           disabled={currentPage === totalPages || totalPages === 0}
           className="w-8 h-8 rounded-lg border border-slate-200 bg-white flex items-center justify-center text-slate-600 hover:bg-slate-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors cursor-pointer"
