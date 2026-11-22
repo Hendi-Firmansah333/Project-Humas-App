@@ -115,6 +115,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     ];
 
     return Scaffold(
+      extendBody: true,
       backgroundColor: AppColors.background,
       body: IndexedStack(index: _currentIndex, children: pages),
       bottomNavigationBar: Consumer<AppDataProvider>(

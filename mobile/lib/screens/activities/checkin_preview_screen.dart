@@ -40,6 +40,7 @@ class _CheckinPreviewScreenState extends State<CheckinPreviewScreen> {
   }
 
   Future<void> _submit() async {
+    final appData = context.read<AppDataProvider>();
     setState(() => _isSubmitting = true);
     try {
       // 1. Upload foto selfie ke Cloudinary
@@ -50,7 +51,7 @@ class _CheckinPreviewScreenState extends State<CheckinPreviewScreen> {
 
       // 2. Submit data check-in dengan URL Cloudinary & koordinat GPS
       final isLate = _computeIsLate(widget.activity);
-      final updated = await context.read<AppDataProvider>().submitCheckIn(
+      final updated = await appData.submitCheckIn(
             activityId: widget.activity.id,
             selfiePath: cloudUrl,
             isLate: isLate,

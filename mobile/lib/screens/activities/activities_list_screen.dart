@@ -8,7 +8,6 @@ import 'package:poli_humas/models/activity.dart';
 import 'package:poli_humas/providers/app_data_provider.dart';
 import 'package:poli_humas/screens/activities/activity_detail_screen.dart';
 import 'package:poli_humas/screens/activities/activity_history_detail_screen.dart';
-import 'package:poli_humas/screens/activities/activity_history_screen.dart';
 import 'package:poli_humas/theme/app_colors.dart';
 import 'package:poli_humas/utils/app_navigator.dart';
 import 'package:poli_humas/widgets/paginated_refresh_list.dart';
@@ -39,7 +38,6 @@ class _ActivitiesListScreenState extends State<ActivitiesListScreen> {
   final _searchController = TextEditingController();
   Timer? _searchDebounce;
 
-  // Filter chips untuk tab Daftar Kegiatan
   static const _defaultFilters = [
     'Semua',
     'Sedang Berlangsung',
@@ -47,7 +45,6 @@ class _ActivitiesListScreenState extends State<ActivitiesListScreen> {
     'Selesai',
     'Dibatalkan',
   ];
-  static const _allPossibleFilters = _defaultFilters;
 
   String _selectedFilter = 'Semua';
   String _searchQuery = '';
@@ -83,90 +80,6 @@ class _ActivitiesListScreenState extends State<ActivitiesListScreen> {
     setState(() {
       _selectedFilter = filter;
     });
-  }
-
-  void _showFilterModal() {
-    final isDark = AppColors.isDark;
-    showModalBottomSheet<void>(
-      context: context,
-      backgroundColor: Colors.transparent,
-      builder: (context) {
-        return Container(
-          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-          decoration: BoxDecoration(
-            color: isDark ? const Color(0xFF1E293B) : Colors.white,
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-          ),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Center(
-                child: Container(
-                  width: 40,
-                  height: 4,
-                  decoration: BoxDecoration(
-                    color: isDark ? Colors.white24 : const Color(0xFFCBD5E1),
-                    borderRadius: BorderRadius.circular(2),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Text(
-                    'Filter Status Kegiatan',
-                    style: _pj(18, FontWeight.w800, isDark ? Colors.white : const Color(0xFF0F172A)),
-                  ),
-                  if (_selectedFilter != 'Semua')
-                    TextButton(
-                      onPressed: () {
-                        _onFilterSelected('Semua');
-                        Navigator.pop(context);
-                      },
-                      child: Text('Reset', style: _pj(13, FontWeight.w700, AppColors.primary)),
-                    ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              Wrap(
-                spacing: 8,
-                runSpacing: 10,
-                children: _allPossibleFilters.map((f) {
-                  final selected = f == _selectedFilter;
-                  return ChoiceChip(
-                    label: Text(
-                      f,
-                      style: _pj(
-                        13,
-                        selected ? FontWeight.w700 : FontWeight.w500,
-                        selected ? Colors.white : (isDark ? Colors.white70 : const Color(0xFF1E293B)),
-                      ),
-                    ),
-                    selected: selected,
-                    selectedColor: AppColors.primary,
-                    backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(20),
-                      side: BorderSide(
-                        color: selected
-                            ? AppColors.primary
-                            : (isDark ? Colors.white12 : const Color(0xFFCBD5E1)),
-                      ),
-                    ),
-                    onSelected: (_) {
-                      _onFilterSelected(f);
-                      Navigator.pop(context);
-                    },
-                  );
-                }).toList(),
-              ),
-            ],
-          ),
-        );
-      },
-    );
   }
 
   Future<void> _handleRefresh() async {
@@ -238,165 +151,127 @@ class _ActivitiesListScreenState extends State<ActivitiesListScreen> {
       }).toList();
     }
 
-    // Tentukan daftar chips yang ditampilkan di horizontal list
-    final displayedChips = List<String>.from(_defaultFilters);
-    if (!displayedChips.contains(_selectedFilter)) {
-      displayedChips.add(_selectedFilter);
-    }
+    final bgColor = isDark ? const Color(0xFF0F172A) : const Color(0xFFF8F9FF);
 
     return Scaffold(
-      backgroundColor: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
+      backgroundColor: bgColor,
       body: SafeArea(
+        bottom: false,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── 1. HEADER ATAS ──
-            Padding(
-              padding: const EdgeInsets.fromLTRB(20, 16, 12, 12),
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                crossAxisAlignment: CrossAxisAlignment.center,
+            // ── 1. HEADER SECTION (Figma 5302:9513) ──
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.fromLTRB(25, 12, 25, 14),
+              decoration: BoxDecoration(
+                color: bgColor,
+                boxShadow: [
+                  BoxShadow(
+                    color: Colors.black.withValues(alpha: isDark ? 0.2 : 0.05),
+                    blurRadius: 1,
+                    offset: const Offset(0, 1),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    'Daftar Kegiatan',
+                    'Kegiatan',
                     style: _pj(
-                      22,
+                      28,
                       FontWeight.w800,
-                      isDark ? Colors.white : const Color(0xFF0F172A),
+                      isDark ? Colors.white : Colors.black,
+                      height: 1.2,
                       ls: -0.4,
                     ),
                   ),
-                  Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      IconButton(
-                        onPressed: () {
-                          HapticFeedback.lightImpact();
-                          pushSmooth(context, const ActivityHistoryScreen());
-                        },
-                        icon: Icon(
-                          Icons.history_rounded,
-                          size: 23,
-                          color: isDark ? Colors.white : AppColors.primary,
-                        ),
-                        tooltip: 'Riwayat Kegiatan',
+                  const SizedBox(height: 2),
+                  Text(
+                    'Jadwal liputan, rapat, dan agenda Tim Humas',
+                    style: _pj(
+                      12.5,
+                      FontWeight.w400,
+                      isDark ? Colors.white70 : Colors.black,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ── SEARCH BAR KAPSUL (Figma 5302:9519) ──
+                  Container(
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: isDark ? const Color(0xFF1E293B) : const Color(0xFFF8F9FF),
+                      borderRadius: BorderRadius.circular(20),
+                      border: Border.all(
+                        color: isDark ? Colors.white12 : const Color(0xFFBBC9CB),
+                        width: 1,
                       ),
-                      IconButton(
-                        onPressed: _showFilterModal,
-                        icon: Icon(
-                          Icons.filter_list_rounded,
-                          size: 24,
-                          color: isDark ? Colors.white : const Color(0xFF0F172A),
-                        ),
-                        tooltip: 'Filter Kegiatan',
+                    ),
+                    child: TextField(
+                      controller: _searchController,
+                      onChanged: _onSearchChanged,
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w500,
+                        color: isDark ? Colors.white : const Color(0xFF0B1B33),
                       ),
-                    ],
+                      decoration: InputDecoration(
+                        hintText: 'Cari kegiatan...',
+                        hintStyle: GoogleFonts.poppins(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w400,
+                          color: const Color(0xFF6B7280),
+                        ),
+                        prefixIcon: const Icon(
+                          Icons.search_rounded,
+                          size: 20,
+                          color: Color(0xFF6B7280),
+                        ),
+                        suffixIcon: _searchQuery.isNotEmpty
+                            ? IconButton(
+                                icon: const Icon(
+                                  Icons.close_rounded,
+                                  size: 18,
+                                  color: Color(0xFF6B7280),
+                                ),
+                                onPressed: () {
+                                  _searchController.clear();
+                                  _onSearchChanged('');
+                                },
+                              )
+                            : null,
+                        border: InputBorder.none,
+                        contentPadding: const EdgeInsets.symmetric(vertical: 12),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // ── FILTER CHIPS ROW (Figma 5302:9525) ──
+                  SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    physics: const BouncingScrollPhysics(),
+                    child: Row(
+                      children: [
+                        for (int i = 0; i < _defaultFilters.length; i++) ...[
+                          if (i > 0) const SizedBox(width: 14),
+                          _FilterChipButton(
+                            label: _defaultFilters[i],
+                            isSelected: _defaultFilters[i] == _selectedFilter,
+                            isDark: isDark,
+                            onTap: () => _onFilterSelected(_defaultFilters[i]),
+                          ),
+                        ],
+                      ],
+                    ),
                   ),
                 ],
               ),
             ),
 
-            // ── 2. SEARCH BAR KAPSUL (Figma 4383:8186) ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: Container(
-                height: 48,
-                decoration: BoxDecoration(
-                  color: isDark ? const Color(0xFF1E293B) : Colors.white,
-                  borderRadius: BorderRadius.circular(28),
-                  border: Border.all(
-                    color: isDark ? Colors.white12 : const Color(0xFFCBD5E1),
-                    width: 1,
-                  ),
-                ),
-                child: TextField(
-                  controller: _searchController,
-                  onChanged: _onSearchChanged,
-                  style: _pj(14, FontWeight.w600, isDark ? Colors.white : const Color(0xFF0F172A)),
-                  decoration: InputDecoration(
-                    hintText: 'Cari kegiatan...',
-                    hintStyle: _pj(14, FontWeight.w400, const Color(0xFF64748B)),
-                    prefixIcon: const Icon(
-                      Icons.search_rounded,
-                      size: 22,
-                      color: Color(0xFF64748B),
-                    ),
-                    suffixIcon: _searchQuery.isNotEmpty
-                        ? IconButton(
-                            icon: const Icon(Icons.close_rounded, size: 18, color: Color(0xFF64748B)),
-                            onPressed: () {
-                              _searchController.clear();
-                              _onSearchChanged('');
-                            },
-                          )
-                        : null,
-                    border: InputBorder.none,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 14),
-
-            // ── 3. FILTER CHIPS ROW (Figma 4383:8186) ──
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child: SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: const BouncingScrollPhysics(),
-                child: Row(
-                  children: displayedChips.map((f) {
-                    final isSelected = f == _selectedFilter;
-                    return Padding(
-                      padding: const EdgeInsets.only(right: 8),
-                      child: GestureDetector(
-                        onTap: () => _onFilterSelected(f),
-                        behavior: HitTestBehavior.opaque,
-                        child: AnimatedContainer(
-                          duration: const Duration(milliseconds: 200),
-                          curve: Curves.easeOutCubic,
-                          padding: const EdgeInsets.symmetric(horizontal: 22, vertical: 9),
-                          decoration: BoxDecoration(
-                            color: isSelected
-                                ? AppColors.primary
-                                : (isDark ? const Color(0xFF1E293B) : Colors.white),
-                            borderRadius: BorderRadius.circular(24),
-                            border: Border.all(
-                              color: isSelected
-                                  ? AppColors.primary
-                                  : (isDark ? Colors.white12 : const Color(0xFFCBD5E1)),
-                              width: 1,
-                            ),
-                          ),
-                          child: Text(
-                            f,
-                            style: _pj(
-                              13.5,
-                              isSelected ? FontWeight.w700 : FontWeight.w500,
-                              isSelected
-                                  ? Colors.white
-                                  : (isDark ? Colors.white70 : const Color(0xFF1E293B)),
-                            ),
-                          ),
-                        ),
-                      ),
-                    );
-                  }).toList(),
-                ),
-              ),
-            ),
-
-            const SizedBox(height: 12),
-
-            // Garis tipis pemisah sesuai Figma
-            Divider(
-              height: 1,
-              thickness: 1,
-              color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
-            ),
-
-            // ── 4. DAFTAR KARTU KEGIATAN (Figma 4383:8186) ──
+            // ── 2. DAFTAR KARTU KEGIATAN (Figma 5302:9386) ──
             Expanded(
               child: PaginatedRefreshList(
                 itemCount: filteredList.length,
@@ -409,8 +284,8 @@ class _ActivitiesListScreenState extends State<ActivitiesListScreen> {
                     : 'Belum ada kegiatan untuk kategori ini.',
                 onRefresh: _handleRefresh,
                 onRetry: _handleRefresh,
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 90),
-                separatorBuilder: (context, index) => const SizedBox(height: 14),
+                padding: const EdgeInsets.fromLTRB(25, 14, 25, 110),
+                separatorBuilder: (context, index) => const SizedBox(height: 12),
                 itemBuilder: (context, index) {
                   final item = filteredList[index];
                   return _FigmaActivityCard(
@@ -428,8 +303,59 @@ class _ActivitiesListScreenState extends State<ActivitiesListScreen> {
   }
 }
 
+class _FilterChipButton extends StatelessWidget {
+  const _FilterChipButton({
+    required this.label,
+    required this.isSelected,
+    required this.isDark,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final bool isDark;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 200),
+        curve: Curves.easeOutCubic,
+        padding: const EdgeInsets.symmetric(horizontal: 17, vertical: 8),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? const Color(0xFF003D58)
+              : (isDark ? const Color(0xFF1E293B) : const Color(0xFFF8F9FF)),
+          borderRadius: BorderRadius.circular(9999),
+          border: Border.all(
+            color: isSelected
+                ? const Color(0xFF006971).withValues(alpha: 0.2)
+                : (isDark ? Colors.white12 : const Color(0xFFBBC9CB)),
+            width: 1,
+          ),
+        ),
+        child: Text(
+          label,
+          style: GoogleFonts.poppins(
+            fontSize: 15,
+            fontWeight: FontWeight.w500,
+            color: isSelected
+                ? Colors.white
+                : (isDark ? Colors.white70 : const Color(0xFF3C494B)),
+            letterSpacing: 0.1,
+            height: 1.25,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 // ══════════════════════════════════════════════
-// KARTU KEGIATAN SESUAI FIGMA NODE 4383:8186
+// KARTU KEGIATAN SESUAI FIGMA NODE 5302:9495
 // ══════════════════════════════════════════════
 class _FigmaActivityCard extends StatelessWidget {
   const _FigmaActivityCard({
@@ -442,21 +368,81 @@ class _FigmaActivityCard extends StatelessWidget {
   final VoidCallback onTap;
   final int index;
 
-  String _formatIndonesianDate(String raw, [DateTime? scheduledAt]) {
-    final months = [
+  bool get _isOngoing {
+    final st = item.status.trim();
+    return st == 'Sedang Berlangsung' ||
+        st == 'Menunggu Verifikasi' ||
+        st == 'Menunggu';
+  }
+
+  bool get _isUpcoming {
+    final st = item.status.trim();
+    return st == 'Akan Datang' || st == 'Ditugaskan';
+  }
+
+  bool get _isCancelled {
+    final st = item.status.trim();
+    return st == 'Dibatalkan' || st == 'Ditolak';
+  }
+
+  (Color, Color, Color, String) _getStatusConfig() {
+    if (_isCancelled) {
+      return (
+        const Color(0xFFFEE2E2),
+        const Color(0xFFEF4444),
+        const Color(0xFF991B1B),
+        'Dibatalkan',
+      );
+    }
+    if (item.status.trim() == 'Selesai') {
+      return (
+        const Color(0xFFEEF2F6),
+        const Color(0xFF9AA9B8),
+        const Color(0xFF4F6076),
+        'Selesai',
+      );
+    }
+    if (_isOngoing) {
+      return (
+        const Color(0xFFD9F7EF),
+        const Color(0xFF19C3A0),
+        const Color(0xFF05604F),
+        'Sedang Berlangsung',
+      );
+    }
+    return (
+      const Color(0xFFDDF1FE),
+      const Color(0xFF2BB3FD),
+      const Color(0xFF0B5C8C),
+      'Akan Datang',
+    );
+  }
+
+  List<Color> _getAccentGradient() {
+    if (_isOngoing) {
+      return const [Color(0xFF51FCE4), Color(0xFF2BB3FD)];
+    }
+    if (_isUpcoming) {
+      return const [Color(0xFF2BB3FD), Color(0xFF1E8FC4)];
+    }
+    return const [Color(0xFFC5D1DC), Color(0xFF9AA9B8)];
+  }
+
+  String _formatShortIndonesianDate(String raw, [DateTime? scheduledAt]) {
+    const months = [
       '',
-      'Januari',
-      'Februari',
-      'Maret',
-      'April',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
       'Mei',
-      'Juni',
-      'Juli',
-      'Agustus',
-      'September',
-      'Oktober',
-      'November',
-      'Desember'
+      'Jun',
+      'Jul',
+      'Agu',
+      'Sep',
+      'Okt',
+      'Nov',
+      'Des',
     ];
 
     if (scheduledAt != null) {
@@ -472,289 +458,356 @@ class _FigmaActivityCard extends StatelessWidget {
     final parts = trimmed.split(RegExp(r'[\s\n\-/]+'));
     if (parts.length >= 3 && parts[0].length == 4) {
       final y = parts[0];
-      final m = int.tryParse(parts[1]) ?? 5;
+      final m = int.tryParse(parts[1]) ?? 1;
       final d = int.tryParse(parts[2]) ?? 1;
       return '$d ${months[m.clamp(1, 12)]} $y';
     }
 
-    return trimmed.isNotEmpty ? trimmed : '24 Mei 2024';
+    return trimmed.isNotEmpty ? trimmed : '-';
   }
 
-  (Color, Color, String) _getStatusConfig(ActivityItem item) {
-    final st = item.status.trim();
-    if (st == 'Selesai') {
-      return (const Color(0xFFDCFCE7), const Color(0xFF15803D), 'Selesai');
+  String _formatTimeWithWib(String raw) {
+    final trimmed = raw.trim();
+    if (trimmed.isEmpty) return '-';
+    if (trimmed.toUpperCase().contains('WIB')) return trimmed;
+    return '$trimmed WIB';
+  }
+
+  String _resolveInitials() {
+    if (item.picInitials.trim().isNotEmpty) {
+      return item.picInitials.trim().toUpperCase();
     }
-    if (st == 'Dibatalkan' || st == 'Ditolak') {
-      return (const Color(0xFFF1F5F9), const Color(0xFF64748B), 'Dibatalkan');
-    }
-    if (st == 'Sedang Berlangsung' || item.hasCheckedIn) {
-      return (const Color(0xFFFDEBD0), const Color(0xFF9A4B16), 'Menunggu');
-    }
-    return (const Color(0xFFE0F2FE), const Color(0xFF0369A1), 'Akan Datang');
+    final words = item.picName.trim().split(RegExp(r'\s+'));
+    if (words.isEmpty || words.first.isEmpty) return '?';
+    if (words.length == 1) return words.first.substring(0, 1).toUpperCase();
+    return '${words[0][0]}${words[1][0]}'.toUpperCase();
   }
 
   @override
   Widget build(BuildContext context) {
     final isDark = AppColors.isDark;
-    final isCancelled = item.status == 'Dibatalkan' || item.status == 'Ditolak';
-    final (statusBg, statusText, statusLabel) = _getStatusConfig(item);
-    final formattedDate = _formatIndonesianDate(item.date, item.scheduledAt);
+    final (statusBg, dotColor, statusTextColor, statusLabel) = _getStatusConfig();
+    final accentColors = _getAccentGradient();
+    final formattedDate = _formatShortIndonesianDate(item.date, item.scheduledAt);
+    final formattedTime = _formatTimeWithWib(item.time);
+    final initials = _resolveInitials();
 
-    // Evaluasi status Check-in
-    final hasCheckedIn = item.hasCheckedIn || item.checkInStatus == 'Berhasil';
-    final isLate = item.checkInStatus == 'Terlambat' || item.checkInState == CheckInState.late;
-
-    // Evaluasi status Dokumentasi
-    final hasDoc = (item.documentationUrl != null && item.documentationUrl!.isNotEmpty) ||
-        item.docStatus == 'Sudah Unggah';
+    final avatarGradient = _isOngoing
+        ? const [Color(0xFF2BB3FD), Color(0xFF51FCE4)]
+        : const [Color(0xFF003D58), Color(0xFF2BB3FD)];
+    final avatarTextColor = _isOngoing ? const Color(0xFF011942) : Colors.white;
 
     return Container(
       decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF1E293B) : Colors.white,
-        borderRadius: BorderRadius.circular(20),
+        color: isDark ? const Color(0xFF1E293B) : Colors.white.withValues(alpha: 0.95),
+        borderRadius: BorderRadius.circular(24),
         border: Border.all(
-          color: isDark ? Colors.white10 : const Color(0xFFF1F5F9),
+          color: isDark ? Colors.white10 : Colors.white,
           width: 1,
         ),
         boxShadow: [
           BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.05),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
+            color: const Color(0xFF011942).withValues(alpha: isDark ? 0.28 : 0.08),
+            blurRadius: 24,
+            spreadRadius: -4,
+            offset: const Offset(0, 10),
           ),
         ],
       ),
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: BorderRadius.circular(20),
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
-          child: Padding(
-            padding: const EdgeInsets.all(18),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(24),
+        child: Material(
+          color: Colors.transparent,
+          child: InkWell(
+            onTap: onTap,
+            child: Stack(
               children: [
-                // ── 1. BARIS JUDUL & BADGE STATUS ──
-                Row(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Text(
-                        item.title,
-                        style: _pj(
-                          16.5,
-                          FontWeight.w700,
-                          isCancelled
-                              ? (isDark ? Colors.white60 : const Color(0xFF334155))
-                              : (isDark ? Colors.white : const Color(0xFF0F172A)),
-                          height: 1.25,
-                        ),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                      decoration: BoxDecoration(
-                        color: isDark ? statusBg.withValues(alpha: 0.25) : statusBg,
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Text(
-                        statusLabel,
-                        style: _pj(
-                          12,
-                          FontWeight.w600,
-                          isDark ? Colors.white : statusText,
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
-
-                const SizedBox(height: 8),
-
-                // ── 2. BARIS TANGGAL & LOKASI ──
-                Row(
-                  children: [
-                    const Icon(
-                      Icons.calendar_today_outlined,
-                      size: 14,
-                      color: Color(0xFF64748B),
-                    ),
-                    const SizedBox(width: 6),
-                    Text(
-                      formattedDate,
-                      style: _pj(
-                        13,
-                        FontWeight.w500,
-                        isDark ? Colors.white60 : const Color(0xFF475569),
-                      ),
-                    ),
-                    if (item.location.isNotEmpty) ...[
-                      Text(
-                        '  •  ',
-                        style: _pj(13, FontWeight.w500, const Color(0xFF94A3B8)),
-                      ),
-                      Expanded(
-                        child: Text(
-                          item.location,
-                          style: _pj(
-                            13,
-                            FontWeight.w500,
-                            isDark ? Colors.white60 : const Color(0xFF475569),
-                          ),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-
-                const SizedBox(height: 14),
-
-                // ── 3. KOTAK STATUS CHECK-IN & DOKUMENTASI (Figma Container #F8FAFC) ──
-                Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-                  decoration: BoxDecoration(
-                    color: isDark ? const Color(0xFF0F172A) : const Color(0xFFF8FAFC),
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(
-                      color: isDark ? Colors.white10 : const Color(0xFFE2E8F0),
-                      width: 1,
-                    ),
-                  ),
+                // ── KONTEN KARTU ──
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(19, 15, 15, 11),
                   child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Baris Check-in
+                      // ── 1. HEADER: JUDUL & PILL STATUS ──
                       Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          Icon(
-                            isCancelled
-                                ? Icons.cancel_outlined
-                                : (hasCheckedIn
-                                    ? Icons.check_circle_rounded
-                                    : (isLate
-                                        ? Icons.check_circle_rounded
-                                        : Icons.schedule_rounded)),
-                            size: 18,
-                            color: isCancelled
-                                ? const Color(0xFF94A3B8)
-                                : (hasCheckedIn
-                                    ? AppColors.primary
-                                    : (isLate ? const Color(0xFFD97706) : const Color(0xFFD97706))),
+                          Expanded(
+                            child: Text(
+                              item.title,
+                              style: _pj(
+                                16,
+                                FontWeight.w800,
+                                isDark ? Colors.white : const Color(0xFF0B1B33),
+                                ls: -0.2,
+                              ),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
                           ),
                           const SizedBox(width: 8),
-                          RichText(
-                            text: TextSpan(
-                              style: _pj(
-                                13,
-                                FontWeight.w400,
-                                isDark ? Colors.white70 : const Color(0xFF334155),
-                              ),
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 9,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: isDark
+                                  ? statusBg.withValues(alpha: 0.2)
+                                  : statusBg,
+                              borderRadius: BorderRadius.circular(99),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                const TextSpan(text: 'Check-in: '),
-                                TextSpan(
-                                  text: isCancelled
-                                      ? 'Tidak Check-in'
-                                      : (hasCheckedIn
-                                          ? 'Berhasil'
-                                          : (isLate ? 'Terlambat' : 'Belum Check-in')),
-                                  style: TextStyle(
-                                    fontWeight: isCancelled ? FontWeight.w500 : FontWeight.w700,
-                                    color: isCancelled
-                                        ? const Color(0xFF64748B)
-                                        : (hasCheckedIn
-                                            ? (isDark ? Colors.white : const Color(0xFF0F172A))
-                                            : const Color(0xFFD97706)),
+                                Container(
+                                  width: 6,
+                                  height: 6,
+                                  decoration: BoxDecoration(
+                                    color: dotColor,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 5),
+                                Text(
+                                  statusLabel,
+                                  style: _pj(
+                                    10.5,
+                                    FontWeight.w700,
+                                    isDark ? Colors.white : statusTextColor,
                                   ),
                                 ),
                               ],
                             ),
                           ),
                         ],
+                      ),
+
+                      if (item.description.trim().isNotEmpty) ...[
+                        const SizedBox(height: 5),
+                        Text(
+                          item.description.trim(),
+                          style: _pj(
+                            12.5,
+                            FontWeight.w400,
+                            isDark ? Colors.white70 : const Color(0xFF5E6E82),
+                            height: 1.45,
+                          ),
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ],
+
+                      const SizedBox(height: 8),
+
+                      // ── 2. KOTAK GRADIENT JADWAL & LOKASI (Figma 5302:9397) ──
+                      Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 13,
+                          vertical: 14,
+                        ),
+                        decoration: BoxDecoration(
+                          borderRadius: BorderRadius.circular(16),
+                          gradient: LinearGradient(
+                            begin: Alignment.topCenter,
+                            end: Alignment.bottomCenter,
+                            colors: isDark
+                                ? const [Color(0xFF0F172A), Color(0xFF162235)]
+                                : const [Color(0xFFF3FAFE), Color(0xFFE3F7F5)],
+                          ),
+                          border: Border.all(
+                            color: isDark
+                                ? Colors.white10
+                                : const Color(0xFFE1F0F4),
+                            width: 1,
+                          ),
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  Icons.calendar_today_outlined,
+                                  size: 14,
+                                  color: isDark
+                                      ? Colors.white
+                                      : const Color(0xFF0B1B33),
+                                ),
+                                const SizedBox(width: 8),
+                                Text(
+                                  formattedDate,
+                                  style: _pj(
+                                    12.5,
+                                    FontWeight.w700,
+                                    isDark
+                                        ? Colors.white
+                                        : const Color(0xFF0B1B33),
+                                  ),
+                                ),
+                                const SizedBox(width: 14),
+                                Icon(
+                                  Icons.schedule_rounded,
+                                  size: 14,
+                                  color: isDark
+                                      ? Colors.white
+                                      : const Color(0xFF0B1B33),
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    formattedTime,
+                                    style: _pj(
+                                      12.5,
+                                      FontWeight.w700,
+                                      isDark
+                                          ? Colors.white
+                                          : const Color(0xFF0B1B33),
+                                    ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            if (item.location.trim().isNotEmpty) ...[
+                              const SizedBox(height: 7),
+                              Row(
+                                children: [
+                                  Icon(
+                                    Icons.location_on_outlined,
+                                    size: 14,
+                                    color: isDark
+                                        ? Colors.white
+                                        : const Color(0xFF0B1B33),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Text(
+                                      item.location.trim(),
+                                      style: _pj(
+                                        12.5,
+                                        FontWeight.w700,
+                                        isDark
+                                            ? Colors.white
+                                            : const Color(0xFF0B1B33),
+                                      ),
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ],
+                          ],
+                        ),
                       ),
 
                       const SizedBox(height: 8),
 
-                      // Baris Dokumentasi
-                      Row(
-                        children: [
-                          Icon(
-                            isCancelled
-                                ? Icons.cancel_outlined
-                                : (hasDoc
-                                    ? Icons.cloud_done_rounded
-                                    : Icons.error_outline_rounded),
-                            size: 18,
-                            color: isCancelled
-                                ? const Color(0xFF94A3B8)
-                                : (hasDoc ? AppColors.primary : const Color(0xFFDC2626)),
+                      // ── 3. GARIS PUTUS-PUTUS & FOOTER PIC (Figma 5302:9417) ──
+                      SizedBox(
+                        width: double.infinity,
+                        height: 1,
+                        child: CustomPaint(
+                          painter: _DashedLinePainter(
+                            color: isDark
+                                ? Colors.white12
+                                : const Color(0xFFD3E6EF),
                           ),
-                          const SizedBox(width: 8),
-                          RichText(
-                            text: TextSpan(
-                              style: _pj(
-                                13,
-                                FontWeight.w400,
-                                isDark ? Colors.white70 : const Color(0xFF334155),
-                              ),
-                              children: [
-                                const TextSpan(text: 'Dokumentasi: '),
-                                TextSpan(
-                                  text: isCancelled
-                                      ? 'Belum Unggah'
-                                      : (hasDoc ? 'Sudah Unggah' : 'Belum Unggah'),
-                                  style: TextStyle(
-                                    fontWeight: isCancelled ? FontWeight.w500 : FontWeight.w700,
-                                    color: isCancelled
-                                        ? const Color(0xFF64748B)
-                                        : (hasDoc
-                                            ? (isDark ? Colors.white : const Color(0xFF0F172A))
-                                            : const Color(0xFFDC2626)),
-                                  ),
+                        ),
+                      ),
+                      Padding(
+                        padding: const EdgeInsets.only(top: 10),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                gradient: LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: avatarGradient,
                                 ),
-                              ],
+                              ),
+                              alignment: Alignment.center,
+                              child: Text(
+                                initials,
+                                style: _pj(10.5, FontWeight.w800, avatarTextColor),
+                              ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 9),
+                            Text(
+                              'PIC:',
+                              style: _pj(
+                                12.5,
+                                FontWeight.w600,
+                                isDark
+                                    ? Colors.white70
+                                    : const Color(0xFF33475B),
+                              ),
+                            ),
+                            const SizedBox(width: 4),
+                            Expanded(
+                              child: Text(
+                                item.picName.trim().isNotEmpty
+                                    ? item.picName.trim()
+                                    : '-',
+                                style: _pj(
+                                  12.5,
+                                  FontWeight.w800,
+                                  isDark
+                                      ? Colors.white
+                                      : const Color(0xFF0B1B33),
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Container(
+                              width: 28,
+                              height: 28,
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? Colors.white10
+                                    : const Color(0xFFEAF3F9),
+                                shape: BoxShape.circle,
+                              ),
+                              alignment: Alignment.center,
+                              child: Icon(
+                                Icons.chevron_right_rounded,
+                                size: 16,
+                                color: isDark
+                                    ? Colors.white
+                                    : const Color(0xFF0B1B33),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ],
                   ),
                 ),
 
-                const SizedBox(height: 14),
-
-                // ── 4. TOMBOL CTA "LIHAT DETAIL" (Figma 4383:8186) ──
-                SizedBox(
-                  width: double.infinity,
-                  height: 46,
-                  child: ElevatedButton(
-                    onPressed: onTap,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: isCancelled
-                          ? (isDark ? Colors.white10 : const Color(0xFFEEF2F6))
-                          : AppColors.primary,
-                      foregroundColor: isCancelled
-                          ? (isDark ? Colors.white70 : const Color(0xFF475569))
-                          : Colors.white,
-                      elevation: 0,
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12),
+                // ── AKSEN GARIS VERTIKAL KIRI (Figma 5302:9427) ──
+                Positioned(
+                  left: 0,
+                  top: 18,
+                  bottom: 18,
+                  width: 4,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      borderRadius: const BorderRadius.horizontal(
+                        right: Radius.circular(4),
                       ),
-                    ),
-                    child: Text(
-                      'Lihat Detail',
-                      style: _pj(
-                        14,
-                        isCancelled ? FontWeight.w600 : FontWeight.w700,
-                        isCancelled
-                            ? (isDark ? Colors.white70 : const Color(0xFF475569))
-                            : Colors.white,
+                      gradient: LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: accentColors,
                       ),
                     ),
                   ),
@@ -766,4 +819,32 @@ class _FigmaActivityCard extends StatelessWidget {
       ),
     ).staggeredEntrance(index);
   }
+}
+
+class _DashedLinePainter extends CustomPainter {
+  const _DashedLinePainter({required this.color});
+
+  final Color color;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final paint = Paint()
+      ..color = color
+      ..strokeWidth = 1;
+    const dashWidth = 4.0;
+    const dashSpace = 3.0;
+    double startX = 0;
+    while (startX < size.width) {
+      canvas.drawLine(
+        Offset(startX, 0),
+        Offset((startX + dashWidth).clamp(0.0, size.width), 0),
+        paint,
+      );
+      startX += dashWidth + dashSpace;
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DashedLinePainter oldDelegate) =>
+      oldDelegate.color != color;
 }

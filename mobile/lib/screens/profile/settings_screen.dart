@@ -72,6 +72,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (!mounted) return;
 
     await _settings.setLocation(agreed);
+    if (!mounted) return;
     if (agreed) {
       ScaffoldMessenger.of(context)
         ..hideCurrentSnackBar()

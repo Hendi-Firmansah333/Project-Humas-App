@@ -143,7 +143,6 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
 
   @override
   Widget build(BuildContext context) {
-    const isDark = false;
     const bgColor = Colors.white;
 
     return Scaffold(
@@ -154,22 +153,22 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
           Positioned(
             top: -200,
             left: -200,
-            child: _buildGlowCircle(isDark),
+            child: _buildGlowCircle(),
           ),
           Positioned(
             top: -200,
             right: -200,
-            child: _buildGlowCircle(isDark),
+            child: _buildGlowCircle(),
           ),
           Positioned(
             bottom: -200,
             left: -200,
-            child: _buildGlowCircle(isDark),
+            child: _buildGlowCircle(),
           ),
           Positioned(
             bottom: -200,
             right: -200,
-            child: _buildGlowCircle(isDark),
+            child: _buildGlowCircle(),
           ),
 
           // 2. Main Scrollable Content
@@ -201,19 +200,19 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                         children: [
                           Text(
                             T.t('login_title'),
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 26,
                               fontWeight: FontWeight.w900,
-                              color: isDark ? Colors.white : const Color(0xFF1F2937),
+                              color: Color(0xFF1F2937),
                               letterSpacing: -0.5,
                             ),
                           ),
                           const SizedBox(height: 6),
                           Text(
                             T.t('login_subtitle'),
-                            style: TextStyle(
+                            style: const TextStyle(
                               fontSize: 14,
-                              color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280),
+                              color: Color(0xFF6B7280),
                             ),
                           ),
                         ],
@@ -225,17 +224,17 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                     Container(
                       padding: const EdgeInsets.all(24),
                       decoration: BoxDecoration(
-                        color: isDark ? const Color(0xFF1E1E1E) : Colors.white,
+                        color: Colors.white,
                         borderRadius: BorderRadius.circular(24),
                         boxShadow: [
                           BoxShadow(
-                            color: Colors.black.withValues(alpha: isDark ? 0.25 : 0.05),
+                            color: Colors.black.withValues(alpha: 0.05),
                             blurRadius: 40,
                             offset: const Offset(0, 12),
                           ),
                         ],
                         border: Border.all(
-                          color: isDark ? Colors.white.withValues(alpha: 0.06) : const Color(0xFFF3F4F6),
+                          color: const Color(0xFFF3F4F6),
                         ),
                       ),
                       child: Column(
@@ -246,25 +245,25 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                             child: TextField(
                               controller: _usernameController,
                               enabled: !_isLoading,
-                              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                              style: const TextStyle(color: Colors.black87),
                               decoration: InputDecoration(
                                 labelText: T.t('username'),
-                                labelStyle: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                                labelStyle: const TextStyle(color: Color(0xFF6B7280)),
                                 prefixIcon: const Icon(Icons.person, color: AppColors.brand600),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
-                                  borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
+                                  borderSide: const BorderSide(color: Colors.black12),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
-                                  borderSide: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFE5E7EB)),
+                                  borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
                                   borderSide: const BorderSide(color: AppColors.brand600, width: 1.5),
                                 ),
                                 filled: true,
-                                fillColor: isDark ? const Color(0xFF151515) : const Color(0xFFF9FAFB),
+                                fillColor: const Color(0xFFF9FAFB),
                               ),
                             ),
                           ),
@@ -277,10 +276,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                               controller: _passwordController,
                               enabled: !_isLoading,
                               obscureText: _obscurePassword,
-                              style: TextStyle(color: isDark ? Colors.white : Colors.black87),
+                              style: const TextStyle(color: Colors.black87),
                               decoration: InputDecoration(
                                 labelText: T.t('password'),
-                                labelStyle: TextStyle(color: isDark ? const Color(0xFF9CA3AF) : const Color(0xFF6B7280)),
+                                labelStyle: const TextStyle(color: Color(0xFF6B7280)),
                                 prefixIcon: const Icon(Icons.lock, color: AppColors.brand600),
                                 suffixIcon: IconButton(
                                   icon: Icon(
@@ -291,18 +290,18 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                 ),
                                 border: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
-                                  borderSide: BorderSide(color: isDark ? Colors.white12 : Colors.black12),
+                                  borderSide: const BorderSide(color: Colors.black12),
                                 ),
                                 enabledBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
-                                  borderSide: BorderSide(color: isDark ? Colors.white.withValues(alpha: 0.08) : const Color(0xFFE5E7EB)),
+                                  borderSide: const BorderSide(color: Color(0xFFE5E7EB)),
                                 ),
                                 focusedBorder: OutlineInputBorder(
                                   borderRadius: BorderRadius.circular(16),
                                   borderSide: const BorderSide(color: AppColors.brand600, width: 1.5),
                                 ),
                                 filled: true,
-                                fillColor: isDark ? const Color(0xFF151515) : const Color(0xFFF9FAFB),
+                                fillColor: const Color(0xFFF9FAFB),
                               ),
                             ),
                           ),
@@ -338,11 +337,9 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                                     const SizedBox(width: 8),
                                     Text(
                                       T.t('remember_me'),
-                                      style: TextStyle(
+                                      style: const TextStyle(
                                         fontSize: 13,
-                                        color: isDark
-                                            ? const Color(0xFF9CA3AF)
-                                            : const Color(0xFF4B5563),
+                                        color: Color(0xFF4B5563),
                                       ),
                                     ),
                                   ],
@@ -394,7 +391,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
     );
   }
 
-  Widget _buildGlowCircle(bool isDark) {
+  Widget _buildGlowCircle() {
     return Container(
       width: 400,
       height: 400,
@@ -402,7 +399,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
         shape: BoxShape.circle,
         gradient: RadialGradient(
           colors: [
-            AppColors.brand600.withValues(alpha: isDark ? 0.08 : 0.15),
+            AppColors.brand600.withValues(alpha: 0.15),
             AppColors.brand600.withValues(alpha: 0.0),
           ],
         ),

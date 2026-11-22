@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:poli_humas/theme/rigid_scroll_behavior.dart';
 import 'package:poli_humas/widgets/async_states.dart';
 import 'package:poli_humas/widgets/shimmer_box.dart';
@@ -71,7 +72,7 @@ class PaginatedRefreshList extends StatelessWidget {
           return false;
         },
         child: ListView.separated(
-          cacheExtent: 400.0,
+          scrollCacheExtent: const ScrollCacheExtent.pixels(400.0),
           physics: appScrollPhysics,
           padding: padding,
           itemCount: itemCount + (isLoadingMore ? 1 : 0),

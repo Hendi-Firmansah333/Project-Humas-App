@@ -391,78 +391,73 @@ class AppBottomNav extends StatelessWidget {
   static const _items = [
     _NavItemConfig(
       activeIcon: Icons.home_rounded,
-      inactiveIcon: Icons.home_outlined,
+      inactiveIcon: Icons.home_rounded,
       labelKey: 'home',
     ),
     _NavItemConfig(
-      activeIcon: Icons.event_available_rounded,
-      inactiveIcon: Icons.event_note_outlined,
+      activeIcon: Icons.assignment_rounded,
+      inactiveIcon: Icons.assignment_outlined,
       labelKey: 'activities',
     ),
     _NavItemConfig(
-      activeIcon: Icons.perm_media_rounded,
-      inactiveIcon: Icons.perm_media_outlined,
+      activeIcon: Icons.calendar_month_rounded,
+      inactiveIcon: Icons.calendar_month_outlined,
       labelKey: 'content',
     ),
     _NavItemConfig(
       activeIcon: Icons.notifications_rounded,
-      inactiveIcon: Icons.notifications_outlined,
+      inactiveIcon: Icons.notifications_rounded,
       labelKey: 'alerts',
     ),
     _NavItemConfig(
       activeIcon: Icons.person_rounded,
-      inactiveIcon: Icons.person_outline_rounded,
+      inactiveIcon: Icons.person_rounded,
       labelKey: 'profile',
     ),
   ];
 
   @override
   Widget build(BuildContext context) {
-    final isDark = AppColors.isDark;
-    return Container(
-      decoration: BoxDecoration(
-        color: isDark ? const Color(0xFF0F172A) : Colors.white,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(16)),
-        border: Border(
-          top: BorderSide(
-            color: isDark ? Colors.white10 : const Color(0xFFF1F5F9),
-            width: 1,
-          ),
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: const Color(0xFF0F172A).withValues(alpha: 0.07),
-            blurRadius: 16,
-            offset: const Offset(0, -4),
-          ),
-        ],
-      ),
-      child: SafeArea(
-        top: false,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-          child: SizedBox(
-            height: 58,
-            child: Row(
-              children: List.generate(_items.length, (index) {
-                final item = _items[index];
-                final selected = index == currentIndex;
-                return Expanded(
-                  child: _BottomNavItem(
-                    activeIcon: item.activeIcon,
-                    inactiveIcon: item.inactiveIcon,
-                    label: T.t(item.labelKey),
-                    selected: selected,
-                    showBadge: index == 3 && unreadCount > 0 && !selected,
-                    onTap: () {
-                      HapticFeedback.lightImpact();
-                      onTap(index);
-                    },
-                  ),
-                );
-              }),
+    return SafeArea(
+      top: false,
+      minimum: const EdgeInsets.fromLTRB(22, 0, 22, 14),
+      child: Container(
+        height: 62,
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+        decoration: BoxDecoration(
+          color: const Color(0xFF012247),
+          borderRadius: BorderRadius.circular(100),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.16),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
             ),
-          ),
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.06),
+              blurRadius: 6,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: Row(
+          children: List.generate(_items.length, (index) {
+            final item = _items[index];
+            final selected = index == currentIndex;
+            return Expanded(
+              child: _BottomNavItem(
+                activeIcon: item.activeIcon,
+                inactiveIcon: item.inactiveIcon,
+                label: T.t(item.labelKey),
+                selected: selected,
+                showBadge: index == 3 && unreadCount > 0 && !selected,
+                onTap: () {
+                  HapticFeedback.lightImpact();
+                  onTap(index);
+                },
+              ),
+            );
+          }),
         ),
       ),
     );
@@ -488,90 +483,62 @@ class _BottomNavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final isDark = AppColors.isDark;
-    final iconColor = selected
-        ? AppColors.primary
-        : (isDark ? Colors.white54 : const Color(0xFF5C647A));
-    final textColor = selected
-        ? AppColors.primary
-        : (isDark ? Colors.white54 : const Color(0xFF5C647A));
+    final itemColor = selected ? const Color(0xFF5EEAD4) : const Color(0xFFF1F5F9);
 
     return GestureDetector(
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
-      child: Container(
-        height: double.infinity,
-        alignment: Alignment.center,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 200),
-          curve: Curves.easeOutCubic,
-          padding: EdgeInsets.symmetric(
-            horizontal: selected ? 12 : 6,
-            vertical: 4,
-          ),
-          decoration: BoxDecoration(
-            color: selected
-                ? (isDark
-                    ? AppColors.primary.withValues(alpha: 0.25)
-                    : const Color(0xFFD1EFF6))
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(14),
-            border: selected
-                ? Border.all(
-                    color: isDark
-                        ? AppColors.primary.withValues(alpha: 0.4)
-                        : const Color(0xFFBCE7F0),
-                    width: 1,
-                  )
-                : null,
-          ),
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              SizedBox(
-                width: 24,
-                height: 22,
-                child: Stack(
-                  clipBehavior: Clip.none,
-                  alignment: Alignment.center,
-                  children: [
-                    Icon(
-                      selected ? activeIcon : inactiveIcon,
-                      color: iconColor,
-                      size: selected ? 21 : 20,
-                    ),
-                    if (showBadge)
-                      Positioned(
-                        right: -3,
-                        top: -1,
-                        child: Container(
-                          width: 7,
-                          height: 7,
-                          decoration: BoxDecoration(
-                            color: AppColors.rose,
-                            shape: BoxShape.circle,
-                            border: Border.all(color: Colors.white, width: 1.5),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            SizedBox(
+              width: 26,
+              height: 24,
+              child: Stack(
+                clipBehavior: Clip.none,
+                alignment: Alignment.center,
+                children: [
+                  Icon(
+                    selected ? activeIcon : inactiveIcon,
+                    color: itemColor,
+                    size: 22,
+                  ),
+                  if (showBadge)
+                    Positioned(
+                      right: -2,
+                      top: -1,
+                      child: Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: AppColors.rose,
+                          shape: BoxShape.circle,
+                          border: Border.all(
+                            color: const Color(0xFF012247),
+                            width: 1.5,
                           ),
                         ),
                       ),
-                  ],
-                ),
+                    ),
+                ],
               ),
-              const SizedBox(height: 2),
-              Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                  fontSize: 10,
-                  fontWeight: selected ? FontWeight.w800 : FontWeight.w500,
-                  color: textColor,
-                ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.poppins(
+                fontSize: 10,
+                fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
+                color: itemColor,
+                height: 1.3,
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
