@@ -100,10 +100,10 @@ async function main() {
       location: 'Gedung Serbaguna POLINELA',
       status: ActivityStatus.SEDANG_BERLANGSUNG,
       description: 'Dokumentasi kegiatan Dies Natalis ke-41 POLINELA.',
-      picId: admin.id,
+      picId: staff.id,
       members: {
         create: [
-          { userId: staff.id, role: 'Fotografer', checkInStatus: CheckInStatus.SUCCESS, checkInTime: '08:55' },
+          { userId: staff.id, role: 'PIC Lapangan', checkInStatus: CheckInStatus.SUCCESS, checkInTime: '08:55' },
           { userId: jurnalis.id, role: 'Reporter', checkInStatus: CheckInStatus.MISSED },
           { userId: videografer.id, role: 'Videografer', checkInStatus: CheckInStatus.MISSED },
         ],
@@ -122,7 +122,7 @@ async function main() {
         data: {
           activityId: activity.id,
           userId,
-          role: userId === staff.id ? 'Fotografer' : userId === jurnalis.id ? 'Reporter' : 'Videografer',
+          role: userId === staff.id ? 'PIC Lapangan' : userId === jurnalis.id ? 'Reporter' : 'Videografer',
           checkInStatus: userId === staff.id ? CheckInStatus.SUCCESS : CheckInStatus.MISSED,
           checkInTime: userId === staff.id ? '08:55' : null,
         },
@@ -230,23 +230,6 @@ async function main() {
       create: { userId, latitude: lat, longitude: lng, address, isOnline: true },
     });
   }
-
-  await prisma.location.upsert({
-    where: { userId: admin.id },
-    update: {
-      latitude: -5.3585,
-      longitude: 105.2345,
-      address: 'Posko Humas Rektorat Lt. 1',
-      isOnline: true,
-    },
-    create: {
-      userId: admin.id,
-      latitude: -5.3585,
-      longitude: 105.2345,
-      address: 'Posko Humas Rektorat Lt. 1',
-      isOnline: true,
-    },
-  });
 
   await prisma.location.upsert({
     where: { userId: jurnalis.id },

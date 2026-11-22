@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useRouter } from 'next/navigation';
 import AdminLayout from '@/components/layout/AdminLayout';
-import { CustomButton, StatusBadge } from '@/components/common';
+import { CustomButton, StatusBadge, ConfirmModal } from '@/components/common';
 import DashboardSkeleton from '@/components/common/DashboardSkeleton';
 import {
   User,
@@ -48,6 +48,7 @@ export default function ProfilePage() {
   const [savingProfile, setSavingProfile] = useState(false);
   const [savingPassword, setSavingPassword] = useState(false);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [accountStatus, setAccountStatus] = useState('AKTIF');
   const [stats, setStats] = useState({ activities: 0, contentPlans: 0, loans: 0 });
 
@@ -231,7 +232,7 @@ export default function ProfilePage() {
         <div>
           <h1 className="text-lg font-bold text-slate-900 tracking-tight">Profil Pengguna & Pengaturan Keamanan</h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Kelola informasi identitas personel, kontak aktif, kredensial masuk, dan keamanan sistem HUMASS.
+            Kelola informasi identitas personel, kontak aktif, kredensial masuk, dan keamanan sistem HUMAS Polinela.
           </p>
         </div>
 
@@ -334,7 +335,7 @@ export default function ProfilePage() {
             <CustomButton
               variant="danger-outline"
               icon={LogOut}
-              onClick={handleLogout}
+              onClick={() => setShowLogoutConfirm(true)}
               className="w-full justify-center"
             >
               Keluar Sesi (Logout)
@@ -425,7 +426,7 @@ export default function ProfilePage() {
                 <button
                   type="submit"
                   disabled={savingProfile}
-                  className="px-5 py-2 bg-gradient-to-r from-[#0D9488] to-[#14B8A6] hover:from-[#0F766E] hover:to-[#0D9488] disabled:opacity-60 text-white text-[12px] font-semibold rounded-[8px] shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] disabled:opacity-60 text-white text-[12px] font-semibold rounded-full shadow-xs shadow-[#003D58]/25 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   {savingProfile ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                   {savingProfile ? 'Menyimpan...' : 'Simpan Perubahan Profil'}
@@ -489,7 +490,7 @@ export default function ProfilePage() {
                 <button
                   type="submit"
                   disabled={savingPassword}
-                  className="px-5 py-2 bg-gradient-to-r from-[#0D9488] to-[#14B8A6] hover:from-[#0F766E] hover:to-[#0D9488] disabled:opacity-60 text-white text-[12px] font-semibold rounded-[8px] shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] disabled:opacity-60 text-white text-[12px] font-semibold rounded-full shadow-xs shadow-[#003D58]/25 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   {savingPassword ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -503,6 +504,21 @@ export default function ProfilePage() {
           </div>
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={showLogoutConfirm}
+        onClose={() => setShowLogoutConfirm(false)}
+        onConfirm={() => {
+          setShowLogoutConfirm(false);
+          handleLogout();
+        }}
+        title="Konfirmasi Keluar"
+        message="Apakah Anda yakin ingin keluar dari sesi web HUMAS Polinela?"
+        confirmText="Ya, Keluar"
+        cancelText="Batal"
+        variant="danger"
+        icon={LogOut}
+      />
     </AdminLayout>
   );
 }

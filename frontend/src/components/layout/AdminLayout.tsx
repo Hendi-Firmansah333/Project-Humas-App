@@ -5,7 +5,6 @@ import { useRouter, usePathname } from 'next/navigation';
 import Sidebar from './Sidebar';
 import Navbar from './Navbar';
 import PageTransition from './PageTransition';
-import DashboardSkeleton from '@/components/common/DashboardSkeleton';
 import { authService } from '@/services';
 import { getStoredUser, syncUserSession, clearUserSession } from '@/utils/session';
 import { ShieldAlert, ArrowLeft } from 'lucide-react';
@@ -123,14 +122,21 @@ export default function AdminLayout({ children, title, allowedRoles }: AdminLayo
 
   if (!authChecked) {
     return (
-      <div className="flex h-screen w-full items-center justify-center bg-slate-50">
-        <DashboardSkeleton />
+      <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC]">
+        <div className="hidden lg:block w-64 bg-white border-r border-slate-200 shrink-0" />
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="h-16 bg-white border-b border-slate-200" />
+          <div className="flex-1 p-4 sm:p-6 lg:p-8 space-y-4">
+            <div className="h-28 bg-white rounded-2xl border border-slate-200/90 shimmer-card animate-shimmer" />
+            <div className="h-96 bg-white rounded-2xl border border-slate-200/90 shimmer-card animate-shimmer" />
+          </div>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex h-screen w-full overflow-hidden bg-slate-50">
+    <div className="flex h-screen w-full overflow-hidden bg-[#F8FAFC]">
       <div className="hidden lg:block shrink-0">
         <Sidebar
           isCollapsed={isCollapsed}
@@ -152,8 +158,8 @@ export default function AdminLayout({ children, title, allowedRoles }: AdminLayo
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Navbar title={title} onOpenMobileMenu={() => setIsMobileOpen(true)} />
-        <main className="flex-1 overflow-y-auto p-4 sm:p-6 lg:p-8">
-          <div className="max-w-[1600px] mx-auto space-y-6">
+        <main className="flex-1 overflow-y-auto p-3 sm:p-4 lg:p-5 bg-[#F8FAFC]">
+          <div className="w-full max-w-[1640px] 2xl:max-w-[1720px] mx-auto">
             {!isRoleAllowed ? (
               <div className="flex flex-col items-center justify-center min-h-[55vh] text-center p-8 bg-white rounded-3xl border border-slate-100 shadow-sm">
                 <div className="w-16 h-16 rounded-2xl bg-amber-50 border border-amber-200 flex items-center justify-center text-amber-600 mb-4 shadow-xs">
@@ -172,7 +178,7 @@ export default function AdminLayout({ children, title, allowedRoles }: AdminLayo
                 </p>
                 <button
                   onClick={() => router.push('/dashboard')}
-                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-gradient-to-r from-[#179fa9] to-[#22b8c5] text-white text-sm font-semibold rounded-xl hover:opacity-95 transition-all shadow-sm cursor-pointer"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#003D58] hover:bg-[#002F44] text-white text-sm font-semibold rounded-xl hover:opacity-95 transition-all shadow-sm cursor-pointer"
                 >
                   <ArrowLeft className="w-4 h-4" />
                   Kembali ke Dashboard

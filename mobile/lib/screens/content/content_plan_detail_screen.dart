@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:poli_humas/models/content_plan.dart';
 import 'package:poli_humas/providers/app_data_provider.dart';
 import 'package:poli_humas/services/cloudinary_service.dart';
@@ -107,6 +108,31 @@ class _ContentPlanDetailScreenState extends State<ContentPlanDetailScreen> {
     return 'https://$trimmed';
   }
 
+  Future<void> _openExternalUrl(String rawUrl) async {
+    final normalized = _normalizeUrl(rawUrl);
+    if (normalized.isEmpty) return;
+    final messenger = ScaffoldMessenger.of(context);
+    final uri = Uri.tryParse(normalized);
+    if (uri == null) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Link bahan mentahan tidak valid.'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+      return;
+    }
+    final launched = await launchUrl(uri, mode: LaunchMode.externalApplication);
+    if (!launched && mounted) {
+      messenger.showSnackBar(
+        const SnackBar(
+          content: Text('Tidak dapat membuka link bahan mentahan.'),
+          backgroundColor: AppColors.danger,
+        ),
+      );
+    }
+  }
+
   Future<void> _submitReview() async {
     if (!_canSubmit || _isSubmitting) return;
 
@@ -163,7 +189,7 @@ class _ContentPlanDetailScreenState extends State<ContentPlanDetailScreen> {
       messenger.showSnackBar(
         const SnackBar(
           content: Text(
-            'Hasil konten berhasil dikirim! Menunggu verifikasi Admin Humas.',
+            'Hasil konten berhasil dikirim! Menunggu persetujuan Kepala Humas.',
           ),
           backgroundColor: AppColors.success,
         ),
@@ -292,13 +318,13 @@ class _ContentPlanDetailScreenState extends State<ContentPlanDetailScreen> {
         break;
       case ContentPlanStatus.menungguPersetujuanKepalaHumas:
         message =
-            'Telah diverifikasi Admin. Menunggu persetujuan Kepala Humas.';
+            'Hasil konten telah dikirim. Menunggu persetujuan Kepala Humas.';
         color = const Color(0xFF7C3AED);
         icon = Icons.hourglass_top_outlined;
         break;
       case ContentPlanStatus.menungguVerifikasiAdmin:
         message =
-            'Hasil konten telah dikirim. Menunggu verifikasi Admin Humas.';
+            'Hasil konten telah dikirim. Menunggu persetujuan Kepala Humas.';
         color = AppColors.warning;
         icon = Icons.hourglass_top_outlined;
         break;
@@ -692,6 +718,93 @@ class _ContentPlanDetailScreenState extends State<ContentPlanDetailScreen> {
                               ),
                             ],
                           ),
+
+                          // Link Bahan Mentahan
+                          if (item.rawMaterialUrl != null &&
+                              item.rawMaterialUrl!.trim().isNotEmpty) ...[
+                            const SizedBox(height: 12),
+                            Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.all(12),
+                              decoration: BoxDecoration(
+                                color: isDark
+                                    ? const Color(0xFF3A2A0A)
+                                    : const Color(0xFFFFFBEB),
+                                borderRadius: BorderRadius.circular(12),
+                                border: Border.all(
+                                  color: isDark
+                                      ? const Color(0xFFB45309)
+                                      : const Color(0xFFFDE68A),
+                                ),
+                              ),
+                              child: Row(
+                                children: [
+                                  Icon(
+                                    Icons.folder_open_outlined,
+                                    size: 18,
+                                    color: isDark
+                                        ? const Color(0xFFFBBF24)
+                                        : const Color(0xFFB45309),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          'Link Bahan Mentahan',
+                                          style: _pj(
+                                            12,
+                                            FontWeight.w700,
+                                            isDark
+                                                ? const Color(0xFFFDE68A)
+                                                : const Color(0xFF92400E),
+                                          ),
+                                        ),
+                                        const SizedBox(height: 2),
+                                        Text(
+                                          item.rawMaterialUrl!.trim(),
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: _pj(
+                                            12,
+                                            FontWeight.w400,
+                                            isDark
+                                                ? const Color(0xFFFCD34D)
+                                                : const Color(0xFFB45309),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  TextButton(
+                                    onPressed: () =>
+                                        _openExternalUrl(item.rawMaterialUrl!),
+                                    style: TextButton.styleFrom(
+                                      backgroundColor: const Color(0xFFD97706),
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 12,
+                                        vertical: 6,
+                                      ),
+                                      minimumSize: Size.zero,
+                                      tapTargetSize:
+                                          MaterialTapTargetSize.shrinkWrap,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(8),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Buka',
+                                      style: _pj(12, FontWeight.w700, Colors.white),
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
 
                           // Catatan Verifikasi Admin
                           if (item.adminNotes != null &&

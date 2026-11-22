@@ -71,6 +71,7 @@ class ContentPlanItem {
     this.progress = 0,
     this.caption,
     this.videoLink,
+    this.rawMaterialUrl,
     this.posterPath,
     this.videoFileName,
     this.revisionNote,
@@ -90,6 +91,7 @@ class ContentPlanItem {
   final int progress;
   final String? caption;
   final String? videoLink;
+  final String? rawMaterialUrl;
   final String? posterPath;
   final String? videoFileName;
   final String? revisionNote;
@@ -132,6 +134,7 @@ class ContentPlanItem {
         'deadlineLabel': deadlineLabel,
         'progress': progress,
         'videoLink': videoLink,
+        'rawMaterialUrl': rawMaterialUrl,
         'posterPath': posterPath,
         'videoFileName': videoFileName,
         'revisionNote': revisionNote,
@@ -152,6 +155,7 @@ class ContentPlanItem {
         deadlineLabel: json['deadlineLabel'] as String,
         progress: json['progress'] as int? ?? 0,
         videoLink: json['videoLink'] as String?,
+        rawMaterialUrl: json['rawMaterialUrl'] as String?,
         posterPath: json['posterPath'] as String?,
         videoFileName: json['videoFileName'] as String?,
         revisionNote: json['revisionNote'] as String?,
@@ -165,6 +169,7 @@ class ContentPlanItem {
     int? progress,
     String? caption,
     String? videoLink,
+    String? rawMaterialUrl,
     String? posterPath,
     String? videoFileName,
     String? revisionNote,
@@ -186,6 +191,7 @@ class ContentPlanItem {
         deadlineLabel: deadlineLabel,
         progress: progress ?? this.progress,
         videoLink: clearVideo ? null : (videoLink ?? this.videoLink),
+        rawMaterialUrl: rawMaterialUrl ?? this.rawMaterialUrl,
         posterPath: clearPoster ? null : (posterPath ?? this.posterPath),
         videoFileName: clearVideo ? null : (videoFileName ?? this.videoFileName),
         revisionNote: revisionNote ?? this.revisionNote,

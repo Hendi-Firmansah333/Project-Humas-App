@@ -84,6 +84,20 @@ export class IncomingLettersController {
     return this.incomingLettersService.approve(id, req.user.id);
   }
 
+  @Patch(':id/complete')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Selesaikan dan arsipkan surat masuk' })
+  complete(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.incomingLettersService.complete(id, req.user.id);
+  }
+
+  @Patch(':id/revert')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
+  @ApiOperation({ summary: 'Kembalikan surat ke Surat Masuk aktif (batalkan status riwayat)' })
+  revert(@Param('id', ParseIntPipe) id: number, @Request() req: any) {
+    return this.incomingLettersService.revert(id, req.user.id);
+  }
+
   @Patch(':id/reject')
   @Roles(Role.SUPER_ADMIN)
   @ApiOperation({ summary: 'Tolak surat masuk (Kepala Humas)' })

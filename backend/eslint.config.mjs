@@ -3,14 +3,17 @@ import eslint from '@eslint/js';
 import eslintPluginPrettierRecommended from 'eslint-plugin-prettier/recommended';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
+import pluginSecurity from 'eslint-plugin-security';
 
 export default tseslint.config(
   {
-    ignores: ['eslint.config.mjs'],
+    ignores: ['eslint.config.mjs', 'dist/**', 'node_modules/**'],
   },
   eslint.configs.recommended,
   ...tseslint.configs.recommendedTypeChecked,
   eslintPluginPrettierRecommended,
+  // Aturan keamanan (SAST) — deteksi eval, regex ReDoS, child_process, dsb.
+  pluginSecurity.configs.recommended,
   {
     languageOptions: {
       globals: {

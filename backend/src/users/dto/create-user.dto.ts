@@ -23,6 +23,11 @@ export class CreateUserDto {
   @IsOptional()
   phone?: string;
 
+  @ApiProperty({ example: '198701012020121001', required: false })
+  @IsString()
+  @IsOptional()
+  nip?: string;
+
   @ApiProperty({ example: 'secret123', minLength: 6 })
   @IsString()
   @MinLength(6)

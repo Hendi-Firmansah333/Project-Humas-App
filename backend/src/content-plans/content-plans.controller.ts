@@ -39,7 +39,7 @@ export class ContentPlansController {
   @ApiOperation({ summary: 'Daftar riwayat publikasi konten' })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'pageSize', required: false })
-  @ApiQuery({ name: 'platform', enum: Platform, required: false })
+  @ApiQuery({ name: 'platform', required: false })
   @ApiQuery({ name: 'status', enum: ContentStatus, required: false })
   @ApiQuery({ name: 'search', required: false })
   @ApiQuery({ name: 'startDate', required: false })
@@ -50,7 +50,7 @@ export class ContentPlansController {
     @Request() req: any,
     @Query('page') page?: number,
     @Query('pageSize') pageSize?: number,
-    @Query('platform') platform?: Platform,
+    @Query('platform') platform?: string,
     @Query('status') status?: string,
     @Query('search') search?: string,
     @Query('startDate') startDate?: string,
@@ -84,7 +84,7 @@ export class ContentPlansController {
   @ApiOperation({ summary: 'Daftar jadwal publikasi konten' })
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'pageSize', required: false })
-  @ApiQuery({ name: 'platform', enum: Platform, required: false })
+  @ApiQuery({ name: 'platform', required: false })
   @ApiQuery({ name: 'status', enum: ContentStatus, required: false })
   @ApiQuery({ name: 'search', required: false })
   @ApiQuery({ name: 'startDate', required: false })
@@ -96,7 +96,7 @@ export class ContentPlansController {
     @Request() req: any,
     @Query('page') page?: number,
     @Query('pageSize') pageSize?: number,
-    @Query('platform') platform?: Platform,
+    @Query('platform') platform?: string,
     @Query('status') status?: string,
     @Query('search') search?: string,
     @Query('startDate') startDate?: string,

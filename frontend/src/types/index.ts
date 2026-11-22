@@ -43,18 +43,26 @@ export type ContentStatus =
 export type LoanStatus = 'SEDANG_DIPINJAM' | 'SELESAI' | 'TERLAMBAT';
 export type NotificationType = 'INFO' | 'SUCCESS' | 'WARNING' | 'ALERT';
 
+export interface UserStats {
+  liputan: number;
+  publikasi: number;
+  peminjaman: number;
+}
+
 export interface User {
   id: number;
   fullName: string;
   username: string;
   email: string;
   phone?: string;
+  nip?: string;
   role: Role;
   roleLabel: string;
   avatar?: string;
   status: UserStatus;
   isActive?: boolean;
   joinedAt: string;
+  stats?: UserStats;
 }
 
 export interface ActivityMember {
@@ -211,6 +219,7 @@ export interface ContentPlan {
   thumbnailUrl?: string;
   draftUrl?: string;
   videoUrl?: string;
+  rawMaterialUrl?: string;
   submittedAt?: string;
   media?: ContentPlanMedia[];
 }

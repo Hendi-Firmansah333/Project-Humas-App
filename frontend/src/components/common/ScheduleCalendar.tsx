@@ -56,7 +56,7 @@ export default function ScheduleCalendar({
       {/* Calendar Header */}
       <div className="flex items-center justify-between px-6 py-4 border-b border-slate-100">
         <div className="flex items-center gap-2.5">
-          <CalendarIcon className="w-5 h-5 text-teal-600" />
+          <CalendarIcon className="w-5 h-5 text-[#003D58]" />
           <h3 className="text-base font-bold text-slate-800">
             {monthNames[month]} {year}
           </h3>
@@ -113,7 +113,7 @@ export default function ScheduleCalendar({
               className="min-h-[110px] p-2 hover:bg-slate-50/80 transition-colors cursor-pointer flex flex-col justify-between group"
             >
               <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-slate-700 w-6 h-6 rounded-full flex items-center justify-center group-hover:bg-teal-600 group-hover:text-white transition-colors">
+                <span className="text-xs font-bold text-slate-700 w-6 h-6 rounded-full flex items-center justify-center group-hover:bg-[#003D58] group-hover:text-white transition-colors">
                   {dayNum}
                 </span>
               </div>
@@ -126,7 +126,7 @@ export default function ScheduleCalendar({
                       e.stopPropagation();
                       onSelectSchedule && onSelectSchedule(sched);
                     }}
-                    className="bg-teal-50 border border-teal-200/80 text-teal-800 text-[10px] px-2 py-1 rounded-lg font-medium leading-tight truncate hover:bg-teal-100 transition-colors"
+                    className="bg-blue-50 border border-blue-200/80 text-blue-900 text-[10px] px-2 py-1 rounded-lg font-medium leading-tight truncate hover:bg-blue-100 transition-colors"
                   >
                     <span className="font-semibold">{sched.user.fullName.split(' ')[0]}</span> (
                     {sched.startTime})

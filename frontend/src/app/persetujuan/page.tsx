@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { useRouter } from 'next/navigation';
+import React, { useState, useEffect, Suspense } from 'react';
+import { useRouter, useSearchParams } from 'next/navigation';
 import AdminLayout from '@/components/layout/AdminLayout';
 import {
   DataTable,
@@ -9,9 +9,13 @@ import {
   StatusBadge,
   CustomButton,
   CustomModal,
-  LocationPicker,
+  ConfirmModal,
+  StreetSearchInput,
+  CustomDatePicker,
+  CustomTimePicker,
+  FilterDropdown,
+  TableSkeleton,
 } from '@/components/common';
-import DashboardSkeleton from '@/components/common/DashboardSkeleton';
 import {
   ShieldCheck,
   Mail,
@@ -38,18 +42,30 @@ import {
   Check,
   User as UserIcon,
   CalendarCheck2,
+  Smartphone,
+  Image as ImageIcon,
 } from 'lucide-react';
 import { toast } from 'sonner';
 import { incomingLetterService, activityService, userService, contentService, loanService } from '@/services';
 import { IncomingLetter, Activity, User, ContentPlan } from '@/types';
 import { formatDateID } from '@/utils/formatters';
+import { openFileInNewTab, getFileViewUrl } from '@/utils/api-helpers';
 import { getStoredUser } from '@/utils/session';
 
-export default function PersetujuanPage() {
+function PersetujuanContent() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<'surat' | 'penugasan' | 'akhir' | 'konten'>('surat');
+
+  // Synchronize tab with URL query parameter
+  useEffect(() => {
+    const tabParam = searchParams.get('tab');
+    if (tabParam === 'surat' || tabParam === 'penugasan' || tabParam === 'akhir' || tabParam === 'konten') {
+      setActiveTab(tabParam);
+    }
+  }, [searchParams]);
 
   // Data states
   const [lettersPending, setLettersPending] = useState<IncomingLetter[]>([]);
@@ -78,6 +94,22 @@ export default function PersetujuanPage() {
   const [contentRevisionNotes, setContentRevisionNotes] = useState('');
 
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showAssignCatSuggestions, setShowAssignCatSuggestions] = useState(false);
+  const [confirmState, setConfirmState] = useState<{
+    isOpen: boolean;
+    title: string;
+    message: React.ReactNode;
+    confirmText: string;
+    variant: 'primary' | 'warning' | 'danger';
+    onConfirm: () => Promise<void>;
+  }>({
+    isOpen: false,
+    title: '',
+    message: '',
+    confirmText: 'Ya, Lanjutkan',
+    variant: 'primary',
+    onConfirm: async () => {},
+  });
 
   // Penugasan Form
   const [assignForm, setAssignForm] = useState({
@@ -139,13 +171,15 @@ export default function PersetujuanPage() {
       // 4. Fetch content plans awaiting Kepala Humas approval
       const contentRes = await contentService.getAll({ page: 1, pageSize: 100 });
       const pendingCP = (contentRes.items || []).filter((cp: any) =>
-        cp.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' || cp.status === 'MENUNGGU'
+        cp.status === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' ||
+        cp.status === 'MENUNGGU' ||
+        cp.status === 'MENUNGGU_VERIFIKASI_ADMIN'
       );
       setContentsPending(pendingCP);
 
       // 5. Fetch users for assignment dropdown
       const allUsers = await userService.getAll();
-      setUsers(allUsers.filter((u: User) => u.role === 'USER'));
+      setUsers(allUsers.filter((u: User) => u.role === 'USER' && u.status === 'AKTIF'));
     } catch (err) {
       console.error(err);
       toast.error('Gagal memuat data persetujuan.');
@@ -173,22 +207,31 @@ export default function PersetujuanPage() {
   // Tab change handler
   const handleTabChange = (tab: 'surat' | 'penugasan' | 'akhir' | 'konten') => {
     setActiveTab(tab);
+    router.replace(`/persetujuan?tab=${tab}`, { scroll: false });
   };
 
   // Letter actions
-  const handleApproveLetter = async (id: number) => {
-    if (!confirm('Apakah Anda yakin ingin menyetujui surat ini?')) return;
-    setIsSubmitting(true);
-    try {
-      await incomingLetterService.approve(id);
-      toast.success('Surat telah disetujui!');
-      setIsDetailLetterOpen(false);
-      await loadData();
-    } catch {
-      toast.error('Gagal menyetujui surat.');
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleApproveLetter = (id: number) => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Konfirmasi Persetujuan Surat',
+      message: 'Apakah Anda yakin ingin menyetujui surat ini? Surat yang disetujui akan dipindahkan ke daftar penugasan peliputan.',
+      confirmText: 'Ya, Setujui Surat',
+      variant: 'primary',
+      onConfirm: async () => {
+        setIsSubmitting(true);
+        try {
+          await incomingLetterService.approve(id);
+          toast.success('Surat telah disetujui!');
+          setIsDetailLetterOpen(false);
+          await loadData();
+        } catch {
+          toast.error('Gagal menyetujui surat.');
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+    });
   };
 
   const handleRejectLetter = async () => {
@@ -277,19 +320,27 @@ export default function PersetujuanPage() {
   };
 
   // Final Activity approvals
-  const handleApproveActivityFinish = async (id: number) => {
-    if (!confirm('Apakah Anda yakin kegiatan ini telah selesai dan seluruh data telah diperiksa?')) return;
-    setIsSubmitting(true);
-    try {
-      await activityService.approveFinish(id);
-      toast.success('Kegiatan berhasil diselesaikan & diarsipkan!');
-      setIsDetailActivityOpen(false);
-      await loadData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Gagal menyetujui kegiatan selesai.');
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleApproveActivityFinish = (id: number) => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Konfirmasi Selesai Kegiatan',
+      message: 'Apakah Anda yakin kegiatan ini telah selesai dan seluruh hasil dokumentasi telah diperiksa?',
+      confirmText: 'Ya, Selesaikan & Arsipkan',
+      variant: 'primary',
+      onConfirm: async () => {
+        setIsSubmitting(true);
+        try {
+          await activityService.approveFinish(id);
+          toast.success('Kegiatan berhasil diselesaikan & diarsipkan!');
+          setIsDetailActivityOpen(false);
+          await loadData();
+        } catch (err: any) {
+          toast.error(err.response?.data?.message || 'Gagal menyetujui kegiatan selesai.');
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+    });
   };
 
   const handleReturnRevision = async () => {
@@ -314,19 +365,27 @@ export default function PersetujuanPage() {
   };
 
   // Content Plan Approvals
-  const handleApproveContentPlan = async (id: number) => {
-    if (!confirm('Apakah Anda yakin ingin menyetujui Content Plan ini?')) return;
-    setIsSubmitting(true);
-    try {
-      await contentService.approve(id);
-      toast.success('Content Plan berhasil disetujui & siap ditayangkan!');
-      setIsDetailContentOpen(false);
-      await loadData();
-    } catch (err: any) {
-      toast.error(err.response?.data?.message || 'Gagal menyetujui Content Plan.');
-    } finally {
-      setIsSubmitting(false);
-    }
+  const handleApproveContentPlan = (id: number) => {
+    setConfirmState({
+      isOpen: true,
+      title: 'Konfirmasi Persetujuan Konten',
+      message: 'Apakah Anda yakin ingin menyetujui Content Plan ini? Konten akan ditandai disetujui dan siap ditayangkan.',
+      confirmText: 'Ya, Setujui Konten',
+      variant: 'primary',
+      onConfirm: async () => {
+        setIsSubmitting(true);
+        try {
+          await contentService.approve(id);
+          toast.success('Content Plan berhasil disetujui & siap ditayangkan!');
+          setIsDetailContentOpen(false);
+          await loadData();
+        } catch (err: any) {
+          toast.error(err.response?.data?.message || 'Gagal menyetujui Content Plan.');
+        } finally {
+          setIsSubmitting(false);
+        }
+      },
+    });
   };
 
   const handleReturnContentRevision = async () => {
@@ -353,7 +412,7 @@ export default function PersetujuanPage() {
   if (loading) {
     return (
       <AdminLayout title="Persetujuan & Penugasan" allowedRoles={['SUPER_ADMIN']}>
-        <DashboardSkeleton />
+        <TableSkeleton rows={5} />
       </AdminLayout>
     );
   }
@@ -506,7 +565,7 @@ export default function PersetujuanPage() {
       render: (item) => (
         <div>
           <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-            <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded border border-teal-200">
+            <span className="bg-blue-50 text-[#003D58] text-[10px] font-bold px-2 py-0.5 rounded border border-blue-200">
               {item.platform} • {item.contentType}
             </span>
           </div>
@@ -558,79 +617,69 @@ export default function PersetujuanPage() {
     },
   ];
 
+  const categoriesList = [
+    'Liputan Eksternal',
+    'Liputan Internal',
+    'Press Release',
+    'Dokumentasi Acara',
+    'Konferensi Pers',
+    'Kunjungan Kerja',
+    'Seminar / Workshop',
+    'Wisuda / Dies Natalis',
+  ];
+
   const labelCls = 'block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5';
   const inputCls =
-    'w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all';
+    'w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#35C6D4] focus:ring-1 focus:ring-[#35C6D4]/30 rounded-[8px] px-3.5 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all';
   const selectCls =
-    'w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all';
+    'w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#35C6D4] focus:ring-1 focus:ring-[#35C6D4]/30 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all cursor-pointer';
   const textareaCls =
-    'w-full min-h-[70px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] p-3 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all resize-none';
+    'w-full min-h-[70px] bg-white border border-[#E2E8F0] focus:border-[#35C6D4] focus:ring-1 focus:ring-[#35C6D4]/30 rounded-[8px] p-3 text-[12px] text-[#334155] placeholder:text-[#CBD5E1] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all resize-none';
+
+  const getTabHeader = () => {
+    switch (activeTab) {
+      case 'surat':
+        return {
+          title: `Persetujuan Surat Masuk (${lettersPending.length})`,
+          desc: 'Tinjau disposisi dan berikan persetujuan atau penolakan surat masuk dari instansi mitra.',
+        };
+      case 'penugasan':
+        return {
+          title: `Penugasan Tim Humas (${lettersApproved.length})`,
+          desc: 'Delegasikan personel penanggung jawab (PIC), anggota pelaksana liputan, serta alokasi alat.',
+        };
+      case 'akhir':
+        return {
+          title: `Persetujuan Akhir Kegiatan (${activitiesPendingAkhir.length})`,
+          desc: 'Verifikasi kelengkapan dokumentasi, tautan publikasi, dan laporan kegiatan yang telah diselesaikan tim.',
+        };
+      case 'konten':
+        return {
+          title: `Persetujuan Content Plan (${contentsPending.length})`,
+          desc: 'Tinjau dan setujui rancangan rencana publikasi konten media sosial kehumasan.',
+        };
+      default:
+        return {
+          title: 'Pusat Persetujuan & Penugasan',
+          desc: 'Lakukan peninjauan surat masuk, delegasikan anggota tim, dan verifikasi akhir kegiatan selesai.',
+        };
+    }
+  };
 
   return (
     <AdminLayout title="Pusat Keputusan Kepala Humas" allowedRoles={['SUPER_ADMIN']}>
       {/* Header Banner */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs flex items-center gap-4">
-        <div className="w-12 h-12 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center shrink-0">
-          <ShieldCheck className="w-6 h-6" />
-        </div>
+      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs">
         <div>
-          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Pusat Persetujuan & Penugasan</h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Lakukan peninjauan surat masuk, delegasikan anggota tim, dan verifikasi akhir kegiatan selesai.
+          <h1 className="text-lg font-bold text-slate-900 tracking-tight">{getTabHeader().title}</h1>
+          <p className="text-xs text-slate-600 mt-0.5">
+            {getTabHeader().desc}
           </p>
         </div>
       </div>
 
-      {/* Tabs */}
-      <div className="flex border-b border-slate-200 bg-white rounded-t-2xl p-2 px-4 gap-2">
-        <button
-          onClick={() => handleTabChange('surat')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${
-            activeTab === 'surat'
-              ? 'bg-teal-50 border-teal-200 text-teal-700 shadow-xs'
-              : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-          } cursor-pointer`}
-        >
-          <Mail className="w-4 h-4" />
-          Persetujuan Surat ({lettersPending.length})
-        </button>
-        <button
-          onClick={() => handleTabChange('penugasan')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${
-            activeTab === 'penugasan'
-              ? 'bg-teal-50 border-teal-200 text-teal-700 shadow-xs'
-              : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-          } cursor-pointer`}
-        >
-          <UserPlus className="w-4 h-4" />
-          Penugasan Tim ({lettersApproved.length})
-        </button>
-        <button
-          onClick={() => handleTabChange('akhir')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${
-            activeTab === 'akhir'
-              ? 'bg-teal-50 border-teal-200 text-teal-700 shadow-xs'
-              : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-          } cursor-pointer`}
-        >
-          <CheckCircle className="w-4 h-4" />
-          Persetujuan Akhir Kegiatan ({activitiesPendingAkhir.length})
-        </button>
-        <button
-          onClick={() => handleTabChange('konten')}
-          className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all border ${
-            activeTab === 'konten'
-              ? 'bg-teal-50 border-teal-200 text-teal-700 shadow-xs'
-              : 'border-transparent text-slate-500 hover:text-slate-800 hover:bg-slate-50'
-          } cursor-pointer`}
-        >
-          <Camera className="w-4 h-4" />
-          Persetujuan Content Plan ({contentsPending.length})
-        </button>
-      </div>
-
       {/* Tab Panels */}
-      <div className="bg-white rounded-b-2xl border-x border-b border-slate-200 overflow-hidden shadow-xs">
+      <div className="bg-white rounded-2xl border border-slate-200 overflow-hidden shadow-xs">
         {activeTab === 'surat' && (
           <DataTable
             columns={suratColumns}
@@ -681,15 +730,15 @@ export default function PersetujuanPage() {
                 <StatusBadge status={selectedLetter.status} />
               </div>
               <div className="flex items-center gap-1.5 text-slate-600 font-medium text-xs">
-                <CalendarCheck2 className="w-4 h-4 text-teal-600 shrink-0" />
+                <CalendarCheck2 className="w-4 h-4 text-[#003D58] shrink-0" />
                 <span>Diterima: <strong>{formatDateID(selectedLetter.receivedDate.split('T')[0])}</strong></span>
               </div>
             </div>
 
             {/* Perihal Highlight Card */}
-            <div className="bg-teal-50/70 border border-teal-200/80 rounded-xl p-4">
-              <div className="flex items-center gap-1.5 text-teal-800 text-[11px] font-bold uppercase tracking-wider mb-1.5">
-                <FileText className="w-4 h-4 text-teal-600" />
+            <div className="bg-blue-50/70 border border-blue-200/80 rounded-xl p-4">
+              <div className="flex items-center gap-1.5 text-blue-900 text-[11px] font-bold uppercase tracking-wider mb-1.5">
+                <FileText className="w-4 h-4 text-[#003D58]" />
                 <span>Perihal Surat</span>
               </div>
               <h4 className="text-sm sm:text-base font-bold text-slate-900 leading-snug">
@@ -714,7 +763,7 @@ export default function PersetujuanPage() {
                     Tujuan Surat
                   </span>
                   <span className="font-bold text-slate-800 flex items-center gap-1.5">
-                    <Building className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                    <Building className="w-3.5 h-3.5 text-[#003D58] shrink-0" />
                     {selectedLetter.destination || 'Kepala Bagian Humas Polinela'}
                   </span>
                 </div>
@@ -756,7 +805,7 @@ export default function PersetujuanPage() {
                     Tanggal Diterima Humas
                   </span>
                   <span className="font-medium text-slate-700 flex items-center gap-1.5">
-                    <CalendarCheck2 className="w-3.5 h-3.5 text-teal-600 shrink-0" />
+                    <CalendarCheck2 className="w-3.5 h-3.5 text-[#003D58] shrink-0" />
                     {formatDateID(selectedLetter.receivedDate.split('T')[0])}
                   </span>
                 </div>
@@ -767,7 +816,7 @@ export default function PersetujuanPage() {
             {(selectedLetter.eventLocation || selectedLetter.eventDate) && (
               <div className="bg-slate-50 border border-slate-200 rounded-xl p-4 space-y-3">
                 <div className="flex items-center gap-2 text-xs font-bold text-slate-800">
-                  <MapPin className="w-4 h-4 text-teal-600 shrink-0" />
+                  <MapPin className="w-4 h-4 text-[#003D58] shrink-0" />
                   <span>Jadwal &amp; Lokasi Rencana Pelaksanaan</span>
                 </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -801,7 +850,7 @@ export default function PersetujuanPage() {
                       href={`https://www.google.com/maps?q=${selectedLetter.latitude},${selectedLetter.longitude}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-teal-700 hover:text-teal-800 font-semibold flex items-center gap-1 underline underline-offset-2"
+                      className="text-[#003D58] hover:text-blue-900 font-semibold flex items-center gap-1 underline underline-offset-2"
                     >
                       <ExternalLink className="w-3 h-3" />
                       Buka di Google Maps
@@ -826,42 +875,43 @@ export default function PersetujuanPage() {
             {/* Lampiran Berkas File Surat */}
             {selectedLetter.fileUrl ? (
               <a
-                href={selectedLetter.fileUrl}
+                href={getFileViewUrl(selectedLetter.fileUrl)}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="flex items-center justify-between p-3.5 rounded-xl bg-white border border-teal-200 hover:border-teal-400 hover:bg-teal-50/40 shadow-2xs transition-all group cursor-pointer"
+                className="p-3.5 rounded-xl bg-white border border-blue-200 hover:border-blue-400 hover:bg-blue-50/40 shadow-2xs transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3 group cursor-pointer"
               >
-                <div className="flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-lg bg-teal-100 text-teal-700 flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-                    <FileText className="w-5 h-5" />
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className="w-10 h-10 rounded-xl bg-blue-50 text-[#003D58] flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
+                    <FileText className="w-5 h-5 text-[#003D58]" />
                   </div>
-                  <div>
-                    <p className="text-xs font-bold text-slate-800 group-hover:text-teal-700 transition-colors">
-                      Buka Berkas Digital Surat (Google Drive / Online Link)
+                  <div className="min-w-0">
+                    <p className="text-xs font-bold text-slate-800 group-hover:text-[#003D58] transition-colors truncate">
+                      Berkas Surat Digital
                     </p>
                     <p className="text-[11px] text-slate-400 truncate max-w-xs sm:max-w-md">
-                      {selectedLetter.fileUrl}
+                      {selectedLetter.fileUrl.startsWith('data:') ? 'Dokumen Terunggah Langsung' : selectedLetter.fileUrl}
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1 text-xs font-semibold text-teal-600 shrink-0">
-                  <span>Buka Dokumen</span>
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#35C6D4] group-hover:bg-[#2CB4C1] px-3.5 py-1.5 rounded-lg shadow-xs shrink-0 transition-colors">
                   <ExternalLink className="w-3.5 h-3.5" />
+                  <span>Buka di Tab Baru</span>
                 </div>
               </a>
             ) : (
               <div className="p-3 rounded-xl bg-slate-50 border border-dashed border-slate-200 text-center text-xs text-slate-400">
-                Tidak ada tautan berkas digital yang dilampirkan.
+                Tidak ada berkas digital yang dilampirkan.
               </div>
             )}
 
             {/* Footer Buttons */}
-            <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
-              <CustomButton variant="outline" onClick={() => setIsDetailLetterOpen(false)}>
+            <div className="flex flex-wrap items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <CustomButton variant="outline" size="sm" onClick={() => setIsDetailLetterOpen(false)}>
                 Tutup
               </CustomButton>
               <CustomButton
                 variant="danger"
+                size="sm"
                 icon={XCircle}
                 onClick={() => setIsRejectLetterOpen(true)}
                 disabled={isSubmitting}
@@ -870,6 +920,7 @@ export default function PersetujuanPage() {
               </CustomButton>
               <CustomButton
                 variant="primary"
+                size="sm"
                 icon={CheckCircle2}
                 onClick={() => handleApproveLetter(selectedLetter.id)}
                 disabled={isSubmitting}
@@ -886,7 +937,7 @@ export default function PersetujuanPage() {
         isOpen={isRejectLetterOpen}
         onClose={() => setIsRejectLetterOpen(false)}
         title="Alasan Penolakan Surat"
-        maxWidth="sm"
+        maxWidth="md"
       >
         <div className="space-y-4 text-xs">
           <p className="text-slate-500 font-medium">
@@ -900,9 +951,9 @@ export default function PersetujuanPage() {
             onChange={(e) => setRejectReason(e.target.value)}
             className="w-full border border-slate-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-red-500/20 text-xs"
           />
-          <div className="flex justify-end gap-3">
-            <CustomButton variant="outline" onClick={() => setIsRejectLetterOpen(false)}>Batal</CustomButton>
-            <CustomButton variant="danger" onClick={handleRejectLetter} disabled={isSubmitting || !rejectReason.trim()}>
+          <div className="flex flex-wrap items-center justify-end gap-2.5">
+            <CustomButton variant="outline" size="sm" onClick={() => setIsRejectLetterOpen(false)}>Batal</CustomButton>
+            <CustomButton variant="danger" size="sm" onClick={handleRejectLetter} disabled={isSubmitting || !rejectReason.trim()}>
               Tolak Surat
             </CustomButton>
           </div>
@@ -921,160 +972,223 @@ export default function PersetujuanPage() {
 
           {/* INFORMASI SURAT & LOKASI KEGIATAN — read-only preview */}
           {selectedLetter && (
-            <div className="border border-slate-200 rounded-xl bg-slate-50 p-3.5 space-y-1.5">
-              <p className="font-extrabold text-slate-700 text-[10px] tracking-widest uppercase mb-2">INFORMASI SURAT & LOKASI KEGIATAN</p>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-                <p className="text-slate-600 flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" /> <span><strong>Nomor Surat:</strong> <span className="font-bold text-slate-800">{selectedLetter.letterNumber}</span></span></p>
-                <p className="text-slate-600 flex items-center gap-1.5"><Building className="w-3.5 h-3.5 text-slate-400 shrink-0" /> <span><strong>Instansi Pengirim:</strong> <span className="font-bold text-slate-800">{selectedLetter.institution}</span></span></p>
-                <p className="text-slate-600 flex items-center gap-1.5"><FileText className="w-3.5 h-3.5 text-slate-400 shrink-0" /> <span><strong>Perihal:</strong> <span className="font-medium text-slate-700">{selectedLetter.subject}</span></span></p>
-                <p className="text-slate-600 flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" /> <span><strong>Lokasi Kegiatan:</strong> <span className="font-bold text-teal-800 bg-teal-100/60 px-2 py-0.5 rounded border border-teal-200">{selectedLetter.eventLocation || 'Lokasi belum ditentukan'}</span></span></p>
+            <div className="bg-slate-50/80 border border-slate-200/90 rounded-xl p-3.5 space-y-2.5">
+              <div className="flex items-center gap-1.5 text-slate-700 font-bold text-[11px] uppercase tracking-wider border-b border-slate-200/60 pb-1.5">
+                <FileText className="w-3.5 h-3.5 text-[#003D58] shrink-0" />
+                <span>Informasi Rujukan Surat Masuk</span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 text-xs">
+                <div className="bg-white/80 border border-slate-200/80 rounded-lg p-2.5 flex items-center gap-2 min-w-0">
+                  <FileText className="w-4 h-4 text-slate-400 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block leading-tight">No. Surat</span>
+                    <span className="font-bold text-slate-800 truncate block mt-0.5">{selectedLetter.letterNumber}</span>
+                  </div>
+                </div>
+                <div className="bg-white/80 border border-slate-200/80 rounded-lg p-2.5 flex items-center gap-2 min-w-0">
+                  <Building className="w-4 h-4 text-slate-400 shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] text-slate-400 uppercase font-semibold block leading-tight">Pengirim / Instansi</span>
+                    <span className="font-bold text-slate-800 truncate block mt-0.5">{selectedLetter.institution || selectedLetter.sender}</span>
+                  </div>
+                </div>
+                <div className="bg-white/80 border border-slate-200/80 rounded-lg p-2.5 flex items-center gap-2 min-w-0">
+                  <MapPin className="w-4 h-4 text-[#003D58] shrink-0" />
+                  <div className="min-w-0 flex-1">
+                    <span className="text-[10px] text-[#003D58] uppercase font-semibold block leading-tight">Lokasi Acara</span>
+                    <span className="font-bold text-blue-900 truncate block mt-0.5 bg-blue-50 px-2 py-0.5 rounded border border-blue-200/70 inline-block max-w-full">
+                      {selectedLetter.eventLocation || 'Lokasi belum ditentukan'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+              {/* Row 2: Perihal Surat Full-Width (Never Overlaps) */}
+              <div className="bg-white/80 border border-slate-200/80 rounded-lg p-2.5 flex items-start gap-2.5 min-w-0">
+                <FileText className="w-4 h-4 text-[#003D58] shrink-0 mt-0.5" />
+                <div className="min-w-0 flex-1">
+                  <span className="text-[10px] text-slate-400 uppercase font-semibold block leading-tight mb-0.5">Perihal Surat</span>
+                  <p className="font-medium text-slate-700 text-xs leading-relaxed break-words">
+                    {selectedLetter.subject}
+                  </p>
+                </div>
               </div>
             </div>
           )}
 
           {/* DETAIL PENUGASAN KEGIATAN */}
-          <div className="space-y-3">
+          <div className="bg-slate-50/70 border border-slate-200/80 rounded-xl p-3.5 space-y-3.5">
+            <div className="flex items-center gap-1.5 text-slate-700 font-bold text-[11px] uppercase tracking-wider border-b border-slate-200/60 pb-1.5">
+              <CalendarCheck2 className="w-3.5 h-3.5 text-[#003D58]" />
+              <span>Agenda Rencana &amp; Penugasan Kegiatan</span>
+            </div>
+
+            {/* Row 1: Judul Kegiatan */}
             <div>
-              <label className={labelCls}>Judul Kegiatan Peliputan *</label>
+              <label className={labelCls}>Judul Kegiatan *</label>
               <input
                 type="text"
                 required
                 value={assignForm.title}
                 onChange={(e) => setAssignForm({ ...assignForm, title: e.target.value })}
+                placeholder="Contoh: Liputan Kunjungan Kerja Direktur"
                 className={inputCls}
               />
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            {/* Row 2: Kategori & Personel PIC */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
-                <label className={labelCls}>Kategori Kegiatan *</label>
-                <input
-                  type="text"
-                  required
-                  value={assignForm.category}
-                  onChange={(e) => setAssignForm({ ...assignForm, category: e.target.value })}
-                  className={inputCls}
-                />
+                <label className={labelCls}>Kategori *</label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    required
+                    value={assignForm.category}
+                    onChange={(e) => setAssignForm({ ...assignForm, category: e.target.value })}
+                    onFocus={() => setShowAssignCatSuggestions(true)}
+                    onBlur={() => setTimeout(() => setShowAssignCatSuggestions(false), 200)}
+                    placeholder="Ketik kategori kegiatan"
+                    className={inputCls}
+                  />
+                  {showAssignCatSuggestions && categoriesList.length > 0 && (
+                    <div className="absolute z-50 w-full mt-1 bg-white border border-[#E2E8F0] rounded-[8px] shadow-lg max-h-40 overflow-y-auto">
+                      {categoriesList
+                        .filter((cat) => cat.toLowerCase().includes(assignForm.category.toLowerCase()))
+                        .map((cat) => (
+                          <button
+                            key={cat}
+                            type="button"
+                            onMouseDown={() => {
+                              setAssignForm({ ...assignForm, category: cat });
+                              setShowAssignCatSuggestions(false);
+                            }}
+                            className="w-full text-left px-4 py-2 text-[12px] hover:bg-slate-50 text-slate-700 transition-colors"
+                          >
+                            {cat}
+                          </button>
+                        ))}
+                    </div>
+                  )}
+                </div>
               </div>
-              <div>
-                <label className={labelCls}>Tanggal Pelaksanaan *</label>
-                <input
-                  type="date"
-                  required
-                  value={assignForm.date}
-                  onChange={(e) => setAssignForm({ ...assignForm, date: e.target.value })}
-                  className={inputCls}
-                />
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className={labelCls}>Jam Mulai *</label>
-                <input
-                  type="time"
-                  required
-                  value={assignForm.startTime}
-                  onChange={(e) => setAssignForm({ ...assignForm, startTime: e.target.value })}
-                  className={inputCls}
-                />
-              </div>
-              <div>
-                <label className={labelCls}>Jam Selesai *</label>
-                <input
-                  type="time"
-                  value={assignForm.endTime}
-                  onChange={(e) => setAssignForm({ ...assignForm, endTime: e.target.value })}
-                  className={inputCls}
-                />
-              </div>
-            </div>
-
-            {/* Shopee-Style Location & GPS Pinpoint Picker */}
-            <LocationPicker
-              required
-              location={assignForm.location}
-              latitude={assignForm.latitude}
-              longitude={assignForm.longitude}
-              radius={assignForm.radius}
-              onChange={(locData) => setAssignForm({ ...assignForm, ...locData })}
-            />
-          </div>
-
-          {/* PENUGASAN — PIC, Anggota, Catatan */}
-          <div className="border border-amber-200 rounded-[10px] bg-amber-50/30 p-3.5 space-y-3">
-            <p className="font-extrabold text-amber-900 text-[10px] tracking-widest uppercase">PENUGASAN TIM</p>
-
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div>
-                <label className={labelCls}>PIC Kegiatan (Tim Humas) *</label>
-                <select
-                  required
-                  value={assignForm.picId}
-                  onChange={(e) => {
-                    const pid = Number(e.target.value);
+                <label className={labelCls}>Personel PIC *</label>
+                <FilterDropdown
+                  value={assignForm.picId ? String(assignForm.picId) : ''}
+                  onChange={(val) => {
+                    const pid = Number(val);
                     setAssignForm({
                       ...assignForm,
                       picId: pid,
                       memberIds: assignForm.memberIds.filter((id) => id !== pid),
                     });
                   }}
-                  className={selectCls}
-                >
-                  <option value={0}>-- Pilih PIC --</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>{u.fullName}</option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className={labelCls}>Pilih Anggota Tim (Opsional)</label>
-                <div className="max-h-36 overflow-y-auto border border-[#E2E8F0] rounded-[8px] p-3 space-y-2 bg-white text-[12px]">
-                  {users
-                    .filter((u) => u.id !== assignForm.picId)
-                    .map((u) => {
-                      const isChecked = assignForm.memberIds.includes(u.id);
-                      return (
-                        <label key={u.id} className="flex items-center gap-2 cursor-pointer select-none">
-                          <input
-                            type="checkbox"
-                            checked={isChecked}
-                            onChange={(e) => {
-                              if (e.target.checked) {
-                                setAssignForm({ ...assignForm, memberIds: [...assignForm.memberIds, u.id] });
-                              } else {
-                                setAssignForm({ ...assignForm, memberIds: assignForm.memberIds.filter((id) => id !== u.id) });
-                              }
-                            }}
-                            className="w-4 h-4 accent-teal-600 rounded cursor-pointer"
-                          />
-                          <span>{u.fullName}</span>
-                        </label>
-                      );
-                    })}
-                </div>
+                  options={users.map((u) => ({
+                    value: String(u.id),
+                    label: `${u.fullName} ${u.roleLabel ? `(${u.roleLabel})` : '(Tim Humas)'}`,
+                  }))}
+                  placeholder="Pilih PIC Anggota"
+                  icon={false}
+                  allowClear={false}
+                  className="w-full"
+                />
               </div>
             </div>
 
+            {/* Row 3: Tanggal Pelaksanaan, Mulai (WIB), Selesai (WIB) in 3 columns */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <CustomDatePicker
+                label="Tanggal Pelaksanaan"
+                required
+                value={assignForm.date}
+                onChange={(val) => setAssignForm({ ...assignForm, date: val })}
+              />
+              <CustomTimePicker
+                label="Mulai (WIB)"
+                required
+                value={assignForm.startTime}
+                onChange={(val) => setAssignForm({ ...assignForm, startTime: val })}
+              />
+              <CustomTimePicker
+                label="Selesai (WIB)"
+                value={assignForm.endTime}
+                onChange={(val) => setAssignForm({ ...assignForm, endTime: val })}
+              />
+            </div>
+
+            {/* Pencarian Jalan & Lokasi Kegiatan (Persis seperti Input Surat) */}
+            <StreetSearchInput
+              label="Cari Jalan & Lokasi Kegiatan"
+              required
+              value={assignForm.location}
+              placeholder="Ketik nama jalan, gedung, atau instansi (cth: Jl. Soekarno Hatta, GSG Polinela)..."
+              latitude={assignForm.latitude}
+              longitude={assignForm.longitude}
+              radius={assignForm.radius}
+              onRadiusChange={(rad) => setAssignForm((prev) => ({ ...prev, radius: rad }))}
+              onChange={(loc, coords) => {
+                setAssignForm((prev) => ({
+                  ...prev,
+                  location: loc,
+                  ...(coords ? { latitude: coords.lat, longitude: coords.lng } : {}),
+                }));
+              }}
+            />
+
+            {/* Deskripsi / Catatan Tugas */}
             <div>
-              <label className={labelCls}>Catatan Penugasan</label>
+              <label className={labelCls}>Deskripsi / Catatan Tugas</label>
               <textarea
-                rows={2}
-                placeholder="Arahan khusus dari Kepala Humas untuk Tim..."
+                rows={3}
+                placeholder="Tuliskan catatan khusus peliputan..."
                 value={assignForm.description}
                 onChange={(e) => setAssignForm({ ...assignForm, description: e.target.value })}
                 className={textareaCls}
               />
             </div>
+
+            {/* Anggota Tim Section */}
+            <div className="space-y-2">
+              <label className={labelCls}>Pilih Anggota Tim (Opsional)</label>
+              <div className="max-h-36 overflow-y-auto border border-[#E2E8F0] rounded-[8px] p-3 space-y-2 bg-white text-[12px]">
+                {users
+                  .filter((u) => u.id !== assignForm.picId)
+                  .map((u) => {
+                    const isChecked = assignForm.memberIds.includes(u.id);
+                    return (
+                      <label key={u.id} className="flex items-center gap-2.5 cursor-pointer select-none hover:bg-slate-50 p-1.5 rounded-md transition-colors">
+                        <input
+                          type="checkbox"
+                          checked={isChecked}
+                          onChange={(e) => {
+                            if (e.target.checked) {
+                              setAssignForm({ ...assignForm, memberIds: [...assignForm.memberIds, u.id] });
+                            } else {
+                              setAssignForm({ ...assignForm, memberIds: assignForm.memberIds.filter((id) => id !== u.id) });
+                            }
+                          }}
+                          className="w-4 h-4 accent-[#35C6D4] rounded cursor-pointer"
+                        />
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-slate-800">{u.fullName}</span>
+                          {u.roleLabel && (
+                            <span className="text-[11px] text-slate-400">({u.roleLabel})</span>
+                          )}
+                        </div>
+                      </label>
+                    );
+                  })}
+              </div>
+            </div>
           </div>
 
           {/* PERALATAN YANG DIPERLUKAN */}
-          <div className="border border-teal-200 rounded-xl bg-teal-50/20 p-3.5 space-y-3">
+          <div className="border border-blue-200 rounded-xl bg-blue-50/20 p-3.5 space-y-3">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <Package className="w-4 h-4 text-teal-700" />
-                <p className="font-extrabold text-teal-900 text-[10px] tracking-widest uppercase">
+                <Package className="w-4 h-4 text-[#003D58]" />
+                <p className="font-extrabold text-blue-950 text-[10px] tracking-widest uppercase">
                   PERALATAN YANG DIPERLUKAN
                 </p>
               </div>
@@ -1096,7 +1210,7 @@ export default function PersetujuanPage() {
                   placeholder="Cari nama alat, kode (EQ-...), kategori, atau merk..."
                   value={equipmentSearch}
                   onChange={(e) => setEquipmentSearch(e.target.value)}
-                  className="w-full pl-8.5 pr-8 py-1.5 text-xs bg-white border border-teal-200/80 rounded-lg focus:outline-none focus:ring-1.5 focus:ring-teal-500 focus:border-teal-500 placeholder:text-slate-400 shadow-sm transition-all"
+                  className="w-full pl-8.5 pr-8 py-1.5 text-xs bg-white border border-blue-200/80 rounded-lg focus:outline-none focus:ring-1.5 focus:ring-[#003D58] focus:border-[#003D58] placeholder:text-slate-400 shadow-sm transition-all"
                 />
                 {equipmentSearch && (
                   <button
@@ -1113,7 +1227,7 @@ export default function PersetujuanPage() {
 
             {loadingEquipment ? (
               <div className="p-4 text-center text-xs text-slate-500 flex items-center justify-center gap-2 bg-white rounded-xl border border-slate-200">
-                <div className="w-4 h-4 border-2 border-teal-600 border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-[#003D58] border-t-transparent rounded-full animate-spin" />
                 Memeriksa ketersediaan jadwal alat...
               </div>
             ) : availableEquipment.length === 0 ? (
@@ -1141,7 +1255,7 @@ export default function PersetujuanPage() {
                     <button
                       type="button"
                       onClick={() => setEquipmentSearch('')}
-                      className="text-[11px] text-teal-600 hover:text-teal-700 font-semibold underline"
+                      className="text-[11px] text-[#003D58] hover:text-[#002F44] font-semibold underline"
                     >
                       Reset pencarian
                     </button>
@@ -1162,7 +1276,7 @@ export default function PersetujuanPage() {
                         key={eq.id}
                         className={`p-3 rounded-xl border transition-all ${
                           isChecked
-                            ? 'bg-teal-50/60 border-teal-300 ring-1 ring-teal-400/20'
+                            ? 'bg-blue-50/60 border-blue-300 ring-1 ring-[#003D58]/20'
                             : isAvailable
                               ? 'bg-white border-slate-200 hover:border-slate-300'
                               : 'bg-slate-50 border-slate-200 opacity-70'
@@ -1184,7 +1298,7 @@ export default function PersetujuanPage() {
                                   setSelectedEquipments(selectedEquipments.filter((s) => s.equipmentId !== eq.id));
                                 }
                               }}
-                              className="mt-0.5 w-4 h-4 accent-teal-600 rounded cursor-pointer disabled:cursor-not-allowed"
+                              className="mt-0.5 w-4 h-4 accent-[#003D58] rounded cursor-pointer disabled:cursor-not-allowed"
                             />
                             <div>
                               <div className="flex items-center gap-2 flex-wrap">
@@ -1221,7 +1335,7 @@ export default function PersetujuanPage() {
 
                           {/* Quantity Selector */}
                           {isChecked && (
-                            <div className="flex items-center gap-1.5 bg-white border border-teal-200 rounded-lg p-1 shrink-0">
+                            <div className="flex items-center gap-1.5 bg-white border border-blue-200 rounded-lg p-1 shrink-0">
                               <span className="text-[10px] text-slate-500 font-semibold px-1">Unit:</span>
                               <input
                                 type="number"
@@ -1235,7 +1349,7 @@ export default function PersetujuanPage() {
                                     { equipmentId: eq.id, quantity: q },
                                   ]);
                                 }}
-                                className="w-12 text-center text-xs font-bold border border-slate-200 rounded py-0.5 focus:outline-none focus:ring-1 focus:ring-teal-500"
+                                className="w-12 text-center text-xs font-bold border border-slate-200 rounded py-0.5 focus:outline-none focus:ring-1 focus:ring-[#003D58]"
                               />
                             </div>
                           )}
@@ -1262,133 +1376,290 @@ export default function PersetujuanPage() {
         isOpen={isDetailActivityOpen}
         onClose={() => setIsDetailActivityOpen(false)}
         title="Pemeriksaan Akhir Kegiatan Selesai"
-        maxWidth="lg"
+        maxWidth="2xl"
       >
-        {selectedActivity && (
-          <div className="space-y-5 text-xs">
-            <div className="flex items-center justify-between">
-              <span className="bg-slate-100 text-slate-700 font-bold px-2 py-0.5 rounded text-[10px]">
-                {selectedActivity.category}
-              </span>
-              <StatusBadge status={selectedActivity.status} />
-            </div>
+        {selectedActivity && (() => {
+          const driveLinks = (selectedActivity.media || []).filter((m) => m.fileType === 'application/link');
+          const hasDriveLink = driveLinks.length > 0;
+          const members = selectedActivity.members || [];
+          const attendances = selectedActivity.attendances || [];
+          const checkedInMembers = members.filter(
+            (m) => m.checkInTime || m.checkInStatus === 'SUCCESS' || m.checkInStatus === 'TERLAMBAT'
+          );
+          const totalCheckedIn = attendances.length > 0 ? attendances.length : checkedInMembers.length;
+          const allCheckedIn =
+            members.length > 0 ? checkedInMembers.length >= members.length : attendances.length > 0;
+          const loanItems = (selectedActivity.loans || []).flatMap((loan: any) =>
+            (loan.items || []).map((item: any) => ({
+              ...item,
+              loanStatus: loan.status,
+              isReturned: item.returnedQuantity >= item.quantity || loan.status === 'SELESAI',
+            }))
+          );
+          const allToolsReturned = loanItems.length === 0 || loanItems.every((it: any) => it.isReturned);
+          const prevVerifications = (selectedActivity.approvalHistory || []).filter(
+            (h) => h.stage === 'Verifikasi Kelengkapan'
+          );
 
-            <h3 className="font-extrabold text-slate-800 text-sm leading-snug">{selectedActivity.title}</h3>
+          return (
+            <div className="space-y-5 text-xs">
+              <div className="flex items-center justify-between gap-2">
+                <span className="bg-slate-100 text-slate-700 font-bold px-2.5 py-0.5 rounded text-[11px]">
+                  {selectedActivity.category}
+                </span>
+                <StatusBadge status={selectedActivity.status} />
+              </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-700 font-medium text-xs">
-              <p className="flex items-center gap-1.5"><Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" /> <span><strong>Pelaksanaan:</strong> {formatDateID(selectedActivity.date.split('T')[0])}</span></p>
-              <p className="flex items-center gap-1.5"><Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" /> <span><strong>Waktu:</strong> {selectedActivity.startTime} - {selectedActivity.endTime} WIB</span></p>
-              <p className="flex items-center gap-1.5"><MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" /> <span><strong>Lokasi:</strong> {selectedActivity.location}</span></p>
-              <p className="flex items-center gap-1.5"><UserIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" /> <span><strong>PIC Lapangan:</strong> {selectedActivity.pic?.fullName}</span></p>
-            </div>
+              <h3 className="font-extrabold text-slate-800 text-sm leading-snug">{selectedActivity.title}</h3>
 
-            {/* Checklist items */}
-            <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/20 space-y-2">
-              <p className="font-bold text-slate-800">Checklist Kelengkapan & Kehadiran:</p>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                    <Check className="w-3 h-3" />
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5 bg-slate-50 border border-slate-200 rounded-xl p-4 text-slate-700 font-medium text-xs">
+                <p className="flex items-center gap-1.5">
+                  <Calendar className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span><strong>Pelaksanaan:</strong> {formatDateID(selectedActivity.date.split('T')[0])}</span>
+                </p>
+                <p className="flex items-center gap-1.5">
+                  <Clock className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span><strong>Waktu:</strong> {selectedActivity.startTime} - {selectedActivity.endTime} WIB</span>
+                </p>
+                <p className="flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span><strong>Lokasi:</strong> {selectedActivity.location}</span>
+                </p>
+                <p className="flex items-center gap-1.5">
+                  <UserIcon className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                  <span><strong>PIC Lapangan:</strong> {selectedActivity.pic?.fullName}</span>
+                </p>
+              </div>
+
+              {/* Checklist Live Kelengkapan & Kehadiran */}
+              <div className="border border-slate-200 rounded-xl p-4 bg-slate-50/40 space-y-2.5">
+                <p className="font-bold text-slate-800">Checklist Kelengkapan & Kehadiran:</p>
+
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-1">
+                  <div className="flex items-center gap-2 bg-white border border-slate-200/80 rounded-lg p-2.5">
+                    <div
+                      className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+                        allCheckedIn ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                      }`}
+                    >
+                      {allCheckedIn ? <Check className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                    </div>
+                    <span className="font-semibold text-slate-700 leading-tight">
+                      {totalCheckedIn === 0
+                        ? 'Belum ada check-in'
+                        : `Check-in Tim (${totalCheckedIn}/${members.length || totalCheckedIn})`}
+                    </span>
                   </div>
-                  <span className="font-semibold text-slate-700">Check-in PIC & Tim (Lengkap)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <div className="w-5 h-5 rounded-full bg-emerald-100 text-emerald-700 flex items-center justify-center">
-                    <Check className="w-3 h-3" />
+
+                  <div className="flex items-center gap-2 bg-white border border-slate-200/80 rounded-lg p-2.5">
+                    <div
+                      className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+                        hasDriveLink ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
+                      }`}
+                    >
+                      {hasDriveLink ? <Check className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                    </div>
+                    <span className="font-semibold text-slate-700 leading-tight">
+                      {hasDriveLink ? 'Link Drive tersedia' : 'Link Drive belum diunggah'}
+                    </span>
                   </div>
-                  <span className="font-semibold text-slate-700">Dokumentasi Google Drive</span>
+
+                  <div className="flex items-center gap-2 bg-white border border-slate-200/80 rounded-lg p-2.5">
+                    <div
+                      className={`w-5 h-5 rounded-full flex items-center justify-center shrink-0 ${
+                        allToolsReturned ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'
+                      }`}
+                    >
+                      {allToolsReturned ? <Check className="w-3 h-3" /> : <AlertTriangle className="w-3 h-3" />}
+                    </div>
+                    <span className="font-semibold text-slate-700 leading-tight">
+                      {loanItems.length === 0
+                        ? 'Tidak meminjam alat'
+                        : allToolsReturned
+                        ? 'Semua alat dikembalikan'
+                        : 'Ada alat belum dikembalikan'}
+                    </span>
+                  </div>
                 </div>
               </div>
-            </div>
 
-            {/* Peralatan yang Digunakan */}
-            {selectedActivity.loans && selectedActivity.loans.length > 0 && (
+              {/* Presensi & Kehadiran Tim */}
               <div className="space-y-2">
                 <p className="font-bold text-slate-800 flex items-center gap-1.5">
-                  <Package className="w-3.5 h-3.5 text-teal-600" /> Peralatan yang Digunakan:
+                  <UserCheck className="w-3.5 h-3.5 text-[#003D58]" /> Presensi & Kehadiran Tim:
                 </p>
-                <div className="space-y-1.5 border border-slate-200 rounded-xl p-3 bg-slate-50/30">
-                  {selectedActivity.loans.flatMap((loan: any) =>
-                    (loan.items || []).map((item: any) => (
-                      <div key={item.id} className="flex items-center justify-between bg-white border border-slate-200 p-2.5 rounded-lg">
+                {attendances.length > 0 ? (
+                  <div className="space-y-1.5 border border-slate-200 rounded-xl p-3 bg-slate-50/30">
+                    {attendances.map((att, idx) => (
+                      <div
+                        key={att.id || idx}
+                        className="flex items-center justify-between gap-2 bg-white border border-slate-200 p-2.5 rounded-lg"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-800 truncate">
+                            {att.user?.fullName || `Anggota #${att.userId}`}
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            Check-in:{' '}
+                            {att.checkInTime
+                              ? `${new Date(att.checkInTime).toLocaleTimeString('id-ID', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })} WIB`
+                              : att.checkInAt
+                              ? `${new Date(att.checkInAt).toLocaleTimeString('id-ID', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })} WIB`
+                              : '-'}
+                          </p>
+                        </div>
+                        <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-blue-50 text-[#003D58] border border-blue-200 shrink-0">
+                          {att.status || 'HADIR'}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : members.length > 0 ? (
+                  <div className="space-y-1.5 border border-slate-200 rounded-xl p-3 bg-slate-50/30">
+                    {members.map((m) => (
+                      <div
+                        key={m.id}
+                        className="flex items-center justify-between gap-2 bg-white border border-slate-200 p-2.5 rounded-lg"
+                      >
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-800 truncate">
+                            {m.user?.fullName || `Anggota #${m.userId}`}
+                          </p>
+                          <p className="text-[10px] text-slate-400">
+                            {m.role || 'Anggota Humas'} •{' '}
+                            {m.checkInTime
+                              ? `Check-in ${new Date(m.checkInTime).toLocaleTimeString('id-ID', {
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                })} WIB`
+                              : 'Belum check-in'}
+                          </p>
+                        </div>
+                        <StatusBadge status={m.checkInStatus || 'MISSED'} />
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-500 italic">
+                    Belum ada rekaman presensi atau anggota tim tercatat.
+                  </div>
+                )}
+              </div>
+
+              {/* Peralatan yang Digunakan */}
+              <div className="space-y-2">
+                <p className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <Package className="w-3.5 h-3.5 text-[#003D58]" /> Peralatan yang Digunakan:
+                </p>
+                {loanItems.length > 0 ? (
+                  <div className="space-y-1.5 border border-slate-200 rounded-xl p-3 bg-slate-50/30">
+                    {loanItems.map((item: any) => (
+                      <div
+                        key={item.id}
+                        className="flex items-center justify-between gap-2 bg-white border border-slate-200 p-2.5 rounded-lg"
+                      >
                         <div>
                           <p className="font-bold text-slate-800">{item.equipment?.name || 'Alat'}</p>
-                          <p className="text-[10px] text-slate-400">Kode: {item.equipment?.code || '-'} • Jumlah: {item.quantity} Unit</p>
+                          <p className="text-[10px] text-slate-400">
+                            Kode: {item.equipment?.code || '-'} • Jumlah: {item.quantity} Unit
+                          </p>
                         </div>
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${
-                          item.returnedQuantity >= item.quantity || loan.status === 'SELESAI'
-                            ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
-                            : 'bg-amber-50 text-amber-700 border-amber-200'
-                        }`}>
-                          {item.returnedQuantity >= item.quantity || loan.status === 'SELESAI'
+                        <span
+                          className={`px-2 py-0.5 rounded text-[10px] font-bold border shrink-0 ${
+                            item.isReturned
+                              ? 'bg-emerald-50 text-emerald-700 border-emerald-200'
+                              : 'bg-amber-50 text-amber-700 border-amber-200'
+                          }`}
+                        >
+                          {item.isReturned
                             ? `Dikembalikan (${item.returnCondition || 'BAIK'})`
                             : 'Sedang Digunakan'}
                         </span>
                       </div>
-                    ))
-                  )}
-                </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl text-xs text-emerald-800 font-medium flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+                    <span>Tidak menggunakan peralatan.</span>
+                  </div>
+                )}
               </div>
-            )}
 
-            {/* Google Drive links */}
-            {selectedActivity.media && selectedActivity.media.filter(m => m.fileType === 'application/link').length > 0 && (
+              {/* Google Drive links */}
               <div className="space-y-2">
                 <p className="font-bold text-slate-800">Link Google Drive Dokumentasi:</p>
-                {selectedActivity.media.filter(m => m.fileType === 'application/link').map(doc => (
-                  <a
-                    key={doc.id}
-                    href={doc.fileUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-between p-3 rounded-xl border border-teal-200 bg-teal-50/30 text-teal-800 font-bold hover:underline"
-                  >
-                    <span className="truncate">{doc.fileUrl}</span>
-                    <ExternalLink className="w-4 h-4 shrink-0" />
-                  </a>
-                ))}
+                {hasDriveLink ? (
+                  <div className="space-y-1.5">
+                    {driveLinks.map((doc) => (
+                      <a
+                        key={doc.id}
+                        href={doc.fileUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center justify-between gap-2 p-3 rounded-xl border border-blue-200 bg-blue-50/30 text-blue-900 font-bold hover:underline"
+                      >
+                        <span className="truncate">{doc.fileUrl}</span>
+                        <ExternalLink className="w-4 h-4 shrink-0" />
+                      </a>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="p-3.5 bg-rose-50 rounded-xl border border-rose-200 text-xs text-rose-800 font-semibold flex items-center gap-2">
+                    <AlertTriangle className="w-4 h-4 text-rose-600 shrink-0" />
+                    <span>Tim belum mengunggah link folder dokumentasi Google Drive.</span>
+                  </div>
+                )}
               </div>
-            )}
 
-            {/* Riwayat Approval */}
-            {selectedActivity.approvalHistory && selectedActivity.approvalHistory.length > 0 && (
-              <div className="space-y-2">
-                <p className="font-bold text-slate-800">Verifikasi Admin Sebelumnya:</p>
-                {selectedActivity.approvalHistory
-                  .filter((h) => h.stage === 'Verifikasi Kelengkapan')
-                  .map((h, idx) => (
+              {/* Riwayat Verifikasi Sebelumnya (hanya tampil jika ada catatan historis) */}
+              {prevVerifications.length > 0 && (
+                <div className="space-y-2">
+                  <p className="font-bold text-slate-800">Verifikasi Admin Sebelumnya:</p>
+                  {prevVerifications.map((h, idx) => (
                     <div key={idx} className="border border-slate-100 bg-slate-50 p-3 rounded-xl">
-                      <p className="text-[11px] text-slate-400">Oleh: <strong className="text-slate-600">{h.fullName}</strong> • {new Date(h.date).toLocaleString('id-ID')}</p>
+                      <p className="text-[11px] text-slate-400">
+                        Oleh: <strong className="text-slate-600">{h.fullName}</strong> •{' '}
+                        {new Date(h.date).toLocaleString('id-ID')}
+                      </p>
                       {h.notes && <p className="italic text-slate-600 mt-1 font-semibold">&quot;{h.notes}&quot;</p>}
                     </div>
                   ))}
-              </div>
-            )}
+                </div>
+              )}
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
-              <CustomButton variant="outline" onClick={() => setIsDetailActivityOpen(false)}>
-                Tutup
-              </CustomButton>
-              <CustomButton
-                variant="outline"
-                icon={RotateCcw}
-                onClick={() => setIsRevisionOpen(true)}
-                disabled={isSubmitting}
-              >
-                Kembalikan Perbaikan
-              </CustomButton>
-              <CustomButton
-                variant="primary"
-                icon={CheckCircle2}
-                onClick={() => handleApproveActivityFinish(selectedActivity.id)}
-                disabled={isSubmitting}
-              >
-                Setujui & Selesaikan
-              </CustomButton>
+              <div className="flex flex-wrap items-center justify-end gap-2.5 pt-4 border-t border-slate-100">
+                <CustomButton variant="outline" size="sm" onClick={() => setIsDetailActivityOpen(false)}>
+                  Tutup
+                </CustomButton>
+                <CustomButton
+                  variant="outline"
+                  size="sm"
+                  icon={RotateCcw}
+                  onClick={() => setIsRevisionOpen(true)}
+                  disabled={isSubmitting}
+                >
+                  Kembalikan Perbaikan
+                </CustomButton>
+                <CustomButton
+                  variant="primary"
+                  size="sm"
+                  icon={CheckCircle2}
+                  onClick={() => handleApproveActivityFinish(selectedActivity.id)}
+                  disabled={isSubmitting}
+                >
+                  Setujui & Selesaikan
+                </CustomButton>
+              </div>
             </div>
-          </div>
-        )}
+          );
+        })()}
       </CustomModal>
 
       {/* ── MODAL: REVISI KEGIATAN ── */}
@@ -1396,11 +1667,11 @@ export default function PersetujuanPage() {
         isOpen={isRevisionOpen}
         onClose={() => setIsRevisionOpen(false)}
         title="Kembalikan Kegiatan untuk Perbaikan"
-        maxWidth="sm"
+        maxWidth="md"
       >
         <div className="space-y-4 text-xs">
           <p className="text-slate-500 font-medium">
-            Masukkan catatan revisi/perbaikan yang wajib diselesaikan oleh Admin / Tim Humas sebelum kegiatan disetujui selesai.
+            Masukkan catatan revisi/perbaikan yang wajib diselesaikan oleh Tim Humas sebelum kegiatan disetujui selesai.
           </p>
           <textarea
             required
@@ -1410,9 +1681,9 @@ export default function PersetujuanPage() {
             onChange={(e) => setRevisionNotes(e.target.value)}
             className="w-full border border-slate-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-xs"
           />
-          <div className="flex justify-end gap-3">
-            <CustomButton variant="outline" onClick={() => setIsRevisionOpen(false)}>Batal</CustomButton>
-            <CustomButton variant="primary" onClick={handleReturnRevision} disabled={isSubmitting || !revisionNotes.trim()}>
+          <div className="flex flex-wrap items-center justify-end gap-2.5">
+            <CustomButton variant="outline" size="sm" onClick={() => setIsRevisionOpen(false)}>Batal</CustomButton>
+            <CustomButton variant="primary" size="sm" onClick={handleReturnRevision} disabled={isSubmitting || !revisionNotes.trim()}>
               Kirim Catatan Perbaikan
             </CustomButton>
           </div>
@@ -1462,6 +1733,23 @@ export default function PersetujuanPage() {
               <p><strong>PIC Kreator:</strong> {selectedContent.pic?.fullName ?? '-'}</p>
             </div>
 
+            {selectedContent.rawMaterialUrl && (
+              <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
+                <p className="font-bold text-amber-800 mb-1 flex items-center gap-1.5">
+                  <ExternalLink className="w-4 h-4 text-amber-600" />
+                  Link Bahan Mentahan:
+                </p>
+                <a
+                  href={getFileViewUrl(selectedContent.rawMaterialUrl)}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-amber-800 hover:text-amber-950 font-semibold underline break-all"
+                >
+                  {selectedContent.rawMaterialUrl}
+                </a>
+              </div>
+            )}
+
             {selectedContent.videoUrl && (
               <div className="p-3 rounded-xl bg-sky-50 border border-sky-200">
                 <p className="font-bold text-sky-800 mb-1 flex items-center gap-1.5">
@@ -1481,9 +1769,33 @@ export default function PersetujuanPage() {
 
             {selectedContent.thumbnailUrl && (
               <div>
-                <p className="font-bold text-slate-700 mb-1.5">Visual / Thumbnail Preview:</p>
-                <div className="rounded-xl overflow-hidden border border-slate-200 max-h-60 flex items-center justify-center bg-slate-900">
-                  <img src={selectedContent.thumbnailUrl} alt={selectedContent.title} className="max-h-60 object-contain" />
+                <div className="flex items-center justify-between mb-1.5">
+                  <p className="font-bold text-slate-700 flex items-center gap-1.5">
+                    <Smartphone className="w-3.5 h-3.5 text-[#003D58]" />
+                    Visual / Thumbnail Preview (9:16 Portrait):
+                  </p>
+                </div>
+                <div className="w-full flex justify-center py-2.5 bg-slate-50/80 rounded-2xl border border-slate-200">
+                  <div className="relative w-[190px] sm:w-[210px] aspect-[9/16] rounded-[24px] overflow-hidden bg-slate-950 border-[4px] border-slate-800 shadow-xl flex items-center justify-center">
+                    <div className="absolute top-2 w-12 h-1 bg-slate-700/80 rounded-full z-10" />
+                    <a
+                      href={selectedContent.thumbnailUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="group relative w-full h-full block cursor-zoom-in"
+                      title="Klik untuk membuka ukuran penuh"
+                    >
+                      <img
+                        src={selectedContent.thumbnailUrl}
+                        alt={selectedContent.title}
+                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                      />
+                      <div className="absolute inset-0 bg-slate-950/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-1.5 text-white text-xs font-medium">
+                        <Eye className="w-4 h-4" /> Buka Penuh
+                      </div>
+                    </a>
+                    <div className="absolute bottom-2 w-16 h-1 bg-white/20 rounded-full z-10" />
+                  </div>
                 </div>
               </div>
             )}
@@ -1495,12 +1807,13 @@ export default function PersetujuanPage() {
               </div>
             </div>
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-slate-100">
-              <CustomButton variant="outline" onClick={() => setIsDetailContentOpen(false)}>
+            <div className="flex flex-wrap items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              <CustomButton variant="outline" size="sm" onClick={() => setIsDetailContentOpen(false)}>
                 Tutup
               </CustomButton>
               <CustomButton
                 variant="outline"
+                size="sm"
                 icon={RotateCcw}
                 onClick={() => setIsContentRevisionOpen(true)}
                 disabled={isSubmitting}
@@ -1509,6 +1822,7 @@ export default function PersetujuanPage() {
               </CustomButton>
               <CustomButton
                 variant="primary"
+                size="sm"
                 icon={CheckCircle2}
                 onClick={() => handleApproveContentPlan(selectedContent.id)}
                 disabled={isSubmitting}
@@ -1525,7 +1839,7 @@ export default function PersetujuanPage() {
         isOpen={isContentRevisionOpen}
         onClose={() => setIsContentRevisionOpen(false)}
         title="Minta Revisi Content Plan"
-        maxWidth="sm"
+        maxWidth="md"
       >
         <div className="space-y-4 text-xs">
           <p className="text-slate-500 font-medium">
@@ -1539,14 +1853,36 @@ export default function PersetujuanPage() {
             onChange={(e) => setContentRevisionNotes(e.target.value)}
             className="w-full border border-slate-200 rounded-xl p-3 focus:outline-none focus:ring-2 focus:ring-amber-500/20 text-xs"
           />
-          <div className="flex justify-end gap-3">
-            <CustomButton variant="outline" onClick={() => setIsContentRevisionOpen(false)}>Batal</CustomButton>
-            <CustomButton variant="primary" onClick={handleReturnContentRevision} disabled={isSubmitting || !contentRevisionNotes.trim()}>
+          <div className="flex flex-wrap items-center justify-end gap-2.5">
+            <CustomButton variant="outline" size="sm" onClick={() => setIsContentRevisionOpen(false)}>Batal</CustomButton>
+            <CustomButton variant="primary" size="sm" onClick={handleReturnContentRevision} disabled={isSubmitting || !contentRevisionNotes.trim()}>
               Kirim Instruksi Revisi
             </CustomButton>
           </div>
         </div>
       </CustomModal>
+      {/* Universal Action Confirm Modal */}
+      <ConfirmModal
+        isOpen={confirmState.isOpen}
+        onClose={() => setConfirmState((prev) => ({ ...prev, isOpen: false }))}
+        onConfirm={async () => {
+          await confirmState.onConfirm();
+          setConfirmState((prev) => ({ ...prev, isOpen: false }));
+        }}
+        title={confirmState.title}
+        message={confirmState.message}
+        confirmText={confirmState.confirmText}
+        variant={confirmState.variant}
+        isLoading={isSubmitting}
+      />
     </AdminLayout>
+  );
+}
+
+export default function PersetujuanPage() {
+  return (
+    <Suspense fallback={<TableSkeleton rows={5} />}>
+      <PersetujuanContent />
+    </Suspense>
   );
 }

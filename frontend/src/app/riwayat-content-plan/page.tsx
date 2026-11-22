@@ -12,8 +12,10 @@ import {
   CustomModal,
   PaginationBar,
   UserAvatar,
+  TableSkeleton,
+  PlatformLabel,
+  ContentTypeBadge,
 } from '@/components/common';
-import DashboardSkeleton from '@/components/common/DashboardSkeleton';
 import {
   Eye,
   RotateCcw,
@@ -33,7 +35,7 @@ import {
 import { formatDateID, isValidImageSrc } from '@/utils/formatters';
 import { toast } from 'sonner';
 import { contentService } from '@/services';
-import { contentPlanToItem } from '@/utils/api-helpers';
+import { contentPlanToItem, getFileViewUrl } from '@/utils/api-helpers';
 
 interface ContentItem {
   id: number;
@@ -49,6 +51,7 @@ interface ContentItem {
   caption: string;
   mediaUrl?: string;
   videoUrl?: string;
+  rawMaterialUrl?: string;
   mediaType: 'image' | 'video';
   revisionNote?: string;
   media?: any[];
@@ -91,8 +94,10 @@ export default function ContentPlanHistoryPage() {
       item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.picName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.caption.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchPlat = platformFilter ? item.platform === platformFilter : true;
-    const matchStat = statusFilter ? item.status === statusFilter : true;
+    const matchPlat = platformFilter
+      ? (item.platform || '').toUpperCase() === platformFilter.toUpperCase()
+      : true;
+    const matchStat = statusFilter ? (item.status || '').toUpperCase() === statusFilter.toUpperCase() : true;
     return matchSearch && matchPlat && matchStat;
   });
 
@@ -130,51 +135,7 @@ export default function ContentPlanHistoryPage() {
     }
   };
 
-  const getPlatformBadge = (platform: string) => {
-    switch (platform) {
-      case 'INSTAGRAM':
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-pink-50 text-pink-700 font-bold px-2.5 py-1 rounded-lg text-xs border border-pink-200">
-            <Camera className="w-3.5 h-3.5 text-pink-600" />
-            <span>Instagram</span>
-          </span>
-        );
-      case 'TIKTOK':
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-slate-950 text-white font-bold px-2.5 py-1 rounded-lg text-xs border border-slate-800">
-            <Video className="w-3.5 h-3.5 text-white" />
-            <span>TikTok</span>
-          </span>
-        );
-      case 'YOUTUBE':
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-650 font-bold px-2.5 py-1 rounded-lg text-xs border border-red-200">
-            <Film className="w-3.5 h-3.5 text-red-600" />
-            <span>YouTube</span>
-          </span>
-        );
-      case 'WEBSITE':
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-sky-50 text-sky-750 font-bold px-2.5 py-1 rounded-lg text-xs border border-sky-200">
-            <Globe className="w-3.5 h-3.5" />
-            <span>Website</span>
-          </span>
-        );
-      case 'FACEBOOK':
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-750 font-bold px-2.5 py-1 rounded-lg text-xs border border-blue-200">
-            <Share2 className="w-3.5 h-3.5" />
-            <span>Facebook</span>
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-slate-50 text-slate-700 font-bold px-2.5 py-1 rounded-lg text-xs border border-slate-200">
-            <span>{platform}</span>
-          </span>
-        );
-    }
-  };
+  const getPlatformBadge = (platform: string) => <PlatformLabel platform={platform} />;
 
   const getWorkflowBadge = (item: ContentItem) => {
     if (item.status === 'PUBLISHED') {
@@ -204,14 +165,14 @@ export default function ContentPlanHistoryPage() {
       key: 'title',
       header: 'Judul Konten & Jenis',
       render: (item) => (
-        <div className="max-w-xs">
-          <div className="flex items-center gap-1.5 mb-1">
-            <span className="bg-teal-50 text-teal-700 text-[10px] font-bold px-2 py-0.5 rounded border border-teal-200">
-              {item.contentType}
-            </span>
-          </div>
+        <div className="max-w-xs text-left">
           <p className="font-bold text-slate-800 leading-snug">{item.title}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">{item.caption}</p>
+          <div className="flex items-center justify-start gap-1.5 mt-1 -ml-2">
+            <ContentTypeBadge type={item.contentType} />
+          </div>
+          {item.caption && (
+            <p className="text-[11px] text-slate-400 mt-1 line-clamp-1">{item.caption}</p>
+          )}
         </div>
       ),
     },
@@ -276,112 +237,101 @@ export default function ContentPlanHistoryPage() {
     },
     {
       key: 'actions',
-      header: 'Aksi',
+      header: 'Detail',
       render: (item) => (
-        <div className="flex items-center justify-center gap-1">
+        <div className="flex items-center justify-center">
           <button
+            type="button"
             onClick={() => {
               setSelectedItem(item);
               setIsViewerOpen(true);
             }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-[#003D58] hover:bg-sky-50 transition-colors cursor-pointer"
             title="Lihat Detail"
           >
             <Eye className="w-4.5 h-4.5" />
           </button>
-          <button
-            onClick={() => handleRestore(item)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer"
-            title="Reaktifkan Konten"
-          >
-            <RotateCcw className="w-4.5 h-4.5" />
-          </button>
-          <button
-            onClick={() => handleOpenDelete(item)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
-            title="Hapus Permanen"
-          >
-            <Trash2 className="w-4.5 h-4.5" />
-          </button>
         </div>
       ),
-      className: 'text-center w-28',
+      className: 'text-center w-20',
     },
   ];
 
   if (loading) {
     return (
       <AdminLayout title="Riwayat Content Plan">
-        <DashboardSkeleton />
+        <TableSkeleton rows={5} />
       </AdminLayout>
     );
   }
 
   return (
     <AdminLayout title="Riwayat Content Plan">
-      {/* Header Banner & Controls */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
-        <div>
-          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Riwayat Content Plan</h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Daftar perencanaan konten yang sudah dipublikasikan (Published), selesai (Selesai), atau dibatalkan.
-          </p>
-        </div>
+      <div className="space-y-5">
+        {/* Header Banner & Controls */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+          <div>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight">Riwayat Content Plan</h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Daftar perencanaan konten yang sudah dipublikasikan (Published), selesai (Selesai), atau dibatalkan.
+            </p>
+          </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
-          <SearchBox
-            value={searchQuery}
-            onChange={(val) => {
-              setSearchQuery(val);
-              setCurrentPage(1);
-            }}
-            placeholder="Cari judul konten, caption, atau PIC..."
-            className="w-full sm:w-80"
-          />
-          <div className="flex flex-wrap items-center gap-2.5">
-            <FilterDropdown
-              options={[
-                { value: 'INSTAGRAM', label: 'Instagram' },
-                { value: 'TIKTOK', label: 'TikTok' },
-                { value: 'YOUTUBE', label: 'YouTube' },
-                { value: 'WEBSITE', label: 'Website' },
-                { value: 'FACEBOOK', label: 'Facebook' },
-              ]}
-              value={platformFilter}
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-slate-100">
+            <SearchBox
+              value={searchQuery}
               onChange={(val) => {
-                setPlatformFilter(val);
+                setSearchQuery(val);
                 setCurrentPage(1);
               }}
-              placeholder="Semua Platform"
+              placeholder="Cari judul konten, caption, atau PIC..."
+              className="w-full sm:w-80 md:w-96"
             />
-            <FilterDropdown
-              options={[
-                { value: 'PUBLISHED', label: 'Published' },
-                { value: 'SELESAI', label: 'Selesai' },
-                { value: 'DIBATALKAN', label: 'Dibatalkan' },
-              ]}
-              value={statusFilter}
-              onChange={(val) => {
-                setStatusFilter(val);
-                setCurrentPage(1);
-              }}
-              placeholder="Semua Status"
-            />
+            <div className="flex flex-wrap items-center gap-2.5">
+              <FilterDropdown
+                options={[
+                  { value: 'INSTAGRAM', label: 'Instagram' },
+                  { value: 'TIKTOK', label: 'TikTok' },
+                  { value: 'YOUTUBE', label: 'YouTube' },
+                  { value: 'WEBSITE', label: 'Website' },
+                  { value: 'FACEBOOK', label: 'Facebook' },
+                ]}
+                value={platformFilter}
+                onChange={(val) => {
+                  setPlatformFilter(val);
+                  setCurrentPage(1);
+                }}
+                placeholder="Semua Platform"
+              />
+              <FilterDropdown
+                options={[
+                  { value: 'PUBLISHED', label: 'Published' },
+                  { value: 'SELESAI', label: 'Selesai' },
+                  { value: 'DIBATALKAN', label: 'Dibatalkan' },
+                ]}
+                value={statusFilter}
+                onChange={(val) => {
+                  setStatusFilter(val);
+                  setCurrentPage(1);
+                }}
+                placeholder="Semua Status"
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content Table Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <DataTable columns={columns} data={paginatedContents} emptyMessage="Tidak ada riwayat content plan." />
-        <PaginationBar
-          currentPage={currentPage}
-          totalPages={totalPages || 1}
-          totalItems={filteredContents.length}
-          onPageChange={setCurrentPage}
-          itemName="konten"
-        />
+        {/* Main Content Table Card */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <DataTable columns={columns} data={paginatedContents} emptyMessage="Tidak ada riwayat content plan." />
+          <PaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages || 1}
+            totalItems={filteredContents.length}
+            onPageChange={setCurrentPage}
+            itemName="konten"
+          />
+        </div>
       </div>
 
       {/* Media Viewer & Detail Modal */}
@@ -422,7 +372,7 @@ export default function ContentPlanHistoryPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   {getPlatformBadge(selectedItem.platform)}
-                  <span className="bg-teal-50 text-teal-700 border border-teal-200 text-xs font-bold px-2 py-0.5 rounded">
+                  <span className="bg-blue-50 text-[#003D58] border border-blue-200 text-xs font-bold px-2 py-0.5 rounded">
                     {selectedItem.contentType}
                   </span>
                   <StatusBadge status={selectedItem.status} />
@@ -432,11 +382,11 @@ export default function ContentPlanHistoryPage() {
               {/* Deadline & Time */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-xs text-slate-700 p-1">
                 <div className="flex items-center gap-2.5">
-                  <Calendar className="w-4 h-4 text-teal-600 shrink-0" />
+                  <Calendar className="w-4 h-4 text-[#003D58] shrink-0" />
                   <span><strong>Deadline Tayang:</strong> {formatDateID(selectedItem.deadline)}</span>
                 </div>
                 <div className="flex items-center gap-2.5">
-                  <Clock className="w-4 h-4 text-teal-600 shrink-0" />
+                  <Clock className="w-4 h-4 text-[#003D58] shrink-0" />
                   <span><strong>Jam Publish:</strong> {selectedItem.time}</span>
                 </div>
               </div>
@@ -444,7 +394,7 @@ export default function ContentPlanHistoryPage() {
               {/* Progress Section */}
               <div className="space-y-2 p-1">
                 <div className="flex justify-between items-center text-xs font-bold text-slate-700">
-                  <span>Progress Konten: <span className="text-teal-600 font-semibold">{progress.label}</span></span>
+                  <span>Progress Konten: <span className="text-[#003D58] font-semibold">{progress.label}</span></span>
                   <span>{progress.val}%</span>
                 </div>
                 <div className="w-full bg-slate-200 h-2 rounded-full overflow-hidden">
@@ -454,6 +404,22 @@ export default function ContentPlanHistoryPage() {
                   />
                 </div>
               </div>
+
+              {/* Link Bahan Mentahan */}
+              {selectedItem.rawMaterialUrl && (
+                <div className="p-3.5 rounded-xl bg-amber-50 border border-amber-200">
+                  <h5 className="text-xs font-bold text-amber-800 uppercase tracking-wider mb-1.5">Link Bahan Mentahan</h5>
+                  <a
+                    href={getFileViewUrl(selectedItem.rawMaterialUrl)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-amber-900 break-all underline font-semibold flex items-center gap-1.5"
+                  >
+                    <ExternalLink className="w-4 h-4 shrink-0" />
+                    {selectedItem.rawMaterialUrl}
+                  </a>
+                </div>
+              )}
 
               {/* Link Video (Published Link) */}
               {selectedItem.videoUrl && (
@@ -518,7 +484,7 @@ export default function ContentPlanHistoryPage() {
                             href={med.fileUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="text-teal-600 hover:underline truncate block max-w-sm font-semibold"
+                            className="text-[#003D58] hover:underline truncate block max-w-sm font-semibold"
                           >
                             {med.fileUrl}
                           </a>
@@ -534,7 +500,7 @@ export default function ContentPlanHistoryPage() {
                             href={med.fileUrl}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="p-1.5 rounded-lg bg-teal-50 text-teal-600 hover:bg-teal-150 transition-colors"
+                            className="p-1.5 rounded-lg bg-blue-50 text-[#003D58] hover:bg-teal-150 transition-colors"
                             title="Buka Drive"
                           >
                             <ExternalLink className="w-3.5 h-3.5" />
@@ -552,51 +518,13 @@ export default function ContentPlanHistoryPage() {
 
               {/* Actions Toolbar */}
               <div className="pt-4 border-t border-slate-100 flex flex-wrap justify-end gap-2.5">
-                <CustomButton variant="outline" size="sm" onClick={() => setIsViewerOpen(false)}>
+                <CustomButton variant="primary" size="sm" onClick={() => setIsViewerOpen(false)}>
                   Tutup
-                </CustomButton>
-                <CustomButton
-                  variant="primary"
-                  size="sm"
-                  icon={RotateCcw}
-                  onClick={() => handleRestore(selectedItem)}
-                >
-                  Aktifkan Kembali
                 </CustomButton>
               </div>
             </div>
           );
         })()}
-      </CustomModal>
-
-      {/* Delete Confirmation Modal */}
-      <CustomModal
-        isOpen={isDeleteOpen}
-        onClose={() => setIsDeleteOpen(false)}
-        title="Konfirmasi Hapus Riwayat Konten"
-        maxWidth="sm"
-      >
-        <div className="text-center py-2 space-y-4">
-          <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
-            <AlertTriangle className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-slate-800">
-              Hapus &quot;{selectedItem?.title}&quot;?
-            </p>
-            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-              Tindakan ini akan menghapus riwayat content plan secara permanen dari database.
-            </p>
-          </div>
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-            <CustomButton variant="outline" onClick={() => setIsDeleteOpen(false)}>
-              Batal
-            </CustomButton>
-            <CustomButton variant="danger" onClick={handleDeleteConfirm}>
-              Ya, Hapus
-            </CustomButton>
-          </div>
-        </div>
       </CustomModal>
     </AdminLayout>
   );

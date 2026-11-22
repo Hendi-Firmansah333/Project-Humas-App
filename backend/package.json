@@ -10,7 +10,9 @@
     "postinstall": "prisma generate",
     "vercel-build": "prisma generate && nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
+    "prestart": "npm run db:start",
     "start": "nest start",
+    "prestart:dev": "npm run db:start",
     "start:dev": "nest start --watch",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main",
@@ -20,11 +22,17 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
+    "db:start": "wsl -d Ubuntu -u root bash -c \"service docker status >/dev/null 2>&1 || service docker start; docker start humas_postgres\"",
+    "db:backup": "wsl -d Ubuntu -u root bash -c \"docker exec humas_postgres pg_dump -U humas -d Polihumas > /mnt/c/Users/ASUS/backup_humas.sql\"",
+    "db:restore": "wsl -d Ubuntu -u root bash -c \"docker start humas_postgres >/dev/null 2>&1; docker exec humas_postgres psql -U humas -d Polihumas -c 'DROP SCHEMA public CASCADE; CREATE SCHEMA public;' && docker exec -i humas_postgres psql -U humas -d Polihumas < /mnt/c/Users/ASUS/backup_humas.sql\"",
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate dev",
     "db:migrate:deploy": "prisma migrate deploy",
     "db:push": "prisma db push",
-    "db:seed": "prisma db seed"
+    "db:seed": "prisma db seed",
+    "studio": "prisma studio --port 5555",
+    "security:audit": "npm audit --audit-level=high",
+    "security:lint": "node ../scripts/security/eslint-security-report.js . src"
   },
   "prisma": {
     "seed": "ts-node --transpile-only prisma/seed.ts"
@@ -68,6 +76,7 @@
     "eslint": "^9.18.0",
     "eslint-config-prettier": "^10.0.1",
     "eslint-plugin-prettier": "^5.2.2",
+    "eslint-plugin-security": "^4.2.1",
     "globals": "^17.0.0",
     "jest": "^30.0.0",
     "prettier": "^3.4.2",

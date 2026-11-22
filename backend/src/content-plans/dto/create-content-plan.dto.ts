@@ -8,10 +8,10 @@ export class CreateContentPlanDto {
   @IsNotEmpty()
   title: string;
 
-  @ApiProperty({ enum: Platform, default: Platform.INSTAGRAM })
-  @IsEnum(Platform)
+  @ApiProperty({ example: 'INSTAGRAM', default: 'INSTAGRAM' })
+  @IsString()
   @IsOptional()
-  platform?: Platform;
+  platform?: string;
 
   @ApiProperty({ example: 'Reels', default: 'Reels' })
   @IsString()
@@ -57,4 +57,9 @@ export class CreateContentPlanDto {
   @IsString()
   @IsOptional()
   videoUrl?: string;
+
+  @ApiProperty({ example: 'https://drive.google.com/drive/folders/...', required: false })
+  @IsString()
+  @IsOptional()
+  rawMaterialUrl?: string;
 }

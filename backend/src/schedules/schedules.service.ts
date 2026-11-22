@@ -135,6 +135,16 @@ export class SchedulesService {
   }
 
   async create(dto: CreateScheduleDto) {
+    // Validate user: must be role USER and status AKTIF
+    const user = await this.prisma.user.findUnique({ where: { id: dto.userId } });
+    if (!user) throw new NotFoundException('Pengguna tidak ditemukan.');
+    if (user.role !== 'USER') {
+      throw new BadRequestException('Admin Humas dan Kepala Humas tidak dapat ditugaskan dalam jadwal piket.');
+    }
+    if (user.status !== 'AKTIF') {
+      throw new BadRequestException('Akun nonaktif tidak dapat ditugaskan dalam jadwal piket.');
+    }
+
     // Conflict check
     const hasConflict = await this.checkConflict(dto.userId, dto.date, dto.startTime, dto.endTime);
     if (hasConflict) {
@@ -284,6 +294,16 @@ export class SchedulesService {
     const date = dto.date !== undefined ? dto.date : existing.date;
     const startTime = dto.startTime !== undefined ? dto.startTime : existing.startTime;
     const endTime = dto.endTime !== undefined ? dto.endTime : existing.endTime;
+
+    // Validate user: must be role USER and status AKTIF
+    const user = await this.prisma.user.findUnique({ where: { id: userId } });
+    if (!user) throw new NotFoundException('Pengguna tidak ditemukan.');
+    if (user.role !== 'USER') {
+      throw new BadRequestException('Admin Humas dan Kepala Humas tidak dapat ditugaskan dalam jadwal piket.');
+    }
+    if (user.status !== 'AKTIF') {
+      throw new BadRequestException('Akun nonaktif tidak dapat ditugaskan dalam jadwal piket.');
+    }
 
     // Conflict check
     const hasConflict = await this.checkConflict(userId, date, startTime, endTime, id);

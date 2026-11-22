@@ -11,8 +11,8 @@ import {
   CustomButton,
   CustomModal,
   PaginationBar,
+  TableSkeleton,
 } from '@/components/common';
-import DashboardSkeleton from '@/components/common/DashboardSkeleton';
 import {
   Eye,
   RotateCcw,
@@ -160,82 +160,71 @@ export default function EquipmentLoanHistoryPage() {
     },
     {
       key: 'actions',
-      header: 'Aksi',
+      header: 'Detail',
       render: (item) => (
-        <div className="flex items-center gap-1 justify-center">
+        <div className="flex items-center justify-center">
           <button
+            type="button"
             onClick={() => {
               setSelectedLoan(item);
               setIsDetailOpen(true);
             }}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-teal-600 hover:bg-teal-50 transition-colors cursor-pointer"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-[#003D58] hover:bg-sky-50 transition-colors cursor-pointer"
             title="Lihat Detail"
           >
             <Eye className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => handleRestore(item)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-amber-600 hover:bg-amber-50 transition-colors cursor-pointer"
-            title="Aktifkan Kembali"
-          >
-            <RotateCcw className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => handleOpenDelete(item)}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
-            title="Hapus Permanen"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
         </div>
       ),
-      className: 'w-28 text-center',
+      className: 'w-20 text-center',
     },
   ];
 
   if (loading) {
     return (
       <AdminLayout title="Riwayat Peminjaman Inventaris">
-        <DashboardSkeleton />
+        <TableSkeleton rows={5} />
       </AdminLayout>
     );
   }
 
   return (
     <AdminLayout title="Riwayat Peminjaman Inventaris">
-      {/* Header Banner & Table Controls */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
-        <div>
-          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Riwayat Pengembalian Inventaris</h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Daftar peminjaman barang dan alat multimedia yang telah selesai dikembalikan.
-          </p>
+      <div className="space-y-5">
+        {/* Header Banner & Table Controls */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+          <div>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight">Riwayat Pengembalian Inventaris</h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Daftar peminjaman barang dan alat multimedia yang telah selesai dikembalikan.
+            </p>
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-slate-100">
+            <SearchBox
+              value={searchQuery}
+              onChange={(val) => {
+                setSearchQuery(val);
+                setCurrentPage(1);
+              }}
+              placeholder="Cari nama peminjam, barang, atau no telepon..."
+              className="w-full sm:w-80 md:w-96"
+            />
+          </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
-          <SearchBox
-            value={searchQuery}
-            onChange={(val) => {
-              setSearchQuery(val);
-              setCurrentPage(1);
-            }}
-            placeholder="Cari nama peminjam, barang, atau no telepon..."
-            className="w-full sm:w-80"
+        {/* Loan History Table Card */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <DataTable columns={columns} data={paginatedLoans} emptyMessage="Tidak ada riwayat peminjaman." />
+          <PaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages || 1}
+            totalItems={filteredLoans.length}
+            onPageChange={setCurrentPage}
+            itemName="riwayat"
           />
         </div>
-      </div>
-
-      {/* Loan History Table Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden mt-6">
-        <DataTable columns={columns} data={paginatedLoans} emptyMessage="Tidak ada riwayat peminjaman." />
-        <PaginationBar
-          currentPage={currentPage}
-          totalPages={totalPages || 1}
-          totalItems={filteredLoans.length}
-          onPageChange={setCurrentPage}
-          itemName="riwayat"
-        />
       </div>
 
       {/* Detail Loan Modal */}
@@ -270,36 +259,6 @@ export default function EquipmentLoanHistoryPage() {
             </div>
           </div>
         )}
-      </CustomModal>
-
-      {/* Delete Confirmation Modal */}
-      <CustomModal
-        isOpen={isDeleteOpen}
-        onClose={() => setIsDeleteOpen(false)}
-        title="Konfirmasi Hapus Riwayat Peminjaman"
-        maxWidth="sm"
-      >
-        <div className="text-center py-2 space-y-4">
-          <div className="w-12 h-12 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto">
-            <AlertTriangle className="w-6 h-6" />
-          </div>
-          <div>
-            <p className="text-sm font-bold text-slate-800">
-              Hapus riwayat &quot;{selectedLoan ? getEquipmentNames(selectedLoan) : ''}&quot;?
-            </p>
-            <p className="text-xs text-slate-500 mt-1.5 leading-relaxed">
-              Tindakan ini akan menghapus riwayat peminjaman secara permanen dari database.
-            </p>
-          </div>
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-slate-100">
-            <CustomButton variant="outline" onClick={() => setIsDeleteOpen(false)}>
-              Batal
-            </CustomButton>
-            <CustomButton variant="danger" onClick={handleDeleteConfirm}>
-              Ya, Hapus
-            </CustomButton>
-          </div>
-        </div>
       </CustomModal>
     </AdminLayout>
   );
