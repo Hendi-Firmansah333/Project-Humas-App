@@ -190,39 +190,41 @@ export default function EquipmentLoanHistoryPage() {
 
   return (
     <AdminLayout title="Riwayat Peminjaman Inventaris">
-      {/* Header Banner & Table Controls */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
-        <div>
-          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Riwayat Pengembalian Inventaris</h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Daftar peminjaman barang dan alat multimedia yang telah selesai dikembalikan.
-          </p>
+      <div className="space-y-5">
+        {/* Header Banner & Table Controls */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+          <div>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight">Riwayat Pengembalian Inventaris</h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Daftar peminjaman barang dan alat multimedia yang telah selesai dikembalikan.
+            </p>
+          </div>
+
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-slate-100">
+            <SearchBox
+              value={searchQuery}
+              onChange={(val) => {
+                setSearchQuery(val);
+                setCurrentPage(1);
+              }}
+              placeholder="Cari nama peminjam, barang, atau no telepon..."
+              className="w-full sm:w-80 md:w-96"
+            />
+          </div>
         </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
-          <SearchBox
-            value={searchQuery}
-            onChange={(val) => {
-              setSearchQuery(val);
-              setCurrentPage(1);
-            }}
-            placeholder="Cari nama peminjam, barang, atau no telepon..."
-            className="w-full sm:w-80"
+        {/* Loan History Table Card */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <DataTable columns={columns} data={paginatedLoans} emptyMessage="Tidak ada riwayat peminjaman." />
+          <PaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages || 1}
+            totalItems={filteredLoans.length}
+            onPageChange={setCurrentPage}
+            itemName="riwayat"
           />
         </div>
-      </div>
-
-      {/* Loan History Table Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden mt-6">
-        <DataTable columns={columns} data={paginatedLoans} emptyMessage="Tidak ada riwayat peminjaman." />
-        <PaginationBar
-          currentPage={currentPage}
-          totalPages={totalPages || 1}
-          totalItems={filteredLoans.length}
-          onPageChange={setCurrentPage}
-          itemName="riwayat"
-        />
       </div>
 
       {/* Detail Loan Modal */}

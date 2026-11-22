@@ -700,12 +700,18 @@ export default function ActivityManagementPage() {
 
               <div>
                 <label className={labelCls}>Personel PIC *</label>
-                <select value={formData.picId} onChange={(e) => setFormData({ ...formData, picId: Number(e.target.value) })} className={selectCls}>
-                  <option value={0} disabled>Pilih PIC Anggota</option>
-                  {picOptions.map((u) => (
-                    <option key={u.id} value={u.id}>{u.fullName} ({u.roleLabel})</option>
-                  ))}
-                </select>
+                <FilterDropdown
+                  value={formData.picId ? String(formData.picId) : ''}
+                  onChange={(val) => setFormData({ ...formData, picId: Number(val) })}
+                  options={picOptions.map((u) => ({
+                    value: String(u.id),
+                    label: `${u.fullName} (${u.roleLabel})`,
+                  }))}
+                  placeholder="Pilih PIC Anggota"
+                  icon={false}
+                  allowClear={false}
+                  className="w-full"
+                />
               </div>
             </div>
 
@@ -761,13 +767,13 @@ export default function ActivityManagementPage() {
             <button
               type="button"
               onClick={() => setIsCreateOpen(false)}
-              className="h-[36px] px-4 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-[600] rounded-[8px] transition-colors cursor-pointer"
+              className="h-[36px] px-4 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-[600] rounded-full transition-colors cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="h-[36px] px-5 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-[600] rounded-[8px] shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer flex items-center gap-1.5"
+              className="h-[36px] px-5 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-[600] rounded-full shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer flex items-center gap-1.5"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>Simpan Kegiatan</span>
@@ -829,12 +835,18 @@ export default function ActivityManagementPage() {
 
               <div>
                 <label className={labelCls}>Personel PIC *</label>
-                <select value={formData.picId} onChange={(e) => setFormData({ ...formData, picId: Number(e.target.value) })} className={selectCls}>
-                  <option value={0} disabled>Pilih PIC Anggota</option>
-                  {picOptions.map((u) => (
-                    <option key={u.id} value={u.id}>{u.fullName} ({u.roleLabel})</option>
-                  ))}
-                </select>
+                <FilterDropdown
+                  value={formData.picId ? String(formData.picId) : ''}
+                  onChange={(val) => setFormData({ ...formData, picId: Number(val) })}
+                  options={picOptions.map((u) => ({
+                    value: String(u.id),
+                    label: `${u.fullName} (${u.roleLabel})`,
+                  }))}
+                  placeholder="Pilih PIC Anggota"
+                  icon={false}
+                  allowClear={false}
+                  className="w-full"
+                />
               </div>
             </div>
 
@@ -890,13 +902,13 @@ export default function ActivityManagementPage() {
             <button
               type="button"
               onClick={() => setIsEditOpen(false)}
-              className="h-[36px] px-4 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-[600] rounded-[8px] transition-colors cursor-pointer"
+              className="h-[36px] px-4 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-[600] rounded-full transition-colors cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="h-[36px] px-5 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-[600] rounded-[8px] shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer flex items-center gap-1.5"
+              className="h-[36px] px-5 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-[600] rounded-full shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer flex items-center gap-1.5"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>Simpan Perubahan</span>

@@ -786,7 +786,7 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
         onClose={() => setShowLogoutConfirm(false)}
         onConfirm={handleLogout}
         title="Konfirmasi Keluar"
-        message="Apakah Anda yakin ingin keluar dari sesi aplikasi HUMASS Polinela?"
+        message="Apakah Anda yakin ingin keluar dari sesi web HUMAS Polinela?"
         confirmText="Ya, Keluar"
         cancelText="Batal"
         variant="danger"

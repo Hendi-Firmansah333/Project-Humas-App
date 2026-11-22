@@ -173,49 +173,51 @@ export default function ActivityHistoryPage() {
 
   return (
     <AdminLayout title="Riwayat Kegiatan">
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
-        <div>
-          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Riwayat Kegiatan Kehumasan</h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Kegiatan yang telah selesai atau dibatalkan. Kegiatan aktif tersedia di menu Kegiatan.
-          </p>
+      <div className="space-y-5">
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+          <div>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight">Riwayat Kegiatan Kehumasan</h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Kegiatan yang telah selesai atau dibatalkan. Kegiatan aktif tersedia di menu Kegiatan.
+            </p>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-slate-100">
+            <SearchBox
+              value={searchQuery}
+              onChange={(val) => {
+                setSearchQuery(val);
+                setCurrentPage(1);
+              }}
+              placeholder="Cari kegiatan, lokasi, kategori, atau PIC..."
+              className="w-full sm:w-80 md:w-96"
+            />
+            <FilterDropdown
+              value={statusFilter}
+              onChange={(val) => {
+                setStatusFilter(val);
+                setCurrentPage(1);
+              }}
+              options={[
+                { value: 'SELESAI', label: 'Selesai' },
+                { value: 'DIBATALKAN', label: 'Dibatalkan' },
+              ]}
+              placeholder="Semua Status"
+            />
+          </div>
         </div>
 
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
-          <SearchBox
-            value={searchQuery}
-            onChange={(val) => {
-              setSearchQuery(val);
-              setCurrentPage(1);
-            }}
-            placeholder="Cari kegiatan, lokasi, kategori, atau PIC..."
-            className="w-full sm:w-80"
-          />
-          <FilterDropdown
-            value={statusFilter}
-            onChange={(val) => {
-              setStatusFilter(val);
-              setCurrentPage(1);
-            }}
-            options={[
-              { value: 'SELESAI', label: 'Selesai' },
-              { value: 'DIBATALKAN', label: 'Dibatalkan' },
-            ]}
-            placeholder="Semua Status"
-          />
-        </div>
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <DataTable columns={columns} data={paginatedActivities} emptyMessage="Belum ada riwayat kegiatan." />
 
-        <DataTable columns={columns} data={paginatedActivities} emptyMessage="Belum ada riwayat kegiatan." />
-
-        {totalPages > 1 && (
           <PaginationBar
             currentPage={currentPage}
-            totalPages={totalPages}
+            totalPages={totalPages || 1}
             totalItems={filteredActivities.length}
             onPageChange={setCurrentPage}
             itemName="kegiatan"
           />
-        )}
+        </div>
       </div>
 
       {/* View Detail Drawer */}

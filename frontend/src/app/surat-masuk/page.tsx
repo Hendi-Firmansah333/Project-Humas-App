@@ -181,7 +181,17 @@ export default function IncomingLettersPage() {
       (item.institution || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.subject || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
       (item.eventLocation || '').toLowerCase().includes(searchQuery.toLowerCase());
-    const matchStatus = statusFilter ? item.status === statusFilter : true;
+    const matchStatus = (() => {
+      if (!statusFilter) return true;
+      const st = (item.status || '').toUpperCase();
+      if (statusFilter === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS') {
+        return st === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' || st === 'MENUNGGU_VERIFIKASI_ADMIN';
+      }
+      if (statusFilter === 'BARU') {
+        return st === 'BARU' || st === 'DRAFT';
+      }
+      return st === statusFilter;
+    })();
     return matchSearch && matchStatus;
   });
 
@@ -499,7 +509,7 @@ export default function IncomingLettersPage() {
       key: 'action',
       header: 'Aksi',
       render: (item) => (
-        <div className="flex items-center gap-1.5 justify-end">
+        <div className="flex items-center gap-1.5 justify-center">
           <button
             onClick={() => {
               setSelectedLetter(item);
@@ -535,27 +545,22 @@ export default function IncomingLettersPage() {
             </>
           )}
 
-          {/* Edit dan Hapus selalu tersedia di tombol tabel */}
-          <button
-            onClick={() => handleOpenEdit(item)}
-            className="p-1.5 rounded-lg border border-slate-200 hover:bg-slate-50 text-slate-600 transition-colors cursor-pointer"
-            title="Edit Surat"
-          >
-            <Edit3 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={() => {
-              setSelectedLetter(item);
-              setIsDeleteOpen(true);
-            }}
-            className="p-1.5 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 transition-colors cursor-pointer"
-            title="Hapus Surat"
-          >
-            <Trash2 className="w-4 h-4" />
-          </button>
+          {/* Hapus tersedia di tombol tabel hanya untuk Admin; Kepala Humas hanya review/setujui/tolak */}
+          {currentUser?.role !== 'SUPER_ADMIN' && (
+            <button
+              onClick={() => {
+                setSelectedLetter(item);
+                setIsDeleteOpen(true);
+              }}
+              className="p-1.5 rounded-lg border border-red-200 hover:bg-red-50 text-red-600 transition-colors cursor-pointer"
+              title="Hapus Surat"
+            >
+              <Trash2 className="w-4 h-4" />
+            </button>
+          )}
         </div>
       ),
-      className: 'text-right',
+      className: 'text-center w-36',
     },
   ];
 
@@ -618,15 +623,17 @@ export default function IncomingLettersPage() {
             <div className="flex flex-wrap items-center gap-2.5">
               <Link
                 href="/riwayat-surat"
-                className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-colors"
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-colors"
                 title="Lihat Surat yang Disetujui di Riwayat Surat"
               >
                 <History className="w-4 h-4 text-[#003D58]" />
                 <span>Buka Riwayat Surat</span>
               </Link>
-              <CustomButton variant="primary" icon={Plus} onClick={handleOpenCreate}>
-                Input Surat Masuk
-              </CustomButton>
+              {currentUser?.role !== 'SUPER_ADMIN' && (
+                <CustomButton variant="primary" icon={Plus} onClick={handleOpenCreate}>
+                  Input Surat Masuk
+                </CustomButton>
+              )}
             </div>
           </div>
 
@@ -1040,13 +1047,13 @@ export default function IncomingLettersPage() {
                 setIsCreateOpen(false);
                 setIsEditOpen(false);
               }}
-              className="h-[36px] px-4 bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[#475569] rounded-[8px] text-[12px] font-[500] cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-colors"
+              className="h-[36px] px-4 bg-white border border-[#CBD5E1] hover:bg-slate-50 text-[#475569] rounded-full text-[12px] font-[600] cursor-pointer shadow-[0_1px_2px_rgba(0,0,0,0.05)] transition-colors"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="h-[36px] px-5 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white rounded-[8px] text-[12px] font-[600] cursor-pointer shadow-xs shadow-[#003D58]/25 transition-all flex items-center gap-1.5"
+              className="h-[36px] px-5 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white rounded-full text-[12px] font-[600] cursor-pointer shadow-xs shadow-[#003D58]/25 transition-all flex items-center gap-1.5"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>{isEditOpen ? 'Simpan Perubahan' : 'Simpan Surat Masuk'}</span>
@@ -1158,18 +1165,19 @@ export default function IncomingLettersPage() {
               <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">
                 Personel PIC Lapangan <span className="text-slate-400 font-normal">(Opsional)</span>
               </label>
-              <select
-                value={activityForm.picId || 0}
-                onChange={(e) => setActivityForm({ ...activityForm, picId: Number(e.target.value) })}
-                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#003D58] focus:ring-1 focus:ring-[#003D58]/30 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all cursor-pointer"
-              >
-                <option value={0}>Otomatis Ditentukan Sistem (Anggota Humas) / Disposisi Kepala Humas</option>
-                {users.filter((u) => u.role === 'USER' && u.status === 'AKTIF').map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.fullName} ({u.roleLabel || 'Anggota Humas'})
-                  </option>
-                ))}
-              </select>
+              <FilterDropdown
+                value={activityForm.picId ? String(activityForm.picId) : ''}
+                onChange={(val) => setActivityForm({ ...activityForm, picId: val ? Number(val) : 0 })}
+                options={users
+                  .filter((u) => u.role === 'USER' && u.status === 'AKTIF')
+                  .map((u) => ({
+                    value: String(u.id),
+                    label: `${u.fullName} (${u.roleLabel || 'Anggota Humas'})`,
+                  }))}
+                placeholder="Otomatis Ditentukan Sistem / Disposisi Kepala Humas"
+                icon={false}
+                className="w-full"
+              />
             </div>
 
             {/* Pencarian Jalan & Lokasi Kegiatan (Persis seperti Input Surat) */}
@@ -1209,13 +1217,13 @@ export default function IncomingLettersPage() {
             <button
               type="button"
               onClick={() => setIsCreateActivityOpen(false)}
-              className="h-[36px] px-4 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-[600] rounded-[8px] transition-colors cursor-pointer"
+              className="h-[36px] px-4 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-[600] rounded-full transition-colors cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="h-[36px] px-5 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-[600] rounded-[8px] shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer flex items-center gap-1.5"
+              className="h-[36px] px-5 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-[600] rounded-full shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer flex items-center gap-1.5"
             >
               <CheckCircle2 className="w-4 h-4" />
               <span>Ajukan Kegiatan ke Kepala Humas</span>
@@ -1272,7 +1280,7 @@ export default function IncomingLettersPage() {
                         setIsDetailOpen(false);
                         handleOpenCreateActivity(selectedLetter);
                       }}
-                      className="px-3.5 py-2 bg-[#003D58] hover:bg-[#002f44] text-white rounded-lg text-xs font-bold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
+                      className="px-4 py-2 bg-[#003D58] hover:bg-[#002f44] text-white rounded-full text-xs font-bold inline-flex items-center gap-1.5 shadow-xs transition-colors cursor-pointer"
                     >
                       <CalendarPlus className="w-4 h-4" />
                       <span>Buat Agenda Kegiatan</span>
@@ -1508,14 +1516,27 @@ export default function IncomingLettersPage() {
             )}
 
             {/* Footer Buttons */}
-            <div className="flex items-center justify-end pt-3 border-t border-slate-100">
-              <button
-                type="button"
+            <div className="flex items-center justify-end gap-2.5 pt-3 border-t border-slate-100">
+              {currentUser?.role !== 'SUPER_ADMIN' && (
+                <CustomButton
+                  variant="secondary"
+                  size="sm"
+                  icon={Edit3}
+                  onClick={() => {
+                    setIsDetailOpen(false);
+                    handleOpenEdit(selectedLetter);
+                  }}
+                >
+                  Edit Surat
+                </CustomButton>
+              )}
+              <CustomButton
+                variant="primary"
+                size="sm"
                 onClick={() => setIsDetailOpen(false)}
-                className="px-5 py-2 bg-[#00838f] hover:bg-[#006876] text-white rounded-lg text-xs font-semibold cursor-pointer shadow-xs transition-colors"
               >
                 Tutup
-              </button>
+              </CustomButton>
             </div>
           </div>
         )}

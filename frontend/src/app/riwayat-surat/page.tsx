@@ -39,6 +39,7 @@ import { getFileViewUrl } from '@/utils/api-helpers';
 
 export default function RiwayatSuratPage() {
   const router = useRouter();
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [letters, setLetters] = useState<IncomingLetter[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState('');
@@ -71,8 +72,9 @@ export default function RiwayatSuratPage() {
       router.push('/dashboard');
       return;
     }
+    setCurrentUser(user);
     loadHistoryLetters();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Filtered dataset: Riwayat comprises letters that are DISETUJUI, DITUGASKAN, SELESAI, or DITOLAK
@@ -251,56 +253,90 @@ export default function RiwayatSuratPage() {
 
   return (
     <AdminLayout title="Riwayat Surat Masuk Humas">
-      {/* 4 Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Riwayat Surat"
-          value={historyList.length}
-          subtitle="Arsip surat masuk tercatat"
-          icon={Mail}
-          iconBgClass="bg-sky-50"
-          iconColorClass="text-[#003D58]"
-        />
-        <StatCard
-          title="Disetujui Kepala Humas"
-          value={countApproved}
-          subtitle="Telah disetujui & siap diagendakan"
-          icon={CheckCircle2}
-          iconBgClass="bg-emerald-50"
-          iconColorClass="text-emerald-600"
-        />
-        <StatCard
-          title="Ditugaskan Jadi Kegiatan"
-          value={countAssigned}
-          subtitle="Terhubung ke tim peliputan"
-          icon={CalendarCheck2}
-          iconBgClass="bg-blue-50"
-          iconColorClass="text-[#003D58]"
-        />
-        <StatCard
-          title="Selesai & Diarsipkan"
-          value={countFinished}
-          subtitle="Tindak lanjut selesai paripurna"
-          icon={Archive}
-          iconBgClass="bg-slate-100"
-          iconColorClass="text-slate-700"
-        />
-      </div>
+      <div className="space-y-5">
+        {/* 4 Stat Cards */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-5">
+          <StatCard
+            title="Total Riwayat Surat"
+            value={historyList.length}
+            subtitle="Arsip surat masuk tercatat"
+            icon={Mail}
+            iconBgClass="bg-sky-50"
+            iconColorClass="text-[#003D58]"
+          />
+          <StatCard
+            title="Disetujui Kepala Humas"
+            value={countApproved}
+            subtitle="Telah disetujui & siap diagendakan"
+            icon={CheckCircle2}
+            iconBgClass="bg-emerald-50"
+            iconColorClass="text-emerald-600"
+          />
+          <StatCard
+            title="Ditugaskan Jadi Kegiatan"
+            value={countAssigned}
+            subtitle="Terhubung ke tim peliputan"
+            icon={CalendarCheck2}
+            iconBgClass="bg-blue-50"
+            iconColorClass="text-[#003D58]"
+          />
+          <StatCard
+            title="Selesai & Diarsipkan"
+            value={countFinished}
+            subtitle="Tindak lanjut selesai paripurna"
+            icon={Archive}
+            iconBgClass="bg-slate-100"
+            iconColorClass="text-slate-700"
+          />
+        </div>
 
-      {/* Main Table Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs">
-        <div className="p-5 sm:p-6 border-b border-slate-100 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 flex-1">
+        {/* Header & Filter Card (Selaras dengan halaman lain) */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div>
+              <h1 className="text-lg font-bold text-slate-900 tracking-tight">Arsip Riwayat Surat Masuk</h1>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Daftar riwayat surat masuk yang telah diproses, disetujui, ditugaskan, atau ditolak.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                onClick={handleExportCSV}
+                className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
+                title="Ekspor Arsip ke CSV"
+              >
+                <Download className="w-4 h-4 text-slate-500" />
+                <span>Ekspor CSV</span>
+              </button>
+              {currentUser?.role !== 'SUPER_ADMIN' && (
+                <Link
+                  href="/surat-masuk"
+                  className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-[#003D58] hover:bg-[#002f44] text-white text-xs font-semibold shadow-xs transition-colors"
+                >
+                  <Mail className="w-4 h-4" />
+                  <span>Surat Masuk Aktif</span>
+                </Link>
+              )}
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-slate-100">
             <SearchBox
               value={searchQuery}
-              onChange={setSearchQuery}
+              onChange={(val) => {
+                setSearchQuery(val);
+                setCurrentPage(1);
+              }}
               placeholder="Cari arsip nomor surat / pengirim / perihal..."
-              className="w-full sm:w-80"
+              className="w-full sm:w-80 md:w-96"
             />
             <FilterDropdown
               placeholder="Semua Status Riwayat"
               value={statusFilter}
-              onChange={setStatusFilter}
+              onChange={(val) => {
+                setStatusFilter(val);
+                setCurrentPage(1);
+              }}
               options={[
                 { label: 'Disetujui Kepala Humas', value: 'DISETUJUI' },
                 { label: 'Ditugaskan Peliputan', value: 'DITUGASKAN' },
@@ -310,33 +346,16 @@ export default function RiwayatSuratPage() {
               className="w-full sm:w-56"
             />
           </div>
-
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleExportCSV}
-              className="inline-flex items-center gap-1.5 px-3.5 py-2.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold shadow-2xs transition-colors cursor-pointer"
-              title="Ekspor Arsip ke CSV"
-            >
-              <Download className="w-4 h-4 text-slate-500" />
-              <span>Ekspor CSV</span>
-            </button>
-            <Link
-              href="/surat-masuk"
-              className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#003D58] hover:bg-[#002f44] text-white text-xs font-semibold shadow-xs transition-colors"
-            >
-              <Mail className="w-4 h-4" />
-              <span>Surat Masuk Aktif</span>
-            </Link>
-          </div>
         </div>
 
-        <DataTable
-          columns={columns}
-          data={paginatedLetters}
-          emptyMessage="Belum ada arsip riwayat surat masuk yang tersimpan. Surat yang telah disetujui akan otomatis tampil di sini."
-        />
+        {/* Main Table Card */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <DataTable
+            columns={columns}
+            data={paginatedLetters}
+            emptyMessage="Belum ada arsip riwayat surat masuk yang tersimpan. Surat yang telah disetujui akan otomatis tampil di sini."
+          />
 
-        <div className="p-4 border-t border-slate-100">
           <PaginationBar
             currentPage={currentPage}
             totalPages={totalPages}
@@ -474,11 +493,10 @@ export default function RiwayatSuratPage() {
 
             {/* Catatan / Alasan Penolakan */}
             {selectedLetter.notes && (
-              <div className={`border rounded-xl p-3.5 text-xs ${
-                selectedLetter.status === 'DITOLAK'
+              <div className={`border rounded-xl p-3.5 text-xs ${selectedLetter.status === 'DITOLAK'
                   ? 'bg-red-50/70 border-red-200 text-red-900'
                   : 'bg-amber-50/70 border-amber-200 text-amber-900'
-              }`}>
+                }`}>
                 <span className="text-[11px] font-bold uppercase tracking-wider block mb-1">
                   {selectedLetter.status === 'DITOLAK' ? 'Alasan Penolakan Kepala Humas' : 'Catatan / Arahan Tambahan'}
                 </span>
@@ -509,7 +527,7 @@ export default function RiwayatSuratPage() {
                     </p>
                   </div>
                 </div>
-                <div className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#003D58] px-3.5 py-1.5 rounded-lg shadow-xs shrink-0">
+                <div className="flex items-center gap-1.5 text-xs font-semibold text-white bg-[#003D58] px-3.5 py-1.5 rounded-full shadow-xs shrink-0">
                   <ExternalLink className="w-3.5 h-3.5" />
                   <span>Buka Berkas</span>
                 </div>

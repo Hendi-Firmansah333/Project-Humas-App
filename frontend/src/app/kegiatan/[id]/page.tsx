@@ -12,6 +12,7 @@ import {
   LocationPicker,
   CustomDatePicker,
   CustomTimePicker,
+  FilterDropdown,
 } from '@/components/common';
 import {
   ArrowLeft,
@@ -1019,23 +1020,23 @@ export default function ActivityDetailPage() {
           {/* PIC Selection */}
           <div className="space-y-1.5">
             <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Pilih PIC Kegiatan *</label>
-            <select
-              value={selectedPicId}
-              onChange={(e) => {
-                const picId = Number(e.target.value);
+            <FilterDropdown
+              value={selectedPicId ? String(selectedPicId) : ''}
+              onChange={(val) => {
+                const picId = Number(val);
                 setSelectedPicId(picId);
                 // Remove PIC from selected members if present
                 setSelectedMemberIds((prev) => prev.filter((id) => id !== picId));
               }}
-              className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
-            >
-              <option value={0}>-- Pilih PIC (Tim Humas) --</option>
-              {humasUsers.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.fullName} (@{u.username})
-                </option>
-              ))}
-            </select>
+              options={humasUsers.map((u) => ({
+                value: String(u.id),
+                label: `${u.fullName} (@${u.username})`,
+              }))}
+              placeholder="Pilih PIC (Tim Humas)"
+              icon={false}
+              allowClear={false}
+              className="w-full"
+            />
           </div>
 
           {/* Member Selection */}
@@ -1145,26 +1146,25 @@ export default function ActivityDetailPage() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Personel PIC *</label>
-              <select
-                required
-                value={editFormData.picId}
-                onChange={(e) => {
-                  const pid = Number(e.target.value);
+              <FilterDropdown
+                value={editFormData.picId ? String(editFormData.picId) : ''}
+                onChange={(val) => {
+                  const pid = Number(val);
                   setEditFormData({
                     ...editFormData,
                     picId: pid,
                     memberIds: editFormData.memberIds.filter((id) => id !== pid),
                   });
                 }}
-                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#0D9488] focus:ring-1 focus:ring-[#0D9488]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all"
-              >
-                <option value={0}>-- Pilih PIC (Tim Humas) --</option>
-                {humasUsers.map((u) => (
-                  <option key={u.id} value={u.id}>
-                    {u.fullName} (@{u.username})
-                  </option>
-                ))}
-              </select>
+                options={humasUsers.map((u) => ({
+                  value: String(u.id),
+                  label: `${u.fullName} (@${u.username})`,
+                }))}
+                placeholder="Pilih PIC (Tim Humas)"
+                icon={false}
+                allowClear={false}
+                className="w-full"
+              />
             </div>
             <div>
               <label className="block font-bold text-slate-700 mb-1.5">Pilih Anggota Kegiatan (Opsional)</label>

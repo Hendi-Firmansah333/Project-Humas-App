@@ -232,7 +232,7 @@ export default function ProfilePage() {
         <div>
           <h1 className="text-lg font-bold text-slate-900 tracking-tight">Profil Pengguna & Pengaturan Keamanan</h1>
           <p className="text-xs text-slate-400 mt-0.5">
-            Kelola informasi identitas personel, kontak aktif, kredensial masuk, dan keamanan sistem HUMASS.
+            Kelola informasi identitas personel, kontak aktif, kredensial masuk, dan keamanan sistem HUMAS Polinela.
           </p>
         </div>
 
@@ -426,7 +426,7 @@ export default function ProfilePage() {
                 <button
                   type="submit"
                   disabled={savingProfile}
-                  className="px-5 py-2 bg-gradient-to-r from-[#0D9488] to-[#14B8A6] hover:from-[#0F766E] hover:to-[#0D9488] disabled:opacity-60 text-white text-[12px] font-semibold rounded-[8px] shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] disabled:opacity-60 text-white text-[12px] font-semibold rounded-full shadow-xs shadow-[#003D58]/25 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   {savingProfile ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <Save className="w-3.5 h-3.5" />}
                   {savingProfile ? 'Menyimpan...' : 'Simpan Perubahan Profil'}
@@ -490,7 +490,7 @@ export default function ProfilePage() {
                 <button
                   type="submit"
                   disabled={savingPassword}
-                  className="px-5 py-2 bg-gradient-to-r from-[#0D9488] to-[#14B8A6] hover:from-[#0F766E] hover:to-[#0D9488] disabled:opacity-60 text-white text-[12px] font-semibold rounded-[8px] shadow-xs transition-all flex items-center gap-1.5 cursor-pointer"
+                  className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] disabled:opacity-60 text-white text-[12px] font-semibold rounded-full shadow-xs shadow-[#003D58]/25 transition-all flex items-center gap-1.5 cursor-pointer"
                 >
                   {savingPassword ? (
                     <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -513,7 +513,7 @@ export default function ProfilePage() {
           handleLogout();
         }}
         title="Konfirmasi Keluar"
-        message="Apakah Anda yakin ingin keluar dari sesi aplikasi HUMASS Polinela?"
+        message="Apakah Anda yakin ingin keluar dari sesi web HUMAS Polinela?"
         confirmText="Ya, Keluar"
         cancelText="Batal"
         variant="danger"

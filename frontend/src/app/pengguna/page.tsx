@@ -180,7 +180,7 @@ export default function UserManagementPage() {
       setIsCreateOpen(false);
       setCreatedCredentials({ username: finalUsername, email: formData.email });
       setIsCredsOpen(true);
-      toast.success('Personel baru berhasil ditambahkan ke dalam sistem HUMASS!');
+      toast.success('Personel baru berhasil ditambahkan ke dalam sistem HUMAS Polinela!');
       await loadUsers();
     } catch (err: any) {
       const errorMessage = err.response?.data?.message || 'Gagal menambahkan personel ke server.';
@@ -469,7 +469,7 @@ export default function UserManagementPage() {
           <StatCard
             title="Personel Aktif"
             value={`${users.filter((u) => u.status === 'AKTIF').length} Orang`}
-            subtitle="Memiliki hak akses sistem HUMASS"
+            subtitle="Memiliki hak akses sistem HUMAS Polinela"
             icon={UserCheck}
             iconBgClass="bg-green-50"
             iconColorClass="text-green-600"
@@ -619,14 +619,15 @@ export default function UserManagementPage() {
             </div>
             <div>
               <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Role / Hak Akses *</label>
-              <select
+              <FilterDropdown
                 disabled
                 value="USER"
                 onChange={() => setFormData({ ...formData, role: 'USER' })}
-                className="w-full h-[36px] bg-slate-50 border border-[#E2E8F0] rounded-[8px] px-3 text-[12px] text-slate-600 font-semibold shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none cursor-not-allowed"
-              >
-                <option value="USER">Anggota Humas</option>
-              </select>
+                options={[{ value: 'USER', label: 'Anggota Humas' }]}
+                icon={false}
+                allowClear={false}
+                className="w-full"
+              />
               <p className="text-[11px] text-slate-400 mt-1">
                 Hanya akun Anggota Humas yang dapat ditambahkan (Admin Humas &amp; Kepala Humas maksimal 1 akun).
               </p>
@@ -637,13 +638,13 @@ export default function UserManagementPage() {
             <button
               type="button"
               onClick={() => setIsCreateOpen(false)}
-              className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-[8px] transition-colors cursor-pointer"
+              className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-full transition-colors cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-[8px] shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
+              className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-full shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
             >
               Simpan Personel
             </button>
@@ -712,29 +713,26 @@ export default function UserManagementPage() {
                 const canDemoteExtraAdmin = selectedUser?.role === 'ADMIN' && adminCount > 1;
                 return (
                   <>
-                    <select
+                    <FilterDropdown
                       disabled={!canDemoteExtraAdmin}
                       value={formData.role}
-                      onChange={(e) => setFormData({ ...formData, role: e.target.value as Role })}
-                      className={`w-full h-[36px] border border-[#E2E8F0] rounded-[8px] px-3 text-[12px] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all ${
+                      onChange={(val) => setFormData({ ...formData, role: val as Role })}
+                      options={
                         canDemoteExtraAdmin
-                          ? 'bg-white text-[#334155] focus:border-[#35C6D4] focus:ring-1 focus:ring-[#35C6D4]/30 cursor-pointer'
-                          : 'bg-slate-50 text-slate-600 font-semibold cursor-not-allowed'
-                      }`}
-                    >
-                      {canDemoteExtraAdmin ? (
-                        <>
-                          <option value="ADMIN">Admin Humas</option>
-                          <option value="USER">Anggota Humas</option>
-                        </>
-                      ) : (
-                        <>
-                          <option value="SUPER_ADMIN">Kepala Humas</option>
-                          <option value="ADMIN">Admin Humas</option>
-                          <option value="USER">Anggota Humas</option>
-                        </>
-                      )}
-                    </select>
+                          ? [
+                              { value: 'ADMIN', label: 'Admin Humas' },
+                              { value: 'USER', label: 'Anggota Humas' },
+                            ]
+                          : [
+                              { value: 'SUPER_ADMIN', label: 'Kepala Humas' },
+                              { value: 'ADMIN', label: 'Admin Humas' },
+                              { value: 'USER', label: 'Anggota Humas' },
+                            ]
+                      }
+                      icon={false}
+                      allowClear={false}
+                      className="w-full"
+                    />
                     <p className="text-[11px] text-slate-400 mt-1">
                       {selectedUser?.role === 'SUPER_ADMIN'
                         ? 'Admin Humas dapat mengubah profil, username, password, dan status akun Kepala Humas.'
@@ -748,14 +746,17 @@ export default function UserManagementPage() {
             </div>
             <div>
               <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Status Akun</label>
-              <select
+              <FilterDropdown
                 value={formData.status}
-                onChange={(e) => setFormData({ ...formData, status: e.target.value as UserStatus })}
-                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#35C6D4] focus:ring-1 focus:ring-[#35C6D4]/30 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all cursor-pointer"
-              >
-                <option value="AKTIF">AKTIF</option>
-                <option value="NONAKTIF">NONAKTIF</option>
-              </select>
+                onChange={(val) => setFormData({ ...formData, status: val as UserStatus })}
+                options={[
+                  { value: 'AKTIF', label: 'AKTIF' },
+                  { value: 'NONAKTIF', label: 'NONAKTIF' },
+                ]}
+                icon={false}
+                allowClear={false}
+                className="w-full"
+              />
             </div>
           </div>
 
@@ -763,13 +764,13 @@ export default function UserManagementPage() {
             <button
               type="button"
               onClick={() => setIsEditOpen(false)}
-              className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-[8px] transition-colors cursor-pointer"
+              className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-full transition-colors cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-[8px] shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
+              className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-full shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
             >
               Simpan Perubahan
             </button>
@@ -942,7 +943,7 @@ export default function UserManagementPage() {
             <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-2 text-xs">
               <p><strong>Username:</strong> <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-150">{createdCredentials.username}</span></p>
               <p><strong>Password Default:</strong> <span className="font-mono bg-white px-1.5 py-0.5 rounded border border-slate-150">polinela123</span></p>
-              <p className="text-[11px] text-slate-400">Gunakan kredensial di atas untuk masuk ke sistem HUMASS.</p>
+              <p className="text-[11px] text-slate-400">Gunakan kredensial di atas untuk masuk ke sistem HUMAS Polinela.</p>
             </div>
             <div className="flex flex-col gap-2 pt-2 border-t border-slate-100">
               <CustomButton
@@ -950,14 +951,14 @@ export default function UserManagementPage() {
                 variant="primary"
                 className="w-full justify-center"
                 onClick={() => {
-                  navigator.clipboard.writeText(`Halo! Berikut kredensial login Anda untuk sistem HUMASS:\nUsername: ${createdCredentials.username}\nPassword Default: polinela123\nSilakan login di portal resmi.`);
+                  navigator.clipboard.writeText(`Halo! Berikut kredensial login Anda untuk sistem HUMAS Polinela:\nUsername: ${createdCredentials.username}\nPassword Default: polinela123\nSilakan login di portal resmi.`);
                   toast.success('Kredensial disalin ke clipboard!');
                 }}
               >
                 Salin Kredensial
               </CustomButton>
               <a
-                href={`https://wa.me/?text=${encodeURIComponent(`Halo! Berikut kredensial login Anda untuk sistem HUMASS:\nUsername: ${createdCredentials.username}\nPassword Default: polinela123`)}`}
+                href={`https://wa.me/?text=${encodeURIComponent(`Halo! Berikut kredensial login Anda untuk sistem HUMAS Polinela:\nUsername: ${createdCredentials.username}\nPassword Default: polinela123`)}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="inline-flex items-center justify-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-2.5 px-4 rounded-xl text-xs transition-colors w-full"
@@ -988,7 +989,7 @@ export default function UserManagementPage() {
             <>
               Apakah Anda yakin ingin mengaktifkan kembali akun{' '}
               <strong className="text-slate-900">&quot;{userToToggle?.fullName}&quot;</strong>{' '}
-              (@{userToToggle?.username})? Akun ini akan kembali memiliki akses ke sistem HUMASS.
+              (@{userToToggle?.username})? Akun ini akan kembali memiliki akses ke sistem HUMAS Polinela.
             </>
           )
         }

@@ -55,16 +55,15 @@ const TABS: { id: Tab; label: string; icon: React.ElementType }[] = [
 
 const CONDITION_LABELS: Record<string, string> = {
   BAIK: 'Baik',
-  RUSAK_RINGAN: 'Rusak Ringan',
-  RUSAK_BERAT: 'Rusak Berat',
+  RUSAK_RINGAN: 'Rusak',
+  RUSAK_BERAT: 'Rusak',
   HILANG: 'Hilang',
 };
 
 const RETURN_CONDITION_OPTIONS = [
-  { value: 'BAIK', label: 'Baik (kembali ke stok)' },
-  { value: 'RUSAK_RINGAN', label: 'Rusak Ringan (masuk stok rusak)' },
-  { value: 'RUSAK_BERAT', label: 'Rusak Berat (masuk stok rusak)' },
-  { value: 'HILANG', label: 'Hilang (masuk stok rusak)' },
+  { value: 'BAIK', label: 'Baik' },
+  { value: 'RUSAK_RINGAN', label: 'Rusak' },
+  { value: 'HILANG', label: 'Hilang' },
 ];
 
 const labelCls = 'block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5';
@@ -173,17 +172,15 @@ function EquipmentFormContent({
         </div>
         <div>
           <label className={labelCls}>Kondisi</label>
-          <select
-            className={inputCls}
-            value={formData.condition}
-            onChange={(e) => setFormData((prev: any) => ({ ...prev, condition: e.target.value }))}
-          >
-            {Object.entries(CONDITION_LABELS).map(([v, l]) => (
-              <option key={v} value={v}>
-                {l}
-              </option>
-            ))}
-          </select>
+          <FilterDropdown
+            value={formData.condition === 'RUSAK_BERAT' ? 'RUSAK_RINGAN' : (formData.condition || 'BAIK')}
+            onChange={(val) => setFormData((prev: any) => ({ ...prev, condition: val }))}
+            options={RETURN_CONDITION_OPTIONS}
+            placeholder="Pilih Kondisi"
+            icon={false}
+            allowClear={false}
+            className="w-full"
+          />
         </div>
       </div>
       <div>
@@ -200,14 +197,14 @@ function EquipmentFormContent({
         <button
           type="button"
           onClick={onCancel}
-          className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-[8px] transition-colors cursor-pointer"
+          className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-full transition-colors cursor-pointer"
         >
           Batal
         </button>
         <button
           type="submit"
           disabled={isSubmitting}
-          className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-[8px] shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
+          className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-full shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
         >
           {isSubmitting ? 'Menyimpan...' : title}
         </button>
@@ -801,18 +798,17 @@ export default function PeminjamanAlatPage() {
 
           <div>
             <label className={labelCls}>Kegiatan Terkait (Opsional)</label>
-            <select
-              className={inputCls}
-              value={selectedActivityId || ''}
-              onChange={(e) => setSelectedActivityId(e.target.value ? Number(e.target.value) : undefined)}
-            >
-              <option value="">-- Tidak dikaitkan dengan kegiatan khusus --</option>
-              {activitiesList.map((act) => (
-                <option key={act.id} value={act.id}>
-                  {act.title}
-                </option>
-              ))}
-            </select>
+            <FilterDropdown
+              value={selectedActivityId ? String(selectedActivityId) : ''}
+              onChange={(val) => setSelectedActivityId(val ? Number(val) : undefined)}
+              options={activitiesList.map((act) => ({
+                value: String(act.id),
+                label: act.title,
+              }))}
+              placeholder="Tidak dikaitkan dengan kegiatan khusus"
+              icon={false}
+              className="w-full"
+            />
           </div>
 
           <div>
@@ -848,14 +844,14 @@ export default function PeminjamanAlatPage() {
             <button
               type="button"
               onClick={() => setIsCreateLoanOpen(false)}
-              className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-[8px] transition-colors cursor-pointer"
+              className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-full transition-colors cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={isSubmitting}
-              className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-[8px] shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
+              className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-full shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
             >
               {isSubmitting ? 'Menyimpan...' : 'Simpan Peminjaman'}
             </button>
@@ -887,9 +883,19 @@ export default function PeminjamanAlatPage() {
                     </div>
                     <div>
                       <label className="block text-slate-600 font-medium mb-1">Kondisi Alat</label>
-                      <select value={returnConditions[item.id] ?? 'BAIK'} onChange={(e) => setReturnConditions({ ...returnConditions, [item.id]: e.target.value })} className="w-full border border-slate-300 rounded-lg p-1.5 font-medium text-slate-800">
-                        {RETURN_CONDITION_OPTIONS.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
-                      </select>
+                      <FilterDropdown
+                        value={
+                          returnConditions[item.id] === 'RUSAK_BERAT'
+                            ? 'RUSAK_RINGAN'
+                            : (returnConditions[item.id] ?? 'BAIK')
+                        }
+                        onChange={(val) => setReturnConditions({ ...returnConditions, [item.id]: val })}
+                        options={RETURN_CONDITION_OPTIONS}
+                        icon={false}
+                        allowClear={false}
+                        placeholder="Pilih Kondisi"
+                        className="w-full"
+                      />
                     </div>
                   </div>
                   {returnConditions[item.id] && returnConditions[item.id] !== 'BAIK' && (

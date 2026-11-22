@@ -21,3 +21,5 @@ export { default as CustomDatePicker } from './CustomDatePicker';
 export { default as CustomTimePicker } from './CustomTimePicker';
 export { default as TableSkeleton } from './TableSkeleton';
 export { default as DashboardSkeleton } from './DashboardSkeleton';
+export { default as PlatformLabel } from './PlatformLabel';
+export { default as ContentTypeBadge } from './ContentTypeBadge';

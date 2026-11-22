@@ -13,6 +13,7 @@ import {
   StreetSearchInput,
   CustomDatePicker,
   CustomTimePicker,
+  FilterDropdown,
   TableSkeleton,
 } from '@/components/common';
 import {
@@ -1073,26 +1074,25 @@ function PersetujuanContent() {
 
               <div>
                 <label className={labelCls}>Personel PIC *</label>
-                <select
-                  required
-                  value={assignForm.picId}
-                  onChange={(e) => {
-                    const pid = Number(e.target.value);
+                <FilterDropdown
+                  value={assignForm.picId ? String(assignForm.picId) : ''}
+                  onChange={(val) => {
+                    const pid = Number(val);
                     setAssignForm({
                       ...assignForm,
                       picId: pid,
                       memberIds: assignForm.memberIds.filter((id) => id !== pid),
                     });
                   }}
-                  className={selectCls}
-                >
-                  <option value={0} disabled>Pilih PIC Anggota</option>
-                  {users.map((u) => (
-                    <option key={u.id} value={u.id}>
-                      {u.fullName} {u.roleLabel ? `(${u.roleLabel})` : '(Tim Humas)'}
-                    </option>
-                  ))}
-                </select>
+                  options={users.map((u) => ({
+                    value: String(u.id),
+                    label: `${u.fullName} ${u.roleLabel ? `(${u.roleLabel})` : '(Tim Humas)'}`,
+                  }))}
+                  placeholder="Pilih PIC Anggota"
+                  icon={false}
+                  allowClear={false}
+                  className="w-full"
+                />
               </div>
             </div>
 

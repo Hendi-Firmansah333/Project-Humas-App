@@ -17,6 +17,7 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState<{ username?: string; password?: string }>({});
   const [modalData, setModalData] = useState<{
     isOpen: boolean;
     title: string;
@@ -106,6 +107,22 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    const nextFieldErrors: { username?: string; password?: string } = {};
+    if (!username.trim()) {
+      nextFieldErrors.username = 'Username wajib diisi.';
+    }
+    if (!password.trim()) {
+      nextFieldErrors.password = 'Kata sandi wajib diisi.';
+    }
+    if (Object.keys(nextFieldErrors).length > 0) {
+      setFieldErrors(nextFieldErrors);
+      const firstErrorField = nextFieldErrors.username ? 'username' : 'password';
+      document.getElementById(firstErrorField)?.focus();
+      return;
+    }
+
+    setFieldErrors({});
     setLoading(true);
 
     try {
@@ -324,7 +341,7 @@ export default function LoginPage() {
           )}
 
           {/* Form (Figma: width 400px, height 254px) */}
-          <form onSubmit={handleLogin} className="w-full max-w-[400px]">
+          <form onSubmit={handleLogin} noValidate className="w-full max-w-[400px]">
             
             {/* Username Field (Figma: height 68px, label 12px/16px #34525A, input 46px, border-radius 14px) */}
             <div className="w-full">
@@ -336,21 +353,40 @@ export default function LoginPage() {
                 Username
               </label>
               <div className="relative mt-1.5">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-[14px] text-[#35C6D4]">
+                <div
+                  className={`pointer-events-none absolute inset-y-0 left-0 flex items-center pl-[14px] transition-colors ${
+                    fieldErrors.username ? 'text-red-400' : 'text-[#35C6D4]'
+                  }`}
+                >
                   <User className="h-4 w-4 stroke-[1.8]" />
                 </div>
                 <input
                   id="username"
                   name="username"
                   type="text"
-                  required
+                  aria-invalid={Boolean(fieldErrors.username)}
                   value={username}
-                  onChange={(e) => setUsername(e.target.value)}
+                  onChange={(e) => {
+                    setUsername(e.target.value);
+                    if (fieldErrors.username) {
+                      setFieldErrors((prev) => ({ ...prev, username: undefined }));
+                    }
+                  }}
                   placeholder="Masukkan username Anda"
-                  className="block w-full h-[46px] rounded-[14px] border border-[#DCE8E9] bg-[#FBFDFD] py-3 pl-11 pr-4 text-[14px] text-[#34525A] placeholder:text-[#A6B6B9] shadow-[0px_4px_12px_rgba(22,76,85,0.03)] focus:border-[#35C6D4] focus:bg-white focus:ring-1 focus:ring-[#35C6D4]/30 focus:outline-none transition-all"
+                  className={`block w-full h-[46px] rounded-[14px] border bg-[#FBFDFD] py-3 pl-11 pr-4 text-[14px] text-[#34525A] placeholder:text-[#A6B6B9] shadow-[0px_4px_12px_rgba(22,76,85,0.03)] focus:bg-white focus:ring-1 focus:outline-none transition-all ${
+                    fieldErrors.username
+                      ? 'border-red-400 focus:border-red-500 focus:ring-red-400/25'
+                      : 'border-[#DCE8E9] focus:border-[#35C6D4] focus:ring-[#35C6D4]/30'
+                  }`}
                   style={{ fontFamily: "'Poppins', sans-serif" }}
                 />
               </div>
+              {fieldErrors.username && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-[11.5px] font-medium text-red-500 animate-in fade-in duration-150">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{fieldErrors.username}</span>
+                </p>
+              )}
             </div>
 
             {/* Kata sandi Field (Figma: pt 16px, height 84px, label 12px/16px #34525A, input 46px) */}
@@ -363,18 +399,31 @@ export default function LoginPage() {
                 Kata sandi
               </label>
               <div className="relative mt-1.5">
-                <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-[14px] text-[#35C6D4]">
+                <div
+                  className={`pointer-events-none absolute inset-y-0 left-0 flex items-center pl-[14px] transition-colors ${
+                    fieldErrors.password ? 'text-red-400' : 'text-[#35C6D4]'
+                  }`}
+                >
                   <Lock className="h-4 w-4 stroke-[1.8]" />
                 </div>
                 <input
                   id="password"
                   name="password"
                   type={showPassword ? 'text' : 'password'}
-                  required
+                  aria-invalid={Boolean(fieldErrors.password)}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    if (fieldErrors.password) {
+                      setFieldErrors((prev) => ({ ...prev, password: undefined }));
+                    }
+                  }}
                   placeholder="Masukkan kata sandi"
-                  className="block w-full h-[46px] rounded-[14px] border border-[#DCE8E9] bg-[#FBFDFD] py-3 pl-11 pr-11 text-[14px] text-[#34525A] placeholder:text-[#A6B6B9] shadow-[0px_4px_12px_rgba(22,76,85,0.03)] focus:border-[#35C6D4] focus:bg-white focus:ring-1 focus:ring-[#35C6D4]/30 focus:outline-none transition-all"
+                  className={`block w-full h-[46px] rounded-[14px] border bg-[#FBFDFD] py-3 pl-11 pr-11 text-[14px] text-[#34525A] placeholder:text-[#A6B6B9] shadow-[0px_4px_12px_rgba(22,76,85,0.03)] focus:bg-white focus:ring-1 focus:outline-none transition-all ${
+                    fieldErrors.password
+                      ? 'border-red-400 focus:border-red-500 focus:ring-red-400/25'
+                      : 'border-[#DCE8E9] focus:border-[#35C6D4] focus:ring-[#35C6D4]/30'
+                  }`}
                   style={{ fontFamily: "'Poppins', sans-serif" }}
                 />
                 <button
@@ -387,6 +436,12 @@ export default function LoginPage() {
                   {showPassword ? <EyeOff className="h-4 w-4 stroke-[1.8]" /> : <Eye className="h-4 w-4 stroke-[1.8]" />}
                 </button>
               </div>
+              {fieldErrors.password && (
+                <p className="mt-1.5 flex items-center gap-1.5 text-[11.5px] font-medium text-red-500 animate-in fade-in duration-150">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                  <span>{fieldErrors.password}</span>
+                </p>
+              )}
             </div>
 
             {/* Ingat saya (Figma: pt 18px, height 34px) */}

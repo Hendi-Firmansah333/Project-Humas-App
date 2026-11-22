@@ -587,10 +587,6 @@ export default function StreetSearchInput({
         <label className="block text-[12px] font-[600] leading-[16px] text-[#334155]">
           {label} {required && <span className="text-red-500">*</span>}
         </label>
-        <span className="text-[11px] text-[#003D58] font-medium flex items-center gap-1.5 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200 shadow-2xs">
-          <span className="w-1.5 h-1.5 rounded-full bg-[#35C6D4] animate-pulse" />
-          <span>Peta Interaktif Terhubung</span>
-        </span>
       </div>
 
       {/* Main Street Search Input */}
@@ -609,11 +605,10 @@ export default function StreetSearchInput({
             }}
             onKeyDown={handleKeyDown}
             placeholder={placeholder}
-            className={`w-full h-[38px] pl-9 pr-9 ${
-              error
+            className={`w-full h-[38px] pl-9 pr-9 ${error
                 ? 'bg-[#F9E9E9] border border-[#B8484A] text-[#B8484A] focus:ring-1 focus:ring-[#B8484A]/40'
                 : 'bg-white border border-[#E2E8F0] focus:border-[#003D58] focus:ring-1 focus:ring-[#003D58]/30'
-            } rounded-[8px] text-[12px] text-[#202938] placeholder:text-[#67686D]/60 shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all`}
+              } rounded-[8px] text-[12px] text-[#202938] placeholder:text-[#67686D]/60 shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all`}
           />
           <div className="absolute inset-y-0 right-0 pr-2.5 flex items-center gap-1">
             {isSearching && <Loader2 className="w-3.5 h-3.5 text-[#003D58] animate-spin" />}
@@ -650,11 +645,10 @@ export default function StreetSearchInput({
                   className="w-full text-left px-3.5 py-2.5 hover:bg-sky-50/80 transition-colors flex items-start gap-2.5 cursor-pointer group"
                 >
                   <div
-                    className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 transition-colors ${
-                      item.isCampus
+                    className={`w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5 transition-colors ${item.isCampus
                         ? 'bg-blue-50 group-hover:bg-blue-100 text-[#003D58]'
                         : 'bg-red-50 group-hover:bg-red-100 text-rose-600'
-                    }`}
+                      }`}
                   >
                     {item.isCampus ? (
                       <Building2 className="w-4 h-4 text-[#003D58]" />
@@ -755,11 +749,10 @@ export default function StreetSearchInput({
               key={r}
               type="button"
               onClick={() => handleRadiusSelect(r)}
-              className={`text-[11px] px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${
-                parsedRadius === r
+              className={`text-[11px] px-2.5 py-1 rounded-lg font-medium transition-all cursor-pointer ${parsedRadius === r
                   ? 'bg-[#003D58] text-white shadow-xs font-semibold'
                   : 'bg-white hover:bg-slate-100 text-slate-600 border border-slate-200'
-              }`}
+                }`}
             >
               {r}m
             </button>

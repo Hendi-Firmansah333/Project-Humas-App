@@ -16,6 +16,8 @@ import {
   CustomDatePicker,
   CustomTimePicker,
   TableSkeleton,
+  PlatformLabel,
+  ContentTypeBadge,
 } from '@/components/common';
 import {
   Plus,
@@ -458,8 +460,19 @@ export default function ContentPlanPage() {
       item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.picName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.caption.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchPlat = platformFilter ? item.platform === platformFilter : true;
-    const matchStat = statusFilter ? item.status === statusFilter : true;
+    const matchPlat = platformFilter
+      ? (item.platform || '').toUpperCase() === platformFilter.toUpperCase()
+      : true;
+    const matchStat = (() => {
+      if (!statusFilter) return true;
+      const st = (item.status || '').toUpperCase();
+      if (statusFilter === 'DALAM_PENGERJAAN') return st === 'DALAM_PENGERJAAN' || st === 'PROSES';
+      if (statusFilter === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS') {
+        return st === 'MENUNGGU_PERSETUJUAN_KEPALA_HUMAS' || st === 'MENUNGGU_VERIFIKASI_ADMIN' || st === 'MENUNGGU';
+      }
+      if (statusFilter === 'PUBLISHED') return st === 'PUBLISHED' || st === 'SELESAI';
+      return st === statusFilter;
+    })();
 
     return matchSearch && matchPlat && matchStat;
   });
@@ -765,51 +778,7 @@ export default function ContentPlanPage() {
     }
   };
 
-  const getPlatformBadge = (platform: string) => {
-    switch ((platform || '').toUpperCase()) {
-      case 'INSTAGRAM':
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-pink-50 text-pink-700 font-bold px-2.5 py-1 rounded-lg text-xs border border-pink-200">
-            <Camera className="w-3.5 h-3.5 text-pink-600" />
-            <span>Instagram</span>
-          </span>
-        );
-      case 'TIKTOK':
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-slate-950 text-white font-bold px-2.5 py-1 rounded-lg text-xs border border-slate-800">
-            <Video className="w-3.5 h-3.5 text-white" />
-            <span>TikTok</span>
-          </span>
-        );
-      case 'YOUTUBE':
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-650 font-bold px-2.5 py-1 rounded-lg text-xs border border-red-200">
-            <Film className="w-3.5 h-3.5 text-red-600" />
-            <span>YouTube</span>
-          </span>
-        );
-      case 'WEBSITE':
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-sky-50 text-sky-750 font-bold px-2.5 py-1 rounded-lg text-xs border border-sky-200">
-            <Globe className="w-3.5 h-3.5" />
-            <span>Website</span>
-          </span>
-        );
-      case 'FACEBOOK':
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-750 font-bold px-2.5 py-1 rounded-lg text-xs border border-blue-200">
-            <Share2 className="w-3.5 h-3.5" />
-            <span>Facebook</span>
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-slate-50 text-slate-700 font-bold px-2.5 py-1 rounded-lg text-xs border border-slate-200">
-            <span>{platform}</span>
-          </span>
-        );
-    }
-  };
+  const getPlatformBadge = (platform: string) => <PlatformLabel platform={platform} />;
 
   const getWorkflowBadge = (item: ContentItem) => {
     switch (item.status) {
@@ -852,20 +821,20 @@ export default function ContentPlanPage() {
       key: 'title',
       header: 'Judul Konten & Jenis',
       render: (item) => (
-        <div className="max-w-xs">
-          <div className="flex items-center gap-1.5 mb-1 flex-wrap">
-            <span className="bg-blue-50 text-[#003D58] text-[10px] font-bold px-2 py-0.5 rounded border border-blue-200">
-              {item.contentType}
-            </span>
+        <div className="max-w-xs text-left">
+          <p className="font-bold text-slate-800 leading-snug">{item.title}</p>
+          <div className="flex items-center justify-start gap-1.5 mt-1 -ml-2 flex-wrap">
+            <ContentTypeBadge type={item.contentType} />
             {item.category && (
-              <span className="bg-amber-50 text-amber-700 text-[10px] font-medium px-2 py-0.5 rounded border border-amber-200 flex items-center gap-1">
-                <Tag className="w-2.5 h-2.5" />
+              <span className="inline-flex items-center gap-1 rounded-full px-2 py-[2.5px] bg-amber-50 text-amber-700 text-[10.5px] font-medium leading-none whitespace-nowrap">
+                <Tag className="w-2.5 h-2.5 shrink-0" />
                 {item.category}
               </span>
             )}
           </div>
-          <p className="font-bold text-slate-800 leading-snug">{item.title}</p>
-          <p className="text-[11px] text-slate-600 mt-0.5 line-clamp-1">{item.caption}</p>
+          {item.caption && (
+            <p className="text-[11px] text-slate-600 mt-1 line-clamp-1">{item.caption}</p>
+          )}
         </div>
       ),
     },
@@ -1015,13 +984,6 @@ export default function ContentPlanPage() {
                   <Eye className="w-4 h-4" />
                 </button>
                 <button
-                  onClick={() => handleOpenEdit(item)}
-                  className="p-1.5 rounded-lg text-slate-400 hover:text-sky-600 hover:bg-sky-50 transition-colors cursor-pointer"
-                  title="Edit Rencana Konten"
-                >
-                  <Edit3 className="w-4 h-4" />
-                </button>
-                <button
                   onClick={() => handleOpenDelete(item)}
                   className="p-1.5 rounded-lg text-slate-400 hover:text-red-700 hover:bg-red-50 transition-colors cursor-pointer"
                   title="Hapus Content Plan"
@@ -1154,9 +1116,7 @@ export default function ContentPlanPage() {
             <div className="flex items-center justify-between gap-2 flex-wrap pb-3 border-b border-slate-100">
               <div className="flex items-center gap-2 flex-wrap">
                 {getPlatformBadge(selectedItem.platform)}
-                <span className="text-[11px] font-semibold text-[#003D58] bg-slate-100 px-2.5 py-0.5 rounded-md">
-                  {selectedItem.contentType}
-                </span>
+                <ContentTypeBadge type={selectedItem.contentType} />
               </div>
               {getWorkflowBadge(selectedItem)}
             </div>
@@ -1470,6 +1430,17 @@ export default function ContentPlanPage() {
                 {/* ADMIN ACTIONS */}
                 {isAdmin && (
                   <>
+                    <CustomButton
+                      variant="secondary"
+                      size="sm"
+                      icon={Edit3}
+                      onClick={() => {
+                        setIsViewerOpen(false);
+                        handleOpenEdit(selectedItem);
+                      }}
+                    >
+                      Edit Content Plan
+                    </CustomButton>
                     {isApproved && (
                       <CustomButton
                         variant="primary"
@@ -1746,18 +1717,17 @@ export default function ContentPlanPage() {
 
           <div>
             <label className={labelCls}>Terkait Kegiatan (Opsional)</label>
-            <select
+            <FilterDropdown
               value={formData.activityName}
-              onChange={(e) => setFormData({ ...formData, activityName: e.target.value })}
-              className={selectCls}
-            >
-              <option value="">-- Tidak Terkait Kegiatan Tertentu --</option>
-              {activities.map((act) => (
-                <option key={act.id} value={act.title}>
-                  {act.title} ({act.category || 'Kegiatan'})
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setFormData({ ...formData, activityName: val })}
+              options={activities.map((act) => ({
+                value: act.title,
+                label: `${act.title} (${act.category || 'Kegiatan'})`,
+              }))}
+              placeholder="Tidak Terkait Kegiatan Tertentu"
+              icon={false}
+              className="w-full"
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1777,17 +1747,18 @@ export default function ContentPlanPage() {
 
           <div>
             <label className={labelCls}>PIC / Creator *</label>
-            <select
-              value={formData.picId}
-              onChange={(e) => setFormData({ ...formData, picId: Number(e.target.value) })}
-              className={selectCls}
-            >
-              {picOptions.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.fullName} ({u.roleLabel || 'Anggota Tim Humas'})
-                </option>
-              ))}
-            </select>
+            <FilterDropdown
+              value={formData.picId ? String(formData.picId) : ''}
+              onChange={(val) => setFormData({ ...formData, picId: Number(val) })}
+              options={picOptions.map((u) => ({
+                value: String(u.id),
+                label: `${u.fullName} (${u.roleLabel || 'Anggota Tim Humas'})`,
+              }))}
+              placeholder="Pilih PIC Kreator"
+              icon={false}
+              allowClear={false}
+              className="w-full"
+            />
           </div>
 
           <div>
@@ -1821,14 +1792,14 @@ export default function ContentPlanPage() {
             <button
               type="button"
               onClick={() => setIsCreateOpen(false)}
-              className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-[8px] transition-colors cursor-pointer"
+              className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-full transition-colors cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-[8px] shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
+              className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-full shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
             >
               Simpan Content Plan
             </button>
@@ -1884,18 +1855,17 @@ export default function ContentPlanPage() {
 
           <div>
             <label className={labelCls}>Terkait Kegiatan (Opsional)</label>
-            <select
+            <FilterDropdown
               value={formData.activityName}
-              onChange={(e) => setFormData({ ...formData, activityName: e.target.value })}
-              className={selectCls}
-            >
-              <option value="">-- Tidak Terkait Kegiatan Tertentu --</option>
-              {activities.map((act) => (
-                <option key={act.id} value={act.title}>
-                  {act.title} ({act.category || 'Kegiatan'})
-                </option>
-              ))}
-            </select>
+              onChange={(val) => setFormData({ ...formData, activityName: val })}
+              options={activities.map((act) => ({
+                value: act.title,
+                label: `${act.title} (${act.category || 'Kegiatan'})`,
+              }))}
+              placeholder="Tidak Terkait Kegiatan Tertentu"
+              icon={false}
+              className="w-full"
+            />
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1915,17 +1885,18 @@ export default function ContentPlanPage() {
 
           <div>
             <label className={labelCls}>PIC / Creator *</label>
-            <select
-              value={formData.picId}
-              onChange={(e) => setFormData({ ...formData, picId: Number(e.target.value) })}
-              className={selectCls}
-            >
-              {picOptions.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.fullName} ({u.roleLabel || 'Anggota Tim Humas'})
-                </option>
-              ))}
-            </select>
+            <FilterDropdown
+              value={formData.picId ? String(formData.picId) : ''}
+              onChange={(val) => setFormData({ ...formData, picId: Number(val) })}
+              options={picOptions.map((u) => ({
+                value: String(u.id),
+                label: `${u.fullName} (${u.roleLabel || 'Anggota Tim Humas'})`,
+              }))}
+              placeholder="Pilih PIC Kreator"
+              icon={false}
+              allowClear={false}
+              className="w-full"
+            />
           </div>
 
           <div>
@@ -1957,14 +1928,14 @@ export default function ContentPlanPage() {
             <button
               type="button"
               onClick={() => setIsEditOpen(false)}
-              className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-[8px] transition-colors cursor-pointer"
+              className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-full transition-colors cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
               disabled={submitting}
-              className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-[8px] shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
+              className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-full shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
             >
               Simpan Perubahan
             </button>

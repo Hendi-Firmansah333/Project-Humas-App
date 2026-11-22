@@ -13,6 +13,8 @@ import {
   PaginationBar,
   UserAvatar,
   TableSkeleton,
+  PlatformLabel,
+  ContentTypeBadge,
 } from '@/components/common';
 import {
   Eye,
@@ -92,8 +94,10 @@ export default function ContentPlanHistoryPage() {
       item.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.picName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.caption.toLowerCase().includes(searchQuery.toLowerCase());
-    const matchPlat = platformFilter ? item.platform === platformFilter : true;
-    const matchStat = statusFilter ? item.status === statusFilter : true;
+    const matchPlat = platformFilter
+      ? (item.platform || '').toUpperCase() === platformFilter.toUpperCase()
+      : true;
+    const matchStat = statusFilter ? (item.status || '').toUpperCase() === statusFilter.toUpperCase() : true;
     return matchSearch && matchPlat && matchStat;
   });
 
@@ -131,51 +135,7 @@ export default function ContentPlanHistoryPage() {
     }
   };
 
-  const getPlatformBadge = (platform: string) => {
-    switch (platform) {
-      case 'INSTAGRAM':
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-pink-50 text-pink-700 font-bold px-2.5 py-1 rounded-lg text-xs border border-pink-200">
-            <Camera className="w-3.5 h-3.5 text-pink-600" />
-            <span>Instagram</span>
-          </span>
-        );
-      case 'TIKTOK':
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-slate-950 text-white font-bold px-2.5 py-1 rounded-lg text-xs border border-slate-800">
-            <Video className="w-3.5 h-3.5 text-white" />
-            <span>TikTok</span>
-          </span>
-        );
-      case 'YOUTUBE':
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-red-50 text-red-650 font-bold px-2.5 py-1 rounded-lg text-xs border border-red-200">
-            <Film className="w-3.5 h-3.5 text-red-600" />
-            <span>YouTube</span>
-          </span>
-        );
-      case 'WEBSITE':
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-sky-50 text-sky-750 font-bold px-2.5 py-1 rounded-lg text-xs border border-sky-200">
-            <Globe className="w-3.5 h-3.5" />
-            <span>Website</span>
-          </span>
-        );
-      case 'FACEBOOK':
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-750 font-bold px-2.5 py-1 rounded-lg text-xs border border-blue-200">
-            <Share2 className="w-3.5 h-3.5" />
-            <span>Facebook</span>
-          </span>
-        );
-      default:
-        return (
-          <span className="inline-flex items-center gap-1.5 bg-slate-50 text-slate-700 font-bold px-2.5 py-1 rounded-lg text-xs border border-slate-200">
-            <span>{platform}</span>
-          </span>
-        );
-    }
-  };
+  const getPlatformBadge = (platform: string) => <PlatformLabel platform={platform} />;
 
   const getWorkflowBadge = (item: ContentItem) => {
     if (item.status === 'PUBLISHED') {
@@ -205,14 +165,14 @@ export default function ContentPlanHistoryPage() {
       key: 'title',
       header: 'Judul Konten & Jenis',
       render: (item) => (
-        <div className="max-w-xs">
-          <div className="flex items-center gap-1.5 mb-1">
-            <span className="bg-blue-50 text-[#003D58] text-[10px] font-bold px-2 py-0.5 rounded border border-blue-200">
-              {item.contentType}
-            </span>
-          </div>
+        <div className="max-w-xs text-left">
           <p className="font-bold text-slate-800 leading-snug">{item.title}</p>
-          <p className="text-[11px] text-slate-400 mt-0.5 line-clamp-1">{item.caption}</p>
+          <div className="flex items-center justify-start gap-1.5 mt-1 -ml-2">
+            <ContentTypeBadge type={item.contentType} />
+          </div>
+          {item.caption && (
+            <p className="text-[11px] text-slate-400 mt-1 line-clamp-1">{item.caption}</p>
+          )}
         </div>
       ),
     },
@@ -307,69 +267,71 @@ export default function ContentPlanHistoryPage() {
 
   return (
     <AdminLayout title="Riwayat Content Plan">
-      {/* Header Banner & Controls */}
-      <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-xs space-y-5">
-        <div>
-          <h1 className="text-lg font-bold text-slate-900 tracking-tight">Riwayat Content Plan</h1>
-          <p className="text-xs text-slate-400 mt-0.5">
-            Daftar perencanaan konten yang sudah dipublikasikan (Published), selesai (Selesai), atau dibatalkan.
-          </p>
-        </div>
+      <div className="space-y-5">
+        {/* Header Banner & Controls */}
+        <div className="bg-white rounded-2xl border border-slate-200 p-5 sm:p-6 shadow-xs space-y-4">
+          <div>
+            <h1 className="text-lg font-bold text-slate-900 tracking-tight">Riwayat Content Plan</h1>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Daftar perencanaan konten yang sudah dipublikasikan (Published), selesai (Selesai), atau dibatalkan.
+            </p>
+          </div>
 
-        {/* Filters */}
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
-          <SearchBox
-            value={searchQuery}
-            onChange={(val) => {
-              setSearchQuery(val);
-              setCurrentPage(1);
-            }}
-            placeholder="Cari judul konten, caption, atau PIC..."
-            className="w-full sm:w-80"
-          />
-          <div className="flex flex-wrap items-center gap-2.5">
-            <FilterDropdown
-              options={[
-                { value: 'INSTAGRAM', label: 'Instagram' },
-                { value: 'TIKTOK', label: 'TikTok' },
-                { value: 'YOUTUBE', label: 'YouTube' },
-                { value: 'WEBSITE', label: 'Website' },
-                { value: 'FACEBOOK', label: 'Facebook' },
-              ]}
-              value={platformFilter}
+          {/* Filters */}
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 pt-4 border-t border-slate-100">
+            <SearchBox
+              value={searchQuery}
               onChange={(val) => {
-                setPlatformFilter(val);
+                setSearchQuery(val);
                 setCurrentPage(1);
               }}
-              placeholder="Semua Platform"
+              placeholder="Cari judul konten, caption, atau PIC..."
+              className="w-full sm:w-80 md:w-96"
             />
-            <FilterDropdown
-              options={[
-                { value: 'PUBLISHED', label: 'Published' },
-                { value: 'SELESAI', label: 'Selesai' },
-                { value: 'DIBATALKAN', label: 'Dibatalkan' },
-              ]}
-              value={statusFilter}
-              onChange={(val) => {
-                setStatusFilter(val);
-                setCurrentPage(1);
-              }}
-              placeholder="Semua Status"
-            />
+            <div className="flex flex-wrap items-center gap-2.5">
+              <FilterDropdown
+                options={[
+                  { value: 'INSTAGRAM', label: 'Instagram' },
+                  { value: 'TIKTOK', label: 'TikTok' },
+                  { value: 'YOUTUBE', label: 'YouTube' },
+                  { value: 'WEBSITE', label: 'Website' },
+                  { value: 'FACEBOOK', label: 'Facebook' },
+                ]}
+                value={platformFilter}
+                onChange={(val) => {
+                  setPlatformFilter(val);
+                  setCurrentPage(1);
+                }}
+                placeholder="Semua Platform"
+              />
+              <FilterDropdown
+                options={[
+                  { value: 'PUBLISHED', label: 'Published' },
+                  { value: 'SELESAI', label: 'Selesai' },
+                  { value: 'DIBATALKAN', label: 'Dibatalkan' },
+                ]}
+                value={statusFilter}
+                onChange={(val) => {
+                  setStatusFilter(val);
+                  setCurrentPage(1);
+                }}
+                placeholder="Semua Status"
+              />
+            </div>
           </div>
         </div>
-      </div>
 
-      {/* Main Content Table Card */}
-      <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
-        <DataTable columns={columns} data={paginatedContents} emptyMessage="Tidak ada riwayat content plan." />
-        <PaginationBar
-          currentPage={currentPage}
-          totalPages={totalPages || 1}
-          totalItems={filteredContents.length}
-          onPageChange={setCurrentPage}
-          itemName="konten"
-        />
+        {/* Main Content Table Card */}
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden">
+          <DataTable columns={columns} data={paginatedContents} emptyMessage="Tidak ada riwayat content plan." />
+          <PaginationBar
+            currentPage={currentPage}
+            totalPages={totalPages || 1}
+            totalItems={filteredContents.length}
+            onPageChange={setCurrentPage}
+            itemName="konten"
+          />
+        </div>
       </div>
 
       {/* Media Viewer & Detail Modal */}

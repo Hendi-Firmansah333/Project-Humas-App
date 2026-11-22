@@ -519,17 +519,18 @@ export default function SchedulePage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <label className="block text-[12px] font-[600] leading-[16px] text-[#334155] mb-1.5">Pilih Personel Bertugas *</label>
-              <select
-                value={formMemberId}
-                onChange={(e) => setFormMemberId(Number(e.target.value))}
-                className="w-full h-[36px] bg-white border border-[#E2E8F0] focus:border-[#003D58] focus:ring-1 focus:ring-[#003D58]/25 rounded-[8px] px-3 text-[12px] text-[#334155] shadow-[0_1px_2px_rgba(0,0,0,0.05)] focus:outline-none transition-all cursor-pointer"
-              >
-                {membersList.map((m) => (
-                  <option key={m.id} value={m.id}>
-                    {m.name} ({m.role})
-                  </option>
-                ))}
-              </select>
+              <FilterDropdown
+                value={formMemberId ? String(formMemberId) : ''}
+                onChange={(val) => setFormMemberId(Number(val))}
+                options={membersList.map((m) => ({
+                  value: String(m.id),
+                  label: `${m.name} (${m.role})`,
+                }))}
+                placeholder="Pilih Anggota Humas"
+                icon={false}
+                allowClear={false}
+                className="w-full"
+              />
             </div>
 
             <CustomDatePicker
@@ -582,13 +583,13 @@ export default function SchedulePage() {
             <button
               type="button"
               onClick={() => setIsAssignOpen(false)}
-              className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-[8px] transition-colors cursor-pointer"
+              className="px-4 py-2 bg-white border border-[#E2E8F0] text-[#64748B] hover:bg-[#F8FAFC] text-[12px] font-semibold rounded-full transition-colors cursor-pointer"
             >
               Batal
             </button>
             <button
               type="submit"
-              className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-[8px] shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
+              className="px-5 py-2 bg-[#003D58] hover:bg-[#002F44] active:bg-[#00263A] text-white text-[12px] font-semibold rounded-full shadow-xs shadow-[#003D58]/25 transition-all cursor-pointer"
             >
               Simpan Jadwal
             </button>
