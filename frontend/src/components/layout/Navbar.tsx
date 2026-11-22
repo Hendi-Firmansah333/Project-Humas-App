@@ -482,9 +482,9 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
               </div>
 
               {searchResults.menus.length === 0 &&
-              searchResults.activities.length === 0 &&
-              searchResults.letters.length === 0 &&
-              searchResults.users.length === 0 ? (
+                searchResults.activities.length === 0 &&
+                searchResults.letters.length === 0 &&
+                searchResults.users.length === 0 ? (
                 <div className="p-6 text-center text-slate-400 text-xs">
                   <p>Tidak ditemukan kegiatan, surat, atau modul yang cocok.</p>
                 </div>
@@ -673,11 +673,10 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
                     <div
                       key={n.id}
                       onClick={() => handleNotificationClick(n)}
-                      className={`p-2.5 rounded-xl flex gap-3 text-xs transition-colors group cursor-pointer ${
-                        !n.isRead
+                      className={`p-2.5 rounded-xl flex gap-3 text-xs transition-colors group cursor-pointer ${!n.isRead
                           ? 'bg-[#35C6D4]/5 border border-[#35C6D4]/15 hover:bg-[#35C6D4]/10'
                           : 'hover:bg-slate-50 border border-transparent'
-                      }`}
+                        }`}
                     >
                       {notifIcon(n.type)}
                       <div className="flex-1 min-w-0">
@@ -796,4 +795,4 @@ export default function Navbar({ title = 'TIM HUMAS POLINELA', onOpenMobileMenu 
     </header>
   );
 }
-
+
