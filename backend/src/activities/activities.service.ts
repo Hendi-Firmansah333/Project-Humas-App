@@ -721,17 +721,34 @@ export class ActivitiesService {
     return R * c; // Distance in meters
   }
 
-  async checkIn(activityId: number, userId: number, dto: CheckInDto) {
-    console.log(`[CHECK-IN] Activity #${activityId}, User #${userId}, Received:`, JSON.stringify(dto));
+  private async validateCheckInEligibility(activityId: number, userId: number, dto: CheckInDto) {
     const activity = await this.prisma.activity.findFirst({
       where: { id: activityId, deletedAt: null },
       include: this.activityInclude,
     });
     if (!activity) throw new NotFoundException('Kegiatan tidak ditemukan.');
 
+    if (activity.status === ActivityStatus.SELESAI || activity.status === ActivityStatus.DIBATALKAN) {
+      throw new BadRequestException('Presensi tidak tersedia karena kegiatan sudah selesai atau dibatalkan.');
+    }
+
+    const member = await this.prisma.activityMember.findUnique({
+      where: { activityId_userId: { activityId, userId } },
+    });
+
+    if (!member && activity.picId !== userId) {
+      throw new ForbiddenException('Anda tidak ditugaskan pada kegiatan ini.');
+    }
+
+    if (
+      member &&
+      (member.checkInStatus === CheckInStatus.SUCCESS || member.checkInStatus === CheckInStatus.TERLAMBAT)
+    ) {
+      throw new BadRequestException('Anda sudah melakukan presensi untuk kegiatan ini.');
+    }
+
     // 1. Time Validation (presensi dibuka 15 menit sebelum kegiatan dimulai, dalam WIB)
     const startDateTime = buildWibDateTime(activity.date, activity.startTime, '08:00');
-
     const checkInOpenTime = new Date(startDateTime.getTime() - 15 * 60 * 1000);
     const now = new Date();
     if (now < checkInOpenTime) {
@@ -766,11 +783,21 @@ export class ActivitiesService {
       }
     }
 
-    const timeLabel = formatWibTimeLabel(now);
+    return { activity, member, now, isLate, checkInStatus, distanceCalculated };
+  }
 
-    let member = await this.prisma.activityMember.findUnique({
-      where: { activityId_userId: { activityId, userId } },
-    });
+  async validateCheckIn(activityId: number, userId: number, dto: CheckInDto) {
+    const { isLate, checkInStatus } = await this.validateCheckInEligibility(activityId, userId, dto);
+    return { valid: true, isLate, checkInStatus };
+  }
+
+  async checkIn(activityId: number, userId: number, dto: CheckInDto) {
+    console.log(`[CHECK-IN] Activity #${activityId}, User #${userId}, Received:`, JSON.stringify(dto));
+    const { activity, member: existingMember, now, isLate, checkInStatus, distanceCalculated } =
+      await this.validateCheckInEligibility(activityId, userId, dto);
+
+    const timeLabel = formatWibTimeLabel(now);
+    let member = existingMember;
 
     if (!member) {
       if (activity.picId === userId) {

@@ -233,6 +233,16 @@ export class ActivitiesController {
 
   // ── Mobile Endpoints ────────────────────────────────────────
 
+  @Post(':id/check-in/validate')
+  @ApiOperation({ summary: 'Pre-validasi kelayakan check-in sebelum upload foto (mobile)' })
+  validateCheckIn(
+    @Param('id', ParseIntPipe) id: number,
+    @Request() req: any,
+    @Body() dto: CheckInDto,
+  ) {
+    return this.activitiesService.validateCheckIn(id, req.user.id, dto);
+  }
+
   @Post(':id/check-in')
   @ApiOperation({ summary: 'Check-in kehadiran kegiatan (mobile – Tim Humas)' })
   checkIn(
