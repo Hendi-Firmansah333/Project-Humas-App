@@ -321,14 +321,22 @@ export default function ActivityDetailPage() {
     return list;
   })();
 
+  const formatCheckInTimeWib = (raw?: string | null) => {
+    if (!raw) return '-';
+    const trimmed = raw.trim();
+    return /wib$/i.test(trimmed) ? trimmed : `${trimmed} WIB`;
+  };
+
   const checkInLogs = assignedMembers
     .filter((m) => m.checkInTime)
     .map((m) => {
       const att = activity.attendances?.find((a) => a.userId === m.userId);
+      const isLate = m.checkInStatus === 'TERLAMBAT' || att?.status === 'TERLAMBAT';
       return {
         userId: m.userId,
         name: m.user.fullName,
-        time: m.checkInTime,
+        time: formatCheckInTimeWib(m.checkInTime),
+        isLate,
         role: m.userId === activity.picId ? 'PIC' : 'Anggota',
         latitude: att?.latitude,
         longitude: att?.longitude,
@@ -643,6 +651,7 @@ export default function ActivityDetailPage() {
                   {assignedMembers.map((m) => {
                     const hasCheckedIn = !!m.checkInTime;
                     const att = activity.attendances?.find((a) => a.userId === m.userId);
+                    const isLate = m.checkInStatus === 'TERLAMBAT' || att?.status === 'TERLAMBAT';
                     const hasGPS = att?.latitude != null && att?.longitude != null;
 
                     return (
@@ -677,8 +686,8 @@ export default function ActivityDetailPage() {
                           </span>
                           {hasCheckedIn ? (
                             <div className="mt-1.5 space-y-0.5 text-[11px] text-slate-500">
-                              <p className="font-semibold text-emerald-700 truncate">
-                                Hadir · {m.checkInTime} WIB
+                              <p className={`font-semibold truncate ${isLate ? 'text-amber-600' : 'text-emerald-700'}`}>
+                                {isLate ? 'Terlambat' : 'Hadir'} · {formatCheckInTimeWib(m.checkInTime)}
                               </p>
                               <p className="inline-flex items-center gap-1 truncate">
                                 <Globe className="w-3 h-3 text-slate-400 shrink-0" />
@@ -795,6 +804,8 @@ export default function ActivityDetailPage() {
                     <div className="space-y-2.5">
                       {assignedMembers.map((m) => {
                         const hasCheckedIn = !!m.checkInTime;
+                        const att = activity.attendances?.find((a) => a.userId === m.userId);
+                        const isLate = m.checkInStatus === 'TERLAMBAT' || att?.status === 'TERLAMBAT';
                         return (
                           <div key={m.id} className="flex items-center gap-2.5 min-w-0">
                             <UserAvatar src={m.user.avatar} name={m.user.fullName} size="md" />
@@ -805,8 +816,10 @@ export default function ActivityDetailPage() {
                                   {m.userId === activity.picId ? 'PIC Lapangan' : m.role || 'Anggota'}
                                 </span>
                               </div>
-                              <p className="text-[11px] text-slate-400 mt-0.5 truncate">
-                                {hasCheckedIn ? `Check-in ${m.checkInTime} WIB` : 'Belum melakukan check-in'}
+                              <p className={`text-[11px] mt-0.5 truncate ${hasCheckedIn && isLate ? 'text-amber-600 font-semibold' : 'text-slate-400'}`}>
+                                {hasCheckedIn
+                                  ? `${isLate ? 'Terlambat' : 'Check-in'} · ${formatCheckInTimeWib(m.checkInTime)}`
+                                  : 'Belum melakukan check-in'}
                               </p>
                             </div>
                           </div>
@@ -831,10 +844,17 @@ export default function ActivityDetailPage() {
                     <div className="relative border-l-2 border-slate-100 pl-3.5 ml-1.5 space-y-3 py-0.5 text-xs">
                       {checkInLogs.map((log, idx) => (
                         <div key={idx} className="relative">
-                          <div className="absolute -left-[19px] top-1 w-2.5 h-2.5 rounded-full bg-[#003D58] border-2 border-white" />
-                          <span className="text-[10px] font-bold text-[#003D58] bg-sky-50 px-2 py-0.5 rounded">
-                            {log.time}
-                          </span>
+                          <div className={`absolute -left-[19px] top-1 w-2.5 h-2.5 rounded-full border-2 border-white ${log.isLate ? 'bg-amber-500' : 'bg-[#003D58]'}`} />
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] font-bold text-[#003D58] bg-sky-50 px-2 py-0.5 rounded">
+                              {log.time}
+                            </span>
+                            {log.isLate && (
+                              <span className="text-[10px] font-bold text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded">
+                                Terlambat
+                              </span>
+                            )}
+                          </div>
                           <p className="text-xs font-bold text-slate-800 mt-1 leading-tight truncate">{log.name}</p>
                           <p className="text-[11px] text-slate-400 truncate">{log.role}</p>
                         </div>
