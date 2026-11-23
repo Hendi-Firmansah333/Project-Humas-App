@@ -8,6 +8,7 @@ import { ActivityStatus, CheckInStatus, NotificationType, Role, UserStatus } fro
 import { buildPaginatedResult, parsePagination } from '../common/utils/pagination.util';
 import { mapActivityForMobile } from '../common/mappers/mobile.mapper';
 import { RealtimeEventsService } from '../events/realtime-events.service';
+import { buildWibDateTime, formatWibTimeLabel } from '../common/utils/wib-time.util';
 
 @Injectable()
 export class ActivitiesService {
@@ -144,15 +145,8 @@ export class ActivitiesService {
     for (const activity of activities) {
       let currentStatus = activity.status;
 
-      const activityDate = new Date(activity.date);
-      const startParts = (activity.startTime || '08:00').split(':');
-      const endParts = (activity.endTime || '17:00').split(':');
-
-      const startDateTime = new Date(activityDate);
-      startDateTime.setHours(parseInt(startParts[0] || '0', 10), parseInt(startParts[1] || '0', 10), 0, 0);
-
-      const endDateTime = new Date(activityDate);
-      endDateTime.setHours(parseInt(endParts[0] || '23', 10), parseInt(endParts[1] || '59', 10), 59, 999);
+      const startDateTime = buildWibDateTime(activity.date, activity.startTime, '08:00');
+      const endDateTime = buildWibDateTime(activity.date, activity.endTime, '17:00', true);
 
       if (now > endDateTime) {
         currentStatus = ActivityStatus.MENUNGGU_PERSETUJUAN_AKHIR;
@@ -306,13 +300,8 @@ export class ActivitiesService {
     // Remove legacy 'members' field from data if present
     const { members: _ignored, ...cleanData } = data as any;
 
-    const actDate = new Date(date);
-    const startParts = (cleanData.startTime || '08:00').split(':');
-    const endParts = (cleanData.endTime || '17:00').split(':');
-    const startDateTime = new Date(actDate);
-    startDateTime.setHours(parseInt(startParts[0] || '0', 10), parseInt(startParts[1] || '0', 10), 0, 0);
-    const endDateTime = new Date(actDate);
-    endDateTime.setHours(parseInt(endParts[0] || '23', 10), parseInt(endParts[1] || '59', 10), 59, 999);
+    const startDateTime = buildWibDateTime(date, cleanData.startTime, '08:00');
+    const endDateTime = buildWibDateTime(date, cleanData.endTime, '17:00', true);
     const now = new Date();
 
     let initialStatus: ActivityStatus = ActivityStatus.AKAN_DATANG;
@@ -359,13 +348,8 @@ export class ActivitiesService {
           let lStart = new Date(oLoan.borrowDate);
           let lEnd = new Date(oLoan.returnDate);
           if (oLoan.activity) {
-            const lDate = new Date(oLoan.activity.date);
-            const lStartParts = (oLoan.activity.startTime || '08:00').split(':');
-            const lEndParts = (oLoan.activity.endTime || '17:00').split(':');
-            lStart = new Date(lDate);
-            lStart.setHours(parseInt(lStartParts[0] || '0', 10), parseInt(lStartParts[1] || '0', 10), 0, 0);
-            lEnd = new Date(lDate);
-            lEnd.setHours(parseInt(lEndParts[0] || '23', 10), parseInt(lEndParts[1] || '59', 10), 59, 999);
+            lStart = buildWibDateTime(oLoan.activity.date, oLoan.activity.startTime, '08:00');
+            lEnd = buildWibDateTime(oLoan.activity.date, oLoan.activity.endTime, '17:00', true);
           }
           if (startDateTime <= lEnd && endDateTime >= lStart) {
             for (const it of oLoan.items) {
@@ -745,11 +729,8 @@ export class ActivitiesService {
     });
     if (!activity) throw new NotFoundException('Kegiatan tidak ditemukan.');
 
-    // 1. Time Validation (presensi dibuka 15 menit sebelum kegiatan dimulai)
-    const actDate = new Date(activity.date);
-    const startParts = (activity.startTime || '08:00').split(':');
-    const startDateTime = new Date(actDate);
-    startDateTime.setHours(parseInt(startParts[0] || '0', 10), parseInt(startParts[1] || '0', 10), 0, 0);
+    // 1. Time Validation (presensi dibuka 15 menit sebelum kegiatan dimulai, dalam WIB)
+    const startDateTime = buildWibDateTime(activity.date, activity.startTime, '08:00');
 
     const checkInOpenTime = new Date(startDateTime.getTime() - 15 * 60 * 1000);
     const now = new Date();
@@ -785,7 +766,7 @@ export class ActivitiesService {
       }
     }
 
-    const timeLabel = now.toLocaleTimeString('id-ID', { hour: '2-digit', minute: '2-digit' }) + ' WIB';
+    const timeLabel = formatWibTimeLabel(now);
 
     let member = await this.prisma.activityMember.findUnique({
       where: { activityId_userId: { activityId, userId } },
@@ -850,11 +831,8 @@ export class ActivitiesService {
     const isMember = (activity.members as any[]).some((m: any) => m.userId === userId) || activity.picId === userId;
     if (!isMember) throw new ForbiddenException('Anda tidak ditugaskan pada kegiatan ini.');
 
-    // Time validation: documentation only permitted after start time
-    const actDate = new Date(activity.date);
-    const startParts = (activity.startTime || '08:00').split(':');
-    const startDateTime = new Date(actDate);
-    startDateTime.setHours(parseInt(startParts[0] || '0', 10), parseInt(startParts[1] || '0', 10), 0, 0);
+    // Time validation: documentation only permitted after start time (WIB)
+    const startDateTime = buildWibDateTime(activity.date, activity.startTime, '08:00');
 
     const now = new Date();
     if (now < startDateTime) {
@@ -1087,13 +1065,8 @@ export class ActivitiesService {
       });
     }
 
-    const actDate = new Date(activity.date);
-    const startParts = (activity.startTime || '08:00').split(':');
-    const endParts = (activity.endTime || '17:00').split(':');
-    const startDateTime = new Date(actDate);
-    startDateTime.setHours(parseInt(startParts[0] || '0', 10), parseInt(startParts[1] || '0', 10), 0, 0);
-    const endDateTime = new Date(actDate);
-    endDateTime.setHours(parseInt(endParts[0] || '23', 10), parseInt(endParts[1] || '59', 10), 59, 999);
+    const startDateTime = buildWibDateTime(activity.date, activity.startTime, '08:00');
+    const endDateTime = buildWibDateTime(activity.date, activity.endTime, '17:00', true);
 
     // Handle equipment allocation if provided
     if (equipmentItems !== undefined) {
@@ -1127,13 +1100,8 @@ export class ActivitiesService {
             let lStart = new Date(oLoan.borrowDate);
             let lEnd = new Date(oLoan.returnDate);
             if (oLoan.activity) {
-              const lDate = new Date(oLoan.activity.date);
-              const lStartParts = (oLoan.activity.startTime || '08:00').split(':');
-              const lEndParts = (oLoan.activity.endTime || '17:00').split(':');
-              lStart = new Date(lDate);
-              lStart.setHours(parseInt(lStartParts[0] || '0', 10), parseInt(lStartParts[1] || '0', 10), 0, 0);
-              lEnd = new Date(lDate);
-              lEnd.setHours(parseInt(lEndParts[0] || '23', 10), parseInt(lEndParts[1] || '59', 10), 59, 999);
+              lStart = buildWibDateTime(oLoan.activity.date, oLoan.activity.startTime, '08:00');
+              lEnd = buildWibDateTime(oLoan.activity.date, oLoan.activity.endTime, '17:00', true);
             }
             if (startDateTime <= lEnd && endDateTime >= lStart) {
               for (const it of oLoan.items) {

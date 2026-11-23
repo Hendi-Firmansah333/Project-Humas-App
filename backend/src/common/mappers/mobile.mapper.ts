@@ -9,6 +9,7 @@ import {
   Notification,
   User,
 } from '@prisma/client';
+import { buildWibDateTime } from '../utils/wib-time.util';
 
 const activityStatusLabel: Record<ActivityStatus, string> = {
   DRAFT: 'Draft',
@@ -152,7 +153,7 @@ export function mapActivityForMobile(
     documentationUrl,
     checkInState: state,
     selfiePath: member?.selfieUrl ?? null,
-    scheduledAt: activity.date.toISOString(),
+    scheduledAt: buildWibDateTime(activity.date, activity.startTime, '08:00').toISOString(),
     isHistory,
     checkInTime: member?.checkInTime ?? null,
     adminNote: activity.validationNotes ?? null,
