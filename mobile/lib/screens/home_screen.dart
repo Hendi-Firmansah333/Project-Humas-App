@@ -44,6 +44,17 @@ class HomeScreen extends StatelessWidget {
       pushSmooth(context, ActivityDetailScreen(activity: activity));
       return;
     }
+    final blockedReason = activity.checkInBlockedReason;
+    if (blockedReason != null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(blockedReason),
+          backgroundColor: Colors.redAccent,
+        ),
+      );
+      pushSmooth(context, ActivityDetailScreen(activity: activity));
+      return;
+    }
     pushSmooth(context, CheckinScreen(activity: activity));
   }
 
@@ -82,35 +93,41 @@ class HomeScreen extends StatelessWidget {
                             children: [
                               // ── 1 & 2. CURVED NAVY HEADER + OVERLAPPING SCHEDULE HERO CARD ──
                               Stack(
+                                clipBehavior: Clip.none,
                                 children: [
                                   _CurvedHomeHeaderBackground(topInset: topInset),
-                                  Padding(
-                                    padding: EdgeInsets.fromLTRB(20, topInset + 14, 20, 0),
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        _HomeHeaderTopBar(
-                                          unreadCount: provider.unreadNotificationCount,
-                                          onSearch: () => pushSmooth(
-                                            context,
-                                            const GlobalSearchScreen(),
-                                          ),
-                                          onNotifications: () => onNavigate(3),
+                                  Column(
+                                    crossAxisAlignment: CrossAxisAlignment.start,
+                                    children: [
+                                      Padding(
+                                        padding: EdgeInsets.fromLTRB(20, topInset + 14, 20, 0),
+                                        child: Column(
+                                          crossAxisAlignment: CrossAxisAlignment.start,
+                                          children: [
+                                            _HomeHeaderTopBar(
+                                              unreadCount: provider.unreadNotificationCount,
+                                              onSearch: () => pushSmooth(
+                                                context,
+                                                const GlobalSearchScreen(),
+                                              ),
+                                              onNotifications: () => onNavigate(3),
+                                            ),
+                                            const SizedBox(height: 23),
+                                            _HomeHeaderGreeting(profile: profile),
+                                          ],
                                         ),
-                                        const SizedBox(height: 23),
-                                        _HomeHeaderGreeting(profile: profile),
-                                        const SizedBox(height: 20),
-                                        _ActiveScheduleHeroCard(
-                                          schedules: provider.activeSchedules,
-                                          onTapActivity: (act) => pushSmooth(
-                                            context,
-                                            ActivityDetailScreen(activity: act),
-                                          ),
-                                          onTapCheckIn: (act) => _openActivityCheckIn(context, act),
-                                          onViewAll: () => onNavigate(1),
+                                      ),
+                                      const SizedBox(height: 20),
+                                      _ActiveScheduleHeroCard(
+                                        schedules: provider.activeSchedules,
+                                        onTapActivity: (act) => pushSmooth(
+                                          context,
+                                          ActivityDetailScreen(activity: act),
                                         ),
-                                      ],
-                                    ),
+                                        onTapCheckIn: (act) => _openActivityCheckIn(context, act),
+                                        onViewAll: () => onNavigate(1),
+                                      ),
+                                    ],
                                   ),
                                 ],
                               ),
@@ -553,9 +570,15 @@ class _ActiveScheduleHeroCardState extends State<_ActiveScheduleHeroCard> {
   @override
   void initState() {
     super.initState();
-    _pageController = PageController(
-      viewportFraction: widget.schedules.length > 1 ? 0.96 : 1.0,
-    );
+    _pageController = PageController(viewportFraction: 0.90);
+  }
+
+  @override
+  void didUpdateWidget(covariant _ActiveScheduleHeroCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.schedules.isNotEmpty && _currentPage >= widget.schedules.length) {
+      _currentPage = widget.schedules.length - 1;
+    }
   }
 
   @override
@@ -596,88 +619,115 @@ class _ActiveScheduleHeroCardState extends State<_ActiveScheduleHeroCard> {
   @override
   Widget build(BuildContext context) {
     if (widget.schedules.isEmpty) {
-      return GestureDetector(
-        onTap: widget.onViewAll,
-        child: Container(
-          padding: const EdgeInsets.all(20),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(24),
-            border: Border.all(color: const Color(0xFFF1F5F9)),
-            boxShadow: [
-              BoxShadow(
-                color: const Color(0xFF0D4A63).withValues(alpha: 0.08),
-                blurRadius: 25,
-                offset: const Offset(0, 8),
-              ),
-            ],
-          ),
-          child: Row(
-            children: [
-              Container(
-                width: 48,
-                height: 48,
-                decoration: BoxDecoration(
-                  color: const Color(0xFFD5F4F0),
-                  borderRadius: BorderRadius.circular(14),
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: GestureDetector(
+          onTap: widget.onViewAll,
+          child: Container(
+            padding: const EdgeInsets.all(20),
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(24),
+              border: Border.all(color: const Color(0xFFF1F5F9)),
+              boxShadow: [
+                BoxShadow(
+                  color: const Color(0xFF0D4A63).withValues(alpha: 0.08),
+                  blurRadius: 25,
+                  offset: const Offset(0, 8),
                 ),
-                child: const Icon(
-                  Icons.event_available_rounded,
-                  color: Color(0xFF0F6B64),
-                  size: 24,
+              ],
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFD5F4F0),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  child: const Icon(
+                    Icons.event_available_rounded,
+                    color: Color(0xFF0F6B64),
+                    size: 24,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 14),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      'JADWAL KEGIATAN',
-                      style: _pj(10, FontWeight.w700, const Color(0xFF0F6B64), ls: 0.5),
-                    ),
-                    const SizedBox(height: 2),
-                    Text(
-                      'Belum ada kegiatan terjadwal hari ini',
-                      style: _pj(14, FontWeight.w700, const Color(0xFF1E293B)),
-                    ),
-                    Text(
-                      'Ketuk untuk melihat seluruh agenda kegiatan tim',
-                      style: _pj(11, FontWeight.w500, const Color(0xFF64748B)),
-                    ),
-                  ],
+                const SizedBox(width: 14),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'JADWAL KEGIATAN',
+                        style: _pj(10, FontWeight.w700, const Color(0xFF0F6B64), ls: 0.5),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Belum ada kegiatan terjadwal hari ini',
+                        style: _pj(14, FontWeight.w700, const Color(0xFF1E293B)),
+                      ),
+                      Text(
+                        'Ketuk untuk melihat seluruh agenda kegiatan tim',
+                        style: _pj(11, FontWeight.w500, const Color(0xFF64748B)),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-              const Icon(
-                Icons.chevron_right_rounded,
-                color: Color(0xFF64748B),
-                size: 20,
-              ),
-            ],
+                const Icon(
+                  Icons.chevron_right_rounded,
+                  color: Color(0xFF64748B),
+                  size: 20,
+                ),
+              ],
+            ),
           ),
         ),
       );
     }
 
     if (widget.schedules.length == 1) {
-      return _buildCardItem(widget.schedules.first, index: 0, total: 1);
+      return Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: _buildCardItem(widget.schedules.first, index: 0, total: 1),
+      );
     }
 
     return Column(
       children: [
         SizedBox(
-          height: 368,
+          height: 372,
           child: PageView.builder(
             controller: _pageController,
+            clipBehavior: Clip.none,
+            physics: const BouncingScrollPhysics(),
             itemCount: widget.schedules.length,
             onPageChanged: (idx) => setState(() => _currentPage = idx),
             itemBuilder: (context, index) {
-              return Padding(
-                padding: const EdgeInsets.only(right: 8, bottom: 4),
-                child: _buildCardItem(
-                  widget.schedules[index],
-                  index: index,
-                  total: widget.schedules.length,
+              return AnimatedBuilder(
+                animation: _pageController,
+                builder: (context, child) {
+                  double scale = 1.0;
+                  if (_pageController.position.haveDimensions) {
+                    final pageOffset = (_pageController.page ?? _currentPage.toDouble()) - index;
+                    scale = (1.0 - (pageOffset.abs() * 0.04)).clamp(0.95, 1.0);
+                  } else if (index != _currentPage) {
+                    scale = 0.96;
+                  }
+                  return Transform.scale(
+                    scale: scale,
+                    child: child,
+                  );
+                },
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 6),
+                  child: Align(
+                    alignment: Alignment.topCenter,
+                    child: _buildCardItem(
+                      widget.schedules[index],
+                      index: index,
+                      total: widget.schedules.length,
+                    ),
+                  ),
                 ),
               );
             },

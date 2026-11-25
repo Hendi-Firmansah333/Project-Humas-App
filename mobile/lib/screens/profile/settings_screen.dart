@@ -157,9 +157,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
           _SettingsTile(
             icon: Icons.language,
             iconColor: AppColors.primary,
-            title: T.t('language'),
-            subtitle: _settings.language,
-            onTap: () => _showLanguagePicker(),
+            title: 'Bahasa',
+            subtitle: 'Bahasa Indonesia',
+            trailing: const Icon(
+              Icons.check_circle_outline,
+              color: AppColors.primary,
+              size: 20,
+            ),
           ),
           const SizedBox(height: 20),
           _sectionTitle('Data'),
@@ -196,39 +200,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
           fontWeight: FontWeight.w800,
           fontSize: 14,
           color: AppColors.textSecondary,
-        ),
-      ),
-    );
-  }
-
-  Future<void> _showLanguagePicker() async {
-    const options = ['Indonesia', 'English'];
-    await showModalBottomSheet<void>(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (context) => SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            const Padding(
-              padding: EdgeInsets.all(16),
-              child: Text('Pilih Bahasa', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-            ),
-            ...options.map(
-              (lang) => ListTile(
-                title: Text(lang),
-                trailing: _settings.language == lang
-                    ? const Icon(Icons.check, color: AppColors.primary)
-                    : null,
-                onTap: () {
-                  _settings.setLanguage(lang);
-                  Navigator.pop(context);
-                },
-              ),
-            ),
-          ],
         ),
       ),
     );

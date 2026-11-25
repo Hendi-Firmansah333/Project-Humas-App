@@ -487,6 +487,18 @@ class AppDataProvider extends ChangeNotifier {
     notifyListeners();
   }
 
+  Future<void> validateCheckInEligibility({
+    required String activityId,
+    double? latitude,
+    double? longitude,
+  }) {
+    return _repo.validateCheckInEligibility(
+      activityId: activityId,
+      latitude: latitude,
+      longitude: longitude,
+    );
+  }
+
   Future<ActivityItem> submitCheckIn({
     required String activityId,
     required String selfiePath,

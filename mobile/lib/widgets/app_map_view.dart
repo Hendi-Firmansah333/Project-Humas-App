@@ -101,7 +101,7 @@ class _AppMapViewState extends State<AppMapView> {
                   urlTemplate: ApiConfig.mapboxAccessToken.isNotEmpty
                       ? 'https://api.mapbox.com/styles/v1/mapbox/satellite-streets-v12/tiles/{z}/{x}/{y}@2x?access_token=${ApiConfig.mapboxAccessToken}'
                       : 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
-                  userAgentPackageName: 'com.example.poli_humas',
+                  userAgentPackageName: 'id.ac.polinela.humas.prima',
                   maxZoom: 20,
                 ),
 

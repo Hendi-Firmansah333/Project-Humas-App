@@ -459,8 +459,13 @@ class AppRepository {
     final allActivities = [...data.activities, ...data.activityHistory];
     final checkedIn = allActivities.where((a) => a.hasCheckedIn).length;
     final total = allActivities.length;
-    final completedContent =
-        data.contentPlans.where((c) => c.status == ContentPlanStatus.selesai).length;
+    final completedContent = data.contentPlans
+        .where(
+          (c) =>
+              c.status == ContentPlanStatus.selesai ||
+              c.status == ContentPlanStatus.disetujui,
+        )
+        .length;
     final attendance = total == 0 ? 0 : ((checkedIn / total) * 100).round();
     return ProfileStats(
       totalActivities: total,
@@ -470,6 +475,20 @@ class AppRepository {
   }
 
   int get unreadNotificationCount => data.notifications.where((n) => n.isUnread).length;
+
+  Future<void> validateCheckInEligibility({
+    required String activityId,
+    double? latitude,
+    double? longitude,
+  }) async {
+    if (_useApi) {
+      await ApiService.instance.validateCheckInEligibility(
+        activityId: activityId,
+        latitude: latitude,
+        longitude: longitude,
+      );
+    }
+  }
 
   Future<ActivityItem> submitCheckIn({
     required String activityId,

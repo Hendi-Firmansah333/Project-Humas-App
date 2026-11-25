@@ -23,7 +23,8 @@ class AppSettingsService extends ChangeNotifier {
     locationEnabled = (await LocalStorage.getString(_keyLocation)) != 'false';
     darkModeEnabled = false;
     await LocalStorage.setString(_keyDarkMode, 'false');
-    language = await LocalStorage.getString(_keyLanguage) ?? 'Indonesia';
+    language = 'Indonesia';
+    await LocalStorage.setString(_keyLanguage, 'Indonesia');
     _loaded = true;
     notifyListeners();
   }
@@ -47,8 +48,8 @@ class AppSettingsService extends ChangeNotifier {
   }
 
   Future<void> setLanguage(String value) async {
-    language = value;
-    await LocalStorage.setString(_keyLanguage, value);
+    language = 'Indonesia';
+    await LocalStorage.setString(_keyLanguage, 'Indonesia');
     notifyListeners();
   }
 }

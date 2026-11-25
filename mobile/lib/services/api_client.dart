@@ -36,6 +36,8 @@ class ApiClient {
 
   Dio? _dio;
   String? _token;
+  Future<void> Function()? onUnauthorized;
+  bool _isHandlingUnauthorized = false;
 
   Future<void> init() async {
     _token = await LocalStorage.getString(_tokenKey);
@@ -76,7 +78,21 @@ class ApiClient {
           if (statusCode == 401) {
             errorType = ApiErrorType.unauthorized;
             userFriendlyMessage = serverMessage ?? 'Sesi Anda telah berakhir. Silakan masuk kembali.';
-            await clearToken();
+            final path = e.requestOptions.path;
+            final isAuthEndpoint =
+                path.contains('/auth/login') || path.contains('/auth/logout');
+            if (!isAuthEndpoint) {
+              final hadToken = hasToken;
+              await clearToken();
+              if (hadToken && !_isHandlingUnauthorized && onUnauthorized != null) {
+                _isHandlingUnauthorized = true;
+                try {
+                  await onUnauthorized!.call();
+                } finally {
+                  _isHandlingUnauthorized = false;
+                }
+              }
+            }
           } else if (statusCode == 403) {
             errorType = ApiErrorType.forbidden;
             userFriendlyMessage = serverMessage ?? 'Anda tidak memiliki hak akses untuk tindakan ini.';

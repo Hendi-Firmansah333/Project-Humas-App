@@ -12,7 +12,7 @@ class AboutAppScreen extends StatefulWidget {
 }
 
 class _AboutAppScreenState extends State<AboutAppScreen> {
-  String _version = '2.4.0';
+  String _version = '1.0.0';
   String _buildNumber = '1';
 
   @override
@@ -126,8 +126,8 @@ class _AboutAppScreenState extends State<AboutAppScreen> {
                   ),
                   _contactTile(
                     icon: Icons.phone_outlined,
-                    label: '(0721) 123456',
-                    onTap: () => _openLink('tel:+62721123456'),
+                    label: '(0721) 703995',
+                    onTap: () => _openLink('tel:+62721703995'),
                   ),
                   _contactTile(
                     icon: Icons.camera_alt_outlined,

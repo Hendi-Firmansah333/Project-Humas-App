@@ -32,7 +32,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
   bool get _isLocationValid => _locationResult?.isValid ?? false;
 
   bool _canContinue(ActivityItem activity) =>
-      _isLocationValid && _selfiePath != null && !activity.hasCheckedIn;
+      _isLocationValid && _selfiePath != null && activity.checkInBlockedReason == null;
 
   @override
   void initState() {
@@ -251,7 +251,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
                   ],
                 ),
               ),
-            if (activity.hasCheckedIn) ...[
+            if (activity.hasCheckedIn || activity.checkInBlockedReason != null) ...[
               const SizedBox(height: 12),
               Container(
                 width: double.infinity,
@@ -266,9 +266,11 @@ class _CheckinScreenState extends State<CheckinScreen> {
                     const SizedBox(width: 10),
                     Expanded(
                       child: Text(
-                        activity.checkInStatus.isNotEmpty
-                            ? activity.checkInStatus
-                            : 'Anda sudah melakukan check-in untuk kegiatan ini.',
+                        activity.hasCheckedIn
+                            ? (activity.checkInStatus.isNotEmpty
+                                ? activity.checkInStatus
+                                : 'Anda sudah melakukan check-in untuk kegiatan ini.')
+                            : activity.checkInBlockedReason!,
                         style: const TextStyle(
                           color: AppColors.warning,
                           fontWeight: FontWeight.w600,
@@ -331,7 +333,7 @@ class _CheckinScreenState extends State<CheckinScreen> {
               children: [
                 Expanded(
                   child: OutlinedButton.icon(
-                    onPressed: activity.hasCheckedIn ? null : _takeSelfie,
+                    onPressed: activity.checkInBlockedReason != null ? null : _takeSelfie,
                     icon: const Icon(Icons.camera_alt_outlined),
                     label: Text(_selfiePath != null ? 'Ambil Ulang' : 'Ambil Selfie'),
                     style: OutlinedButton.styleFrom(

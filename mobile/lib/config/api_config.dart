@@ -16,7 +16,7 @@ class ApiConfig {
 
   static const String devUrl = String.fromEnvironment(
     'API_URL',
-    defaultValue: '',
+    defaultValue: 'https://polihumas-api.vercel.app',
   );
 
   static const int devPort = 3001;
@@ -29,8 +29,9 @@ class ApiConfig {
   );
 
   static String get baseUrl {
-    if (devUrl.isNotEmpty) {
-      return devUrl.endsWith('/api') ? devUrl : '$devUrl/api';
+    final trimmedUrl = devUrl.trim().replaceFirst(RegExp(r'/+$'), '');
+    if (trimmedUrl.isNotEmpty) {
+      return trimmedUrl.endsWith('/api') ? trimmedUrl : '$trimmedUrl/api';
     }
     if (kIsWeb) return 'http://localhost:$devPort/api';
     if (defaultTargetPlatform == TargetPlatform.android) {

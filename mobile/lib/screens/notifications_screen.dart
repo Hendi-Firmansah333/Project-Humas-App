@@ -385,7 +385,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   onRefresh: () => provider.loadNotifications(refresh: true),
                   onLoadMore: () => provider.loadNotifications(loadMore: true),
                   onRetry: () => provider.loadNotifications(refresh: true),
-                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 80),
+                  padding: const EdgeInsets.fromLTRB(18, 4, 18, 112),
                   separatorBuilder: (context, index) => const SizedBox(height: 10),
                   itemBuilder: (context, index) {
                     final item = state.items[index];

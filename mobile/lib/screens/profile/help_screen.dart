@@ -87,7 +87,9 @@ class _HelpScreenState extends State<HelpScreen> {
               title: 'WhatsApp Admin',
               subtitle: 'Respon cepat di jam kerja (08:00 - 16:00)',
               actionLabel: 'Chat Sekarang →',
-              onTap: () => _openUrl('https://wa.me/6281234567890'),
+              onTap: () => _openUrl(
+                'https://wa.me/628117961199?text=Halo%20Admin%20Humas%20Polinela%2C%20saya%20membutuhkan%20bantuan%20terkait%20aplikasi%20PRIMA',
+              ),
             ),
             const SizedBox(height: 10),
             _ContactCard(

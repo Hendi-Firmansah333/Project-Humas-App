@@ -1,3 +1,4 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:poli_humas/config/api_config.dart';
 import 'package:poli_humas/models/activity.dart';
@@ -233,6 +234,22 @@ class ApiService {
       hasMore: data['hasMore'] as bool? ?? false,
       total: data['total'] as int? ?? items.length,
     );
+  }
+
+  Future<void> validateCheckInEligibility({
+    required String activityId,
+    double? latitude,
+    double? longitude,
+  }) async {
+    try {
+      await ApiClient.instance.post('/activities/$activityId/check-in/validate', body: {
+        'latitude': ?latitude,
+        'longitude': ?longitude,
+      });
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return;
+      rethrow;
+    }
   }
 
   Future<ActivityItem> submitCheckIn({

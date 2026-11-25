@@ -188,7 +188,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                       flightShuttleBuilder: _flightShuttleBuilder,
                       child: HumasLogoVector(
                         size: 100,
-                        showShadow: true,
+                        showShadow: false,
                       ),
                     ),
                     const SizedBox(height: 24),
@@ -245,6 +245,7 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                             child: TextField(
                               controller: _usernameController,
                               enabled: !_isLoading,
+                              textInputAction: TextInputAction.next,
                               style: const TextStyle(color: Colors.black87),
                               decoration: InputDecoration(
                                 labelText: T.t('username'),
@@ -276,6 +277,10 @@ class _LoginScreenState extends State<LoginScreen> with TickerProviderStateMixin
                               controller: _passwordController,
                               enabled: !_isLoading,
                               obscureText: _obscurePassword,
+                              textInputAction: TextInputAction.done,
+                              onSubmitted: (_) {
+                                if (!_isLoading) _login();
+                              },
                               style: const TextStyle(color: Colors.black87),
                               decoration: InputDecoration(
                                 labelText: T.t('password'),

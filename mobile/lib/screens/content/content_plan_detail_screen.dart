@@ -96,7 +96,11 @@ class _ContentPlanDetailScreenState extends State<ContentPlanDetailScreen> {
       return value;
     }
     if (kIsWeb) return value;
-    return await CloudinaryService.uploadImage(value);
+    final uploaded = await CloudinaryService.uploadImage(value);
+    if (uploaded != null && uploaded.isNotEmpty) {
+      _posterPath = uploaded;
+    }
+    return uploaded;
   }
 
   String _normalizeUrl(String raw) {
@@ -374,26 +378,36 @@ class _ContentPlanDetailScreenState extends State<ContentPlanDetailScreen> {
     final posterPreview = _buildPosterPreview();
     final (statusBg, statusText, statusLabel) = _resolveStatusStyle(item.status);
 
-    const knownPlatforms = {
-      'instagram',
-      'tiktok',
-      'youtube',
-      'website',
-      'facebook',
+    const platformDisplayMap = {
+      'instagram': 'Instagram',
+      'tiktok': 'TikTok',
+      'youtube': 'YouTube',
+      'website': 'Website',
+      'facebook': 'Facebook',
+      'twitter': 'X (Twitter)',
+      'x': 'X (Twitter)',
+      'linkedin': 'LinkedIn',
     };
     final platformTags = <String>[];
     final typeTags = <String>[];
-    for (final tag in item.tags) {
-      if (knownPlatforms.contains(tag.trim().toLowerCase())) {
-        platformTags.add(tag);
-      } else {
-        typeTags.add(tag);
+    for (final rawTag in item.tags) {
+      for (final part in rawTag.split(RegExp(r'[,/|]+'))) {
+        final cleaned = part.trim();
+        if (cleaned.isEmpty) continue;
+        final canonicalPlatform = platformDisplayMap[cleaned.toLowerCase()];
+        if (canonicalPlatform != null) {
+          if (!platformTags.contains(canonicalPlatform)) {
+            platformTags.add(canonicalPlatform);
+          }
+        } else if (!typeTags.contains(cleaned)) {
+          typeTags.add(cleaned);
+        }
       }
     }
     final visibleTypeTags =
         (typeTags.isNotEmpty ? typeTags : item.tags).take(2).toList();
     final visiblePlatforms =
-        platformTags.isNotEmpty ? platformTags : const ['Instagram', 'TikTok'];
+        platformTags.isNotEmpty ? platformTags : const ['Instagram'];
 
     final deadlineText = item.deadlineLabel.trim().isNotEmpty
         ? item.deadlineLabel.trim()

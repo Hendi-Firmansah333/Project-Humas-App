@@ -27,6 +27,7 @@ class CheckinPreviewScreen extends StatefulWidget {
 
 class _CheckinPreviewScreenState extends State<CheckinPreviewScreen> {
   bool _isSubmitting = false;
+  String? _uploadedCloudUrl;
 
   String get _recordedTime {
     final now = DateTime.now();
@@ -43,13 +44,27 @@ class _CheckinPreviewScreenState extends State<CheckinPreviewScreen> {
     final appData = context.read<AppDataProvider>();
     setState(() => _isSubmitting = true);
     try {
-      // 1. Upload foto selfie ke Cloudinary
-      final cloudUrl = await CloudinaryService.uploadImage(widget.selfiePath);
+      // 1. Cek kelayakan check-in lokal & backend terlebih dahulu sebelum upload ke Cloudinary
+      final blockedReason = widget.activity.checkInBlockedReason;
+      if (blockedReason != null) {
+        throw Exception(blockedReason);
+      }
+
+      await appData.validateCheckInEligibility(
+        activityId: widget.activity.id,
+        latitude: widget.locationResult.latitude,
+        longitude: widget.locationResult.longitude,
+      );
+
+      // 2. Upload foto selfie ke Cloudinary hanya jika validasi backend lolos (dan cache jika retry)
+      final cloudUrl =
+          _uploadedCloudUrl ?? await CloudinaryService.uploadImage(widget.selfiePath);
       if (cloudUrl == null) {
         throw Exception('Gagal mengunggah foto selfie ke server cloud.');
       }
+      _uploadedCloudUrl = cloudUrl;
 
-      // 2. Submit data check-in dengan URL Cloudinary & koordinat GPS
+      // 3. Submit data check-in dengan URL Cloudinary & koordinat GPS
       final isLate = _computeIsLate(widget.activity);
       final updated = await appData.submitCheckIn(
             activityId: widget.activity.id,

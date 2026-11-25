@@ -149,6 +149,66 @@ class ActivityItem {
   bool get hasCheckedIn =>
       checkInState == CheckInState.checkedIn || checkInState == CheckInState.late;
 
+  DateTime? get startDateTimeLocal {
+    try {
+      DateTime? baseDate =
+          scheduledAt?.toLocal() ?? DateTime.tryParse(date.trim())?.toLocal();
+      if (baseDate == null) {
+        final dateParts = date.trim().split('-');
+        if (dateParts.length >= 3) {
+          final year = int.parse(dateParts[0]);
+          final month = int.parse(dateParts[1]);
+          final day = int.parse(dateParts[2].split('T').first);
+          baseDate = DateTime(year, month, day);
+        }
+      }
+      if (baseDate == null) return null;
+
+      final timeStart = time.split(' - ').first.replaceAll('WIB', '').trim();
+      final timeParts = timeStart.split(':');
+      if (timeParts.length >= 2) {
+        final hour = int.tryParse(timeParts[0]) ?? baseDate.hour;
+        final minute = int.tryParse(timeParts[1]) ?? baseDate.minute;
+        return DateTime(
+          baseDate.year,
+          baseDate.month,
+          baseDate.day,
+          hour,
+          minute,
+        );
+      }
+      return baseDate;
+    } catch (_) {
+      return null;
+    }
+  }
+
+  DateTime? get checkInOpenTime =>
+      startDateTimeLocal?.subtract(const Duration(minutes: 15));
+
+  bool get isCheckInWindowOpen {
+    final openTime = checkInOpenTime;
+    if (openTime == null) return true;
+    return !DateTime.now().isBefore(openTime);
+  }
+
+  String? get checkInBlockedReason {
+    if (hasCheckedIn) {
+      return 'Anda sudah melakukan check-in untuk kegiatan ini.';
+    }
+    final normalizedStatus = status.trim();
+    if (normalizedStatus == 'Selesai' ||
+        normalizedStatus == 'Dibatalkan' ||
+        normalizedStatus == 'Ditolak') {
+      return 'Presensi tidak tersedia karena kegiatan berstatus $normalizedStatus.';
+    }
+    if (!isCheckInWindowOpen) {
+      final startLabel = time.split(' - ').first.replaceAll('WIB', '').trim();
+      return 'Absensi belum tersedia. Presensi dibuka 15 menit sebelum kegiatan dimulai${startLabel.isNotEmpty ? ' ($startLabel WIB)' : ''}.';
+    }
+    return null;
+  }
+
   Map<String, dynamic> toJson() => {
         'id': id,
         'title': title,
@@ -203,7 +263,7 @@ class ActivityItem {
         ),
         selfiePath: json['selfiePath'] as String?,
         scheduledAt: json['scheduledAt'] != null
-            ? DateTime.tryParse(json['scheduledAt'] as String)
+            ? DateTime.tryParse(json['scheduledAt'] as String)?.toLocal()
             : null,
         isHistory: json['isHistory'] as bool? ?? false,
         checkInTime: json['checkInTime'] as String?,

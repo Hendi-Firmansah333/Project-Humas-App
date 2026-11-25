@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:package_info_plus/package_info_plus.dart';
 import 'package:provider/provider.dart';
 import 'package:poli_humas/providers/app_data_provider.dart';
 import 'package:poli_humas/screens/activities/activity_history_screen.dart';
@@ -30,8 +31,36 @@ TextStyle _pj(
       letterSpacing: ls,
     );
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  String _appVersion = '1.0.0';
+  String _buildNumber = '1';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadVersion();
+    if (UserProfileService.instance.profile.name.trim().isEmpty) {
+      UserProfileService.instance.refreshFromApi();
+    }
+  }
+
+  Future<void> _loadVersion() async {
+    try {
+      final info = await PackageInfo.fromPlatform();
+      if (!mounted) return;
+      setState(() {
+        _appVersion = info.version;
+        _buildNumber = info.buildNumber;
+      });
+    } catch (_) {}
+  }
 
   Future<void> _handleLogout(BuildContext context) async {
     final confirmed = await showDialog<bool>(
@@ -116,7 +145,7 @@ class ProfileScreen extends StatelessWidget {
               // ── Scroll Content ──
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 80),
+                  padding: const EdgeInsets.fromLTRB(18, 14, 18, 112),
                   child: Column(
                     children: [
                       // ── Hero Profile Card ──
@@ -194,7 +223,9 @@ class ProfileScreen extends StatelessWidget {
 
                             // Name
                             Text(
-                              profile.name.isNotEmpty ? profile.name : 'Komang Ari',
+                              profile.name.trim().isNotEmpty
+                                  ? profile.name.trim()
+                                  : 'Anggota Humas',
                               style: _pj(
                                 20,
                                 FontWeight.w900,
@@ -229,9 +260,9 @@ class ProfileScreen extends StatelessWidget {
                                   ),
                                   const SizedBox(width: 5),
                                   Text(
-                                    profile.role.isNotEmpty
-                                        ? profile.role
-                                        : 'Staff Tim Kehumasan Polinela',
+                                    profile.role.trim().isNotEmpty
+                                        ? profile.role.trim()
+                                        : 'Anggota Humas',
                                     style: _pj(
                                       11,
                                       FontWeight.w700,
@@ -258,12 +289,16 @@ class ProfileScreen extends StatelessWidget {
                                 children: [
                                   _ContactPill(
                                     icon: Icons.phone_rounded,
-                                    value: profile.phone.isNotEmpty ? profile.phone : '+62 812-3456-7890',
+                                    value: profile.phone.trim().isNotEmpty
+                                        ? profile.phone.trim()
+                                        : 'Belum ada nomor telepon',
                                   ),
                                   const SizedBox(height: 8),
                                   _ContactPill(
                                     icon: Icons.mail_outline_rounded,
-                                    value: profile.email.isNotEmpty ? profile.email : 'komang@polinela.ac.id',
+                                    value: profile.email.trim().isNotEmpty
+                                        ? profile.email.trim()
+                                        : 'Belum ada email',
                                   ),
                                 ],
                               ),
@@ -281,19 +316,19 @@ class ProfileScreen extends StatelessWidget {
                           return Row(
                             children: [
                               _StatBox(
-                                value: '${stats.totalActivities > 0 ? stats.totalActivities : 24}',
+                                value: '${stats.totalActivities}',
                                 label: 'Jumlah Kegiatan',
                                 isHighlight: false,
                               ),
                               const SizedBox(width: 10),
                               _StatBox(
-                                value: '${stats.completedContent > 0 ? stats.completedContent : 18}',
+                                value: '${stats.completedContent}',
                                 label: 'Konten Selesai',
                                 isHighlight: true,
                               ),
                               const SizedBox(width: 10),
                               _StatBox(
-                                value: '${stats.attendanceRate > 0 ? stats.attendanceRate : 95}%',
+                                value: '${stats.attendanceRate}%',
                                 label: 'Kehadiran',
                                 isHighlight: false,
                               ),
@@ -346,7 +381,7 @@ class ProfileScreen extends StatelessWidget {
                             _SettingsMenuItem(
                               icon: Icons.info_outline_rounded,
                               title: 'Tentang Aplikasi Tim Humas',
-                              subtitle: 'Versi 2.4.0 (Polinela Internal)',
+                              subtitle: 'Versi $_appVersion (Build $_buildNumber)',
                               iconBg: isDark ? Colors.white10 : AppColors.slate100,
                               iconColor: isDark ? Colors.white70 : AppColors.slate600,
                               onTap: () => pushSmooth(context, const AboutAppScreen()),
