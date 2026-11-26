@@ -308,6 +308,20 @@ class ApiService {
     await ApiClient.instance.delete('/notifications/$id');
   }
 
+  Future<void> registerDeviceToken(String token, {String platform = 'android'}) async {
+    await ApiClient.instance.post('/notifications/device-token', body: {
+      'token': token,
+      'platform': platform,
+    });
+  }
+
+  Future<void> unregisterDeviceToken({String? token}) async {
+    await ApiClient.instance.delete(
+      '/notifications/device-token',
+      body: token != null && token.isNotEmpty ? {'token': token} : null,
+    );
+  }
+
   Future<void> syncLocation({
     required double latitude,
     required double longitude,

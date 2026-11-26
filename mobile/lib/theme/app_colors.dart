@@ -11,7 +11,7 @@ class AppColors {
   static const brand300 = Color(0xFF5C9BBB);
   static const brand400 = Color(0xFF2E7CA4);
   static const brand500 = Color(0xFF005E87);
-  static const brand600 = Color(0xFF003D58);
+  static const brand600 = Color(0xFF0A3D52);
   static const brand700 = Color(0xFF003248);
   static const brand800 = Color(0xFF002738);
   static const brand900 = Color(0xFF001B28);
@@ -19,10 +19,10 @@ class AppColors {
   // Polinela Brand Colors
   static const polinelaCyan = Color(0xFF06B6D4);
   static const polinelaSky = Color(0xFF0284C7);
-  static const polinelaNavy = Color(0xFF003D58);
+  static const polinelaNavy = Color(0xFF0A3D52);
 
   // Main UI Colors
-  static const primary = Color(0xFF003D58);
+  static const primary = Color(0xFF0A3D52);
   static const primaryDark = brand800;
   static const primaryLight = brand100;
   static const accent = polinelaCyan;

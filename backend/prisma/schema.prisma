@@ -170,6 +170,7 @@ model User {
   locations      Location[]
   reports        Report[]         @relation("ReportPic")
   notifications  Notification[]
+  deviceTokens   DeviceToken[]
   auditLogs      AuditLog[]
   validatedActivities Activity[] @relation("ActivityValidator")
   incomingLetters IncomingLetter[] @relation("LetterCreator")
@@ -517,6 +518,19 @@ model Notification {
   @@index([userId, isRead])
   @@index([createdAt])
   @@index([deletedAt])
+}
+
+model DeviceToken {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  token     String   @unique
+  platform  String   @default("android")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 // ==========================================

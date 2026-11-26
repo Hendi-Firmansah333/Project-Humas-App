@@ -6,4 +6,5 @@ class AppNavigationService {
   static final AppNavigationService instance = AppNavigationService._();
 
   VoidCallback? goHome;
+  VoidCallback? goNotifications;
 }

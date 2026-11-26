@@ -5,6 +5,7 @@ import { UpdateLetterDto } from './dto/update-letter.dto';
 import { CreateActivityFromLetterDto } from './dto/create-activity-from-letter.dto';
 import { ActivityStatus, CheckInStatus } from '@prisma/client';
 import { RealtimeEventsService } from '../events/realtime-events.service';
+import { PushNotificationService } from '../notifications/push-notification.service';
 
 const letterInclude = {
   createdBy: {
@@ -21,6 +22,7 @@ export class IncomingLettersService {
   constructor(
     private prisma: PrismaService,
     private eventsService: RealtimeEventsService,
+    private pushService: PushNotificationService,
   ) {}
 
   async create(userId: number, dto: CreateLetterDto) {
@@ -548,6 +550,9 @@ export class IncomingLettersService {
       this.prisma.notification.createMany({ data: notifData }),
     ]);
 
+    await this.pushService.sendForNotifications(
+      notifData.map((n) => ({ ...n, link: `/activities/${activity.id}` })),
+    );
     this.eventsService.emitMultiple(['activities', 'notifications'], 'created_from_letter', activity.id);
     return activity;
   }

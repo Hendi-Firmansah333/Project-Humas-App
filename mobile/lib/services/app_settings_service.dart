@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:poli_humas/services/fcm_service.dart';
 import 'package:poli_humas/services/local_storage.dart';
 
 class AppSettingsService extends ChangeNotifier {
@@ -33,6 +34,11 @@ class AppSettingsService extends ChangeNotifier {
     notificationsEnabled = value;
     await LocalStorage.setString(_keyNotifications, value.toString());
     notifyListeners();
+    if (value) {
+      await FcmService.instance.syncTokenWithBackend();
+    } else {
+      await FcmService.instance.unregisterTokenFromBackend();
+    }
   }
 
   Future<void> setLocation(bool value) async {

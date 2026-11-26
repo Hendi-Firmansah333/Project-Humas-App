@@ -117,6 +117,22 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                     children: [
                       Row(
                         children: [
+                          if (Navigator.canPop(context)) ...[
+                            IconButton(
+                              onPressed: () => Navigator.pop(context),
+                              icon: const Icon(
+                                Icons.arrow_back_rounded,
+                                color: Color(0xFF002636),
+                                size: 22,
+                              ),
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints(
+                                minWidth: 32,
+                                minHeight: 32,
+                              ),
+                            ),
+                            const SizedBox(width: 6),
+                          ],
                           Container(
                             width: 38,
                             height: 38,

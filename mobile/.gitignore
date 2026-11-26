@@ -46,5 +46,7 @@ app.*.map.json
 
 # Machine-specific Android SDK paths (jangan di-push)
 /android/local.properties
+# Firebase config (jaga agar tidak memicu peringatan API key di repo publik)
+/android/app/google-services.json
 # Widget Preview related
 .widget_preview/

@@ -6,14 +6,17 @@ import 'package:poli_humas/providers/app_data_provider.dart';
 import 'package:poli_humas/services/app_navigation_service.dart';
 import 'package:poli_humas/services/app_settings_service.dart';
 import 'package:poli_humas/services/auth_service.dart';
+import 'package:poli_humas/services/fcm_service.dart';
 import 'package:poli_humas/services/live_location_sync_service.dart';
 import 'package:poli_humas/services/realtime_sync_service.dart';
 import 'package:poli_humas/screens/activities/activities_list_screen.dart';
+import 'package:poli_humas/screens/activities/activity_history_screen.dart';
 import 'package:poli_humas/screens/content/content_plan_screen.dart';
 import 'package:poli_humas/screens/home_screen.dart';
 import 'package:poli_humas/screens/notifications_screen.dart';
 import 'package:poli_humas/screens/profile_screen.dart';
 import 'package:poli_humas/theme/app_colors.dart';
+import 'package:poli_humas/utils/app_navigator.dart';
 import 'package:poli_humas/widgets/common_widgets.dart';
 import 'package:provider/provider.dart';
 
@@ -36,8 +39,13 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
     _currentIndex = widget.initialIndex;
     WidgetsBinding.instance.addObserver(this);
     AppNavigationService.instance.goHome = () => switchTab(0);
+    AppNavigationService.instance.goNotifications = () {
+      if (!mounted) return;
+      pushSmooth(context, const NotificationsScreen());
+    };
     final appData = context.read<AppDataProvider>();
     _appData = appData;
+    FcmService.instance.bindProvider(appData);
     appData.onNewNotification = (notification) {
       if (!mounted || !AppSettingsService.instance.notificationsEnabled) return;
       ScaffoldMessenger.of(context)
@@ -49,7 +57,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
             action: SnackBarAction(
               label: 'Lihat',
               textColor: Colors.white,
-              onPressed: () => switchTab(3),
+              onPressed: () => pushSmooth(context, const NotificationsScreen()),
             ),
           ),
         );
@@ -91,6 +99,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     AppNavigationService.instance.goHome = null;
+    AppNavigationService.instance.goNotifications = null;
     if (_appData != null) {
       _appData!.onNewNotification = null;
     }
@@ -110,7 +119,7 @@ class _MainShellState extends State<MainShell> with WidgetsBindingObserver {
       HomeScreen(onNavigate: switchTab),
       const ActivitiesListScreen(),
       const ContentPlanScreen(),
-      const NotificationsScreen(),
+      const ActivityHistoryScreen(isEmbeddedTab: true),
       const ProfileScreen(),
     ];
 

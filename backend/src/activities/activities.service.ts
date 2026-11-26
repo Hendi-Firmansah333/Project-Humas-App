@@ -8,6 +8,7 @@ import { ActivityStatus, CheckInStatus, NotificationType, Role, UserStatus } fro
 import { buildPaginatedResult, parsePagination } from '../common/utils/pagination.util';
 import { mapActivityForMobile } from '../common/mappers/mobile.mapper';
 import { RealtimeEventsService } from '../events/realtime-events.service';
+import { PushNotificationService } from '../notifications/push-notification.service';
 import { buildWibDateTime, formatWibTimeLabel } from '../common/utils/wib-time.util';
 
 @Injectable()
@@ -19,6 +20,7 @@ export class ActivitiesService {
   constructor(
     private prisma: PrismaService,
     private eventsService: RealtimeEventsService,
+    private pushService: PushNotificationService,
   ) {}
 
   private activityInclude = {
@@ -185,6 +187,14 @@ export class ActivitiesService {
               type: 'INFO',
             },
           });
+          await this.pushService.sendForNotifications([
+            {
+              title: 'Status Kegiatan Berubah',
+              message: `Status kegiatan "${u.title}" kini berubah menjadi ${u.status}.`,
+              type: 'INFO',
+              link: `/activities/${u.id}`,
+            },
+          ]);
         }
       }
       this.eventsService.emitMultiple(['activities', 'notifications'], 'status_synced');
@@ -400,6 +410,14 @@ export class ActivitiesService {
           type: 'INFO',
         },
       }),
+      this.pushService.sendForNotifications([
+        {
+          title: 'Penugasan Kegiatan Baru',
+          message: `Kegiatan "${activity.title}" (Kegiatan Manual / Tanpa Surat) telah dijadwalkan untuk tanggal ${date.split('T')[0]}.`,
+          type: 'INFO',
+          link: `/activities/${activity.id}`,
+        },
+      ]),
     ];
 
     if (userId) {
@@ -669,14 +687,18 @@ export class ActivitiesService {
       ].filter((uid, idx, arr) => arr.indexOf(uid) === idx);
 
       if (allMemberIds.length > 0) {
+        const doneNotifs = allMemberIds.map((uid) => ({
+          userId: uid,
+          title: 'Kegiatan Selesai',
+          message: `Kegiatan "${updated.title}" telah ditandai selesai oleh Admin. Terima kasih atas partisipasi Anda!`,
+          type: 'SUCCESS' as const,
+        }));
         await this.prisma.notification.createMany({
-          data: allMemberIds.map((uid) => ({
-            userId: uid,
-            title: 'Kegiatan Selesai',
-            message: `Kegiatan "${updated.title}" telah ditandai selesai oleh Admin. Terima kasih atas partisipasi Anda!`,
-            type: 'SUCCESS',
-          })),
+          data: doneNotifs,
         });
+        await this.pushService.sendForNotifications(
+          doneNotifs.map((n) => ({ ...n, link: `/activities/${id}` })),
+        );
       }
     }
 
@@ -1196,6 +1218,9 @@ export class ActivitiesService {
     ];
 
     await this.prisma.notification.createMany({ data: assignNotifications });
+    await this.pushService.sendForNotifications(
+      assignNotifications.map((n) => ({ ...n, link: `/activities/${id}` })),
+    );
     this.eventsService.emitMultiple(['activities', 'notifications'], 'assigned_team', id);
 
     return updated;
@@ -1288,14 +1313,18 @@ export class ActivitiesService {
     ].filter((uid, idx, arr) => arr.indexOf(uid) === idx);
 
     if (allMemberIds.length > 0) {
+      const approvedNotifs = allMemberIds.map((uid) => ({
+        userId: uid,
+        title: 'Kegiatan Selesai & Terverifikasi',
+        message: `Kegiatan "${updated.title}" telah disetujui selesai oleh Kepala Humas.`,
+        type: 'SUCCESS' as const,
+      }));
       await this.prisma.notification.createMany({
-        data: allMemberIds.map((uid) => ({
-          userId: uid,
-          title: 'Kegiatan Selesai & Terverifikasi',
-          message: `Kegiatan "${updated.title}" telah disetujui selesai oleh Kepala Humas.`,
-          type: 'SUCCESS',
-        })),
+        data: approvedNotifs,
       });
+      await this.pushService.sendForNotifications(
+        approvedNotifs.map((n) => ({ ...n, link: `/activities/${id}` })),
+      );
     }
 
     const refreshed = await this.prisma.activity.findUnique({
@@ -1340,6 +1369,15 @@ export class ActivitiesService {
         type: 'WARNING',
       },
     });
+    await this.pushService.sendForNotifications([
+      {
+        userId: updated.picId,
+        title: 'Kegiatan Dikembalikan untuk Perbaikan',
+        message: `Kegiatan "${updated.title}" dikembalikan oleh Kepala Humas: ${notes}`,
+        type: 'WARNING',
+        link: `/activities/${id}`,
+      },
+    ]);
 
     const refreshed = await this.prisma.activity.findUnique({
       where: { id },

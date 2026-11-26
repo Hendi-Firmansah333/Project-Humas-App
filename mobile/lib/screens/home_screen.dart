@@ -11,6 +11,7 @@ import 'package:poli_humas/screens/activities/activity_detail_screen.dart';
 import 'package:poli_humas/screens/activities/checkin_screen.dart';
 import 'package:poli_humas/screens/global_search_screen.dart';
 import 'package:poli_humas/screens/live_location_screen.dart';
+import 'package:poli_humas/screens/notifications_screen.dart';
 import 'package:poli_humas/services/user_profile_service.dart';
 import 'package:poli_humas/theme/app_colors.dart';
 import 'package:poli_humas/theme/rigid_scroll_behavior.dart';
@@ -110,7 +111,10 @@ class HomeScreen extends StatelessWidget {
                                                 context,
                                                 const GlobalSearchScreen(),
                                               ),
-                                              onNotifications: () => onNavigate(3),
+                                              onNotifications: () => pushSmooth(
+                                                context,
+                                                const NotificationsScreen(),
+                                              ),
                                             ),
                                             const SizedBox(height: 23),
                                             _HomeHeaderGreeting(profile: profile),
@@ -1039,7 +1043,7 @@ class _ActiveScheduleHeroCardState extends State<_ActiveScheduleHeroCard> {
                   widget.onTapCheckIn(item);
                 },
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFF1E4878),
+                  backgroundColor: AppColors.primary,
                   foregroundColor: Colors.white,
                   elevation: 2,
                   shadowColor: Colors.black.withValues(alpha: 0.15),
@@ -1483,7 +1487,7 @@ class _LiveLocationPreviewCard extends StatelessWidget {
                 child: Container(
                   padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
                   decoration: BoxDecoration(
-                    color: const Color(0xFF0C2F42),
+                    color: AppColors.primary,
                     borderRadius: BorderRadius.circular(9999),
                     boxShadow: [
                       BoxShadow(

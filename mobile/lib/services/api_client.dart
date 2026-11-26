@@ -181,8 +181,8 @@ class ApiClient {
     return _unwrap(response.data);
   }
 
-  Future<Map<String, dynamic>> delete(String path) async {
-    final response = await dio.delete<dynamic>(path);
+  Future<Map<String, dynamic>> delete(String path, {Map<String, dynamic>? body}) async {
+    final response = await dio.delete<dynamic>(path, data: body);
     return _unwrap(response.data);
   }
 }

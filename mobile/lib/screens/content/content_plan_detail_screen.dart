@@ -1375,9 +1375,9 @@ class _ContentPlanDetailScreenState extends State<ContentPlanDetailScreen> {
                         child: ElevatedButton(
                           onPressed: _isSubmitting ? null : _submitReview,
                           style: ElevatedButton.styleFrom(
-                            backgroundColor: const Color(0xFF0B3A4F),
+                            backgroundColor: AppColors.primary,
                             disabledBackgroundColor:
-                                const Color(0xFF0B3A4F).withValues(alpha: 0.6),
+                                AppColors.primary.withValues(alpha: 0.6),
                             foregroundColor: Colors.white,
                             elevation: 0,
                             shape: RoundedRectangleBorder(

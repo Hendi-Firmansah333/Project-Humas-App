@@ -9,6 +9,7 @@ import { PrismaService } from '../prisma/prisma.service';
 import { CreateScheduleDto } from './dto/create-schedule.dto';
 import { UpdateScheduleDto } from './dto/update-schedule.dto';
 import { RealtimeEventsService } from '../events/realtime-events.service';
+import { PushNotificationService } from '../notifications/push-notification.service';
 
 @Injectable()
 export class SchedulesService {
@@ -19,6 +20,7 @@ export class SchedulesService {
   constructor(
     private prisma: PrismaService,
     private eventsService: RealtimeEventsService,
+    private pushService: PushNotificationService,
   ) {}
 
   private async syncStatus() {
@@ -191,6 +193,15 @@ export class SchedulesService {
         type: 'INFO',
       },
     });
+    await this.pushService.sendForNotifications([
+      {
+        userId: dto.userId,
+        title: 'Jadwal Piket Baru',
+        message: `Jadwal piket ditetapkan untuk ${schedule.user.fullName} pada tanggal ${dto.date.split('T')[0]}.`,
+        type: 'INFO',
+        link: '/schedules',
+      },
+    ]);
 
     this.eventsService.emitMultiple(['schedules', 'notifications'], 'created', schedule.id);
     return schedule;

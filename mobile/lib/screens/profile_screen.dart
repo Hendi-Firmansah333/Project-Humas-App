@@ -63,22 +63,222 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Future<void> _handleLogout(BuildContext context) async {
-    final confirmed = await showDialog<bool>(
+    final profile = UserProfileService.instance.profile;
+    final displayName =
+        profile.name.trim().isNotEmpty ? profile.name.trim() : 'Anggota';
+
+    final confirmed = await showModalBottomSheet<bool>(
       context: context,
-      builder: (context) => AlertDialog(
-        title: Text('Keluar Akun', style: _pj(16, FontWeight.w800, AppColors.slate900)),
-        content: Text('Yakin ingin menyelesaikan sesi perangkat ini?', style: _pj(13, FontWeight.w500, AppColors.slate600)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(context, false),
-            child: Text('Batal', style: _pj(13, FontWeight.w600, AppColors.slate500)),
+      backgroundColor: Colors.transparent,
+      barrierColor: const Color(0xFF0B1E33).withValues(alpha: 0.65),
+      isScrollControlled: true,
+      builder: (sheetCtx) {
+        return Container(
+          width: double.infinity,
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+            border: const Border(
+              top: BorderSide(color: Color(0xFFDCE9FF), width: 1),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: const Color(0xFF0B1E33).withValues(alpha: 0.28),
+                blurRadius: 32,
+                offset: const Offset(0, -8),
+              ),
+            ],
           ),
-          TextButton(
-            onPressed: () => Navigator.pop(context, true),
-            child: Text('Keluar', style: _pj(13, FontWeight.w700, AppColors.rose)),
+          child: SafeArea(
+            top: false,
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  // Drag handle
+                  Container(
+                    width: 48,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFC1C7CD).withValues(alpha: 0.6),
+                      borderRadius: BorderRadius.circular(9999),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+
+                  // Red coral circle icon with halo ring
+                  Container(
+                    width: 80,
+                    height: 80,
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFFEE2E2),
+                      shape: BoxShape.circle,
+                      boxShadow: [
+                        BoxShadow(
+                          color: const Color(0xFFFEE2E2).withValues(alpha: 0.45),
+                          spreadRadius: 8,
+                          blurRadius: 0,
+                        ),
+                      ],
+                    ),
+                    child: const Icon(
+                      Icons.logout_rounded,
+                      color: Color(0xFFEF4444),
+                      size: 32,
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+
+                  // Headline
+                  Text(
+                    'Keluar dari Akun?',
+                    textAlign: TextAlign.center,
+                    style: _pj(
+                      22,
+                      FontWeight.w700,
+                      const Color(0xFF0B1E33),
+                      ls: -0.22,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+
+                  // Description
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 8),
+                    child: RichText(
+                      textAlign: TextAlign.center,
+                      text: TextSpan(
+                        style: _pj(
+                          14,
+                          FontWeight.w400,
+                          const Color(0xFF41484C),
+                          height: 1.6,
+                        ),
+                        children: [
+                          const TextSpan(
+                            text: 'Apakah Anda yakin ingin keluar dari akun ',
+                          ),
+                          TextSpan(
+                            text: displayName,
+                            style: _pj(
+                              14,
+                              FontWeight.w600,
+                              const Color(0xFF002636),
+                            ),
+                          ),
+                          const TextSpan(
+                            text:
+                                ' (Tim Humas)? Sesi aktif pada perangkat ini akan diakhiri dan Anda perlu login kembali.',
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 18),
+
+                  // Cloud safe callout box
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(14),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFEFF4FF),
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: const Color(0xFFDCE9FF)),
+                    ),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const Padding(
+                          padding: EdgeInsets.only(top: 2),
+                          child: Icon(
+                            Icons.cloud_done_outlined,
+                            size: 18,
+                            color: Color(0xFF006B5F),
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Expanded(
+                          child: Text(
+                            'Data kegiatan dan draft konten yang tersimpan di cloud tidak akan hilang.',
+                            style: _pj(
+                              12,
+                              FontWeight.w400,
+                              const Color(0xFF0B1C30),
+                              height: 1.4,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+
+                  // Primary Confirm Logout Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: ElevatedButton.icon(
+                      onPressed: () => Navigator.pop(sheetCtx, true),
+                      icon: const Icon(Icons.logout_rounded, size: 18),
+                      label: Text(
+                        'Ya, Keluar Akun',
+                        style: _pj(14, FontWeight.w700, Colors.white),
+                      ),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: const Color(0xFFDC2626),
+                        foregroundColor: Colors.white,
+                        elevation: 4,
+                        shadowColor:
+                            const Color(0xFFDC2626).withValues(alpha: 0.35),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+
+                  // Cancel Button
+                  SizedBox(
+                    width: double.infinity,
+                    height: 48,
+                    child: OutlinedButton(
+                      onPressed: () => Navigator.pop(sheetCtx, false),
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.primary,
+                        side: BorderSide(
+                          color: const Color(0xFFC1C7CD).withValues(alpha: 0.6),
+                        ),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                      ),
+                      child: Text(
+                        'Batal',
+                        style: _pj(14, FontWeight.w700, AppColors.primary),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+
+                  // Institutional Footer Note
+                  Text(
+                    'Politeknik Negeri Lampung • Sistem Hubungan Masyarakat',
+                    textAlign: TextAlign.center,
+                    style: _pj(
+                      10,
+                      FontWeight.w700,
+                      const Color(0xFF71787D),
+                      ls: 0.3,
+                    ),
+                  ),
+                ],
+              ),
+            ),
           ),
-        ],
-      ),
+        );
+      },
     );
 
     if (confirmed == true && context.mounted) {

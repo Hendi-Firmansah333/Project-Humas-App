@@ -424,7 +424,7 @@ class _ActiveFilterPill extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
         decoration: BoxDecoration(
           color: isSelected
-              ? const Color(0xFF0B2D52)
+              ? AppColors.primary
               : (isDark ? const Color(0xFF1E293B) : Colors.white),
           borderRadius: BorderRadius.circular(9999),
           border: isSelected
@@ -717,7 +717,7 @@ class _RedesignedContentCard extends StatelessWidget {
       return (const Color(0xFFFEF3C7), const Color(0xFFB45309));
     }
     if (index.isOdd) {
-      return (const Color(0xFF0B2D52), Colors.white);
+      return (AppColors.primary, Colors.white);
     }
     return (const Color(0xFFE0F4F8), const Color(0xFF094A63));
   }

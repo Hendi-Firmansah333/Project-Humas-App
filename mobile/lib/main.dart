@@ -9,6 +9,7 @@ import 'package:poli_humas/services/api_client.dart';
 import 'package:poli_humas/services/app_settings_service.dart';
 import 'package:poli_humas/services/auth_service.dart';
 import 'package:poli_humas/services/connectivity_service.dart';
+import 'package:poli_humas/services/fcm_service.dart';
 import 'package:poli_humas/services/local_storage.dart';
 import 'package:poli_humas/services/live_location_sync_service.dart';
 import 'package:poli_humas/services/realtime_sync_service.dart';
@@ -25,6 +26,7 @@ Future<void> main() async {
     await ApiClient.instance.init();
     ApiClient.instance.onUnauthorized = () async {
       RealtimeSyncService.instance.stop();
+      await FcmService.instance.unregisterTokenFromBackend();
       await LiveLocationSyncService.instance.stop(markOffline: false);
       await UserProfileService.instance.clear();
       await AuthService.instance.setLoggedIn(false);
@@ -55,6 +57,8 @@ Future<void> main() async {
   final appData = AppDataProvider();
   await appData.initCacheOnly();
   RealtimeSyncService.instance.bindProvider(appData);
+  FcmService.instance.bindProvider(appData);
+  await FcmService.instance.initialize();
   runApp(MyApp(appData: appData));
 }
 

@@ -405,9 +405,9 @@ class AppBottomNav extends StatelessWidget {
       labelKey: 'content',
     ),
     _NavItemConfig(
-      activeIcon: Icons.notifications_rounded,
-      inactiveIcon: Icons.notifications_rounded,
-      labelKey: 'alerts',
+      activeIcon: Icons.history_rounded,
+      inactiveIcon: Icons.history_rounded,
+      labelKey: 'history',
     ),
     _NavItemConfig(
       activeIcon: Icons.person_rounded,
@@ -450,7 +450,7 @@ class AppBottomNav extends StatelessWidget {
                 inactiveIcon: item.inactiveIcon,
                 label: T.t(item.labelKey),
                 selected: selected,
-                showBadge: index == 3 && unreadCount > 0 && !selected,
+                showBadge: false,
                 onTap: () {
                   HapticFeedback.lightImpact();
                   onTap(index);

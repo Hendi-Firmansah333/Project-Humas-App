@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 import 'package:poli_humas/config/api_config.dart';
 import 'package:poli_humas/services/api_client.dart';
 import 'package:poli_humas/services/api_service.dart';
+import 'package:poli_humas/services/fcm_service.dart';
 import 'package:poli_humas/services/live_location_sync_service.dart';
 import 'package:poli_humas/services/local_storage.dart';
 import 'package:poli_humas/services/realtime_sync_service.dart';
@@ -88,6 +89,7 @@ class AuthService {
       await setLoggedIn(true);
       await LocalStorage.setString('app_data_cache', '');
       LiveLocationSyncService.instance.start();
+      await FcmService.instance.syncTokenWithBackend();
       return null;
     } on DioException catch (e) {
       final data = e.response?.data;
@@ -109,6 +111,7 @@ class AuthService {
 
   Future<void> logoutRemote() async {
     RealtimeSyncService.instance.stop();
+    await FcmService.instance.unregisterTokenFromBackend();
     await LiveLocationSyncService.instance.stop(markOffline: true);
     if (ApiClient.instance.hasToken) {
       try {

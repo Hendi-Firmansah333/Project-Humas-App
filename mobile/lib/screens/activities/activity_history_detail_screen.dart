@@ -188,7 +188,7 @@ class ActivityHistoryDetailScreen extends StatelessWidget {
                   style: TextStyle(color: Colors.white, fontWeight: FontWeight.w700, fontSize: 16),
                 ),
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.primaryDark,
+                  backgroundColor: AppColors.primary,
                   disabledBackgroundColor: const Color(0xFFE5E7EB),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),

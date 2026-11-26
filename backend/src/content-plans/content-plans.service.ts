@@ -7,12 +7,14 @@ import { ContentStatus, NotificationType, Platform, Role, UserStatus } from '@pr
 import { buildPaginatedResult, parsePagination } from '../common/utils/pagination.util';
 import { mapContentPlanForMobile } from '../common/mappers/mobile.mapper';
 import { RealtimeEventsService } from '../events/realtime-events.service';
+import { PushNotificationService } from '../notifications/push-notification.service';
 
 @Injectable()
 export class ContentPlansService {
   constructor(
     private prisma: PrismaService,
     private eventsService: RealtimeEventsService,
+    private pushService: PushNotificationService,
   ) {}
 
   private include = {
@@ -117,6 +119,15 @@ export class ContentPlansService {
             type: 'INFO',
           },
         }),
+        this.pushService.sendForNotifications([
+          {
+            userId: plan.picId,
+            title: 'Tugas Content Plan Baru',
+            message: `Kamu telah ditugaskan untuk Content Plan "${dto.title}" pada platform ${dto.platform}.`,
+            type: 'INFO',
+            link: `/content-plans/${plan.id}`,
+          },
+        ]),
       );
     }
 
@@ -439,6 +450,15 @@ export class ContentPlansService {
           type: 'WARNING',
         },
       });
+      await this.pushService.sendForNotifications([
+        {
+          userId: plan.picId,
+          title: 'Perbaikan Hasil Konten (Admin)',
+          message: `Admin meminta perbaikan pada konten "${plan.title}": "${notes}".`,
+          type: 'WARNING',
+          link: `/content-plans/${id}`,
+        },
+      ]);
     }
 
     this.eventsService.emitMultiple(
@@ -470,6 +490,15 @@ export class ContentPlansService {
           type: 'SUCCESS',
         },
       });
+      await this.pushService.sendForNotifications([
+        {
+          userId: plan.picId,
+          title: 'Konten Telah Disetujui',
+          message: `Konten "${plan.title}" telah disetujui oleh Kepala Humas dan siap dijadwalkan / tayang.`,
+          type: 'SUCCESS',
+          link: `/content-plans/${id}`,
+        },
+      ]);
     }
 
     this.eventsService.emitMultiple(
@@ -505,6 +534,15 @@ export class ContentPlansService {
           type: 'WARNING',
         },
       });
+      await this.pushService.sendForNotifications([
+        {
+          userId: plan.picId,
+          title: 'Permintaan Revisi Konten (Kepala Humas)',
+          message: `Kepala Humas meminta revisi untuk konten "${plan.title}": "${notes}".`,
+          type: 'WARNING',
+          link: `/content-plans/${id}`,
+        },
+      ]);
     }
 
     this.eventsService.emitMultiple(
@@ -534,6 +572,14 @@ export class ContentPlansService {
         type: 'SUCCESS',
       },
     });
+    await this.pushService.sendForNotifications([
+      {
+        title: 'Konten Telah Tayang',
+        message: `Konten "${plan.title}" telah berhasil dipublikasikan pada platform ${plan.platform}.`,
+        type: 'SUCCESS',
+        link: `/content-plans/${id}`,
+      },
+    ]);
 
     this.eventsService.emitMultiple(['contentPlans', 'notifications'], 'published', id);
     return updated;
