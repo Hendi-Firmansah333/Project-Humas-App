@@ -38,6 +38,7 @@ export class UsersController {
   }
 
   @Get()
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @ApiOperation({ summary: 'Daftar semua personel kehumasan' })
   @ApiQuery({ name: 'role', enum: Role, required: false })
   @ApiQuery({ name: 'status', enum: UserStatus, required: false })
@@ -72,6 +73,7 @@ export class UsersController {
   }
 
   @Get(':id')
+  @Roles(Role.ADMIN, Role.SUPER_ADMIN)
   @ApiOperation({ summary: 'Detail profil personel berdasarkan ID' })
   findOne(@Param('id', ParseIntPipe) id: number) {
     return this.usersService.findOne(id);

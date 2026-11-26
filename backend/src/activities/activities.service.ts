@@ -561,7 +561,7 @@ export class ActivitiesService {
     return buildPaginatedResult<typeof items[number]>(items, total, page, pageSize);
   }
 
-  async findOne(id: number, mobile = false) {
+  async findOne(id: number, mobile = false, userId?: number, userRole?: Role) {
     await this.syncStatus();
 
     const activity = await this.prisma.activity.findFirst({
@@ -573,7 +573,16 @@ export class ActivitiesService {
       throw new NotFoundException(`Kegiatan dengan ID #${id} tidak ditemukan.`);
     }
 
-    return mobile ? mapActivityForMobile(activity) : activity;
+    if (userRole === Role.USER && userId !== undefined) {
+      const isAssigned =
+        activity.picId === userId ||
+        (activity.members as any[]).some((m: any) => m.userId === userId);
+      if (!isAssigned) {
+        throw new ForbiddenException('Anda tidak ditugaskan pada kegiatan ini.');
+      }
+    }
+
+    return mobile ? mapActivityForMobile(activity, false, userId) : activity;
   }
 
   async update(id: number, dto: UpdateActivityDto, userId?: number) {
@@ -814,52 +823,81 @@ export class ActivitiesService {
   }
 
   async checkIn(activityId: number, userId: number, dto: CheckInDto) {
-    console.log(`[CHECK-IN] Activity #${activityId}, User #${userId}, Received:`, JSON.stringify(dto));
-    const { activity, member: existingMember, now, isLate, checkInStatus, distanceCalculated } =
+    const { activity, now, isLate, checkInStatus, distanceCalculated } =
       await this.validateCheckInEligibility(activityId, userId, dto);
 
     const timeLabel = formatWibTimeLabel(now);
-    let member = existingMember;
 
-    if (!member) {
-      if (activity.picId === userId) {
-        // Create or sync PIC as member
-        member = await this.prisma.activityMember.create({
+    const executeCheckIn = async (tx: any) => {
+      // Lock activity row inside transaction to prevent TOCTOU duplicate check-in race condition
+      if (typeof tx.$executeRaw === 'function') {
+        await tx.$executeRaw`SELECT id FROM "Activity" WHERE id = ${activityId} FOR UPDATE`;
+      }
+
+      const member = await tx.activityMember.findUnique({
+        where: { activityId_userId: { activityId, userId } },
+      });
+
+      if (
+        member &&
+        (member.checkInStatus === CheckInStatus.SUCCESS ||
+          member.checkInStatus === CheckInStatus.TERLAMBAT)
+      ) {
+        throw new BadRequestException('Anda sudah melakukan presensi untuk kegiatan ini.');
+      }
+
+      const existingAttendance = await tx.attendance.findFirst({
+        where: { activityId, userId, deletedAt: null },
+      });
+      if (existingAttendance) {
+        throw new BadRequestException('Anda sudah melakukan presensi untuk kegiatan ini.');
+      }
+
+      if (!member) {
+        if (activity.picId === userId) {
+          await tx.activityMember.create({
+            data: {
+              activityId,
+              userId,
+              role: 'PIC Lapangan',
+              checkInStatus,
+              checkInTime: timeLabel,
+              selfieUrl: dto.selfiePath,
+            },
+          });
+        } else {
+          throw new ForbiddenException('Anda tidak ditugaskan pada kegiatan ini.');
+        }
+      } else {
+        await tx.activityMember.update({
+          where: { id: member.id },
           data: {
-            activityId,
-            userId,
-            role: 'PIC Lapangan',
             checkInStatus,
             checkInTime: timeLabel,
             selfieUrl: dto.selfiePath,
           },
         });
-      } else {
-        throw new ForbiddenException('Anda tidak ditugaskan pada kegiatan ini.');
       }
-    } else {
-      member = await this.prisma.activityMember.update({
-        where: { id: member.id },
+
+      await tx.attendance.create({
         data: {
-          checkInStatus,
-          checkInTime: timeLabel,
+          userId,
+          activityId,
+          status: checkInStatus,
+          latitude: dto.latitude,
+          longitude: dto.longitude,
+          distance: distanceCalculated != null ? Math.round(distanceCalculated) : null,
           selfieUrl: dto.selfiePath,
+          notes: isLate ? 'Absensi Terlambat' : 'Hadir Tepat Waktu',
         },
       });
-    }
+    };
 
-    await this.prisma.attendance.create({
-      data: {
-        userId,
-        activityId,
-        status: checkInStatus,
-        latitude: dto.latitude,
-        longitude: dto.longitude,
-        distance: distanceCalculated != null ? Math.round(distanceCalculated) : null,
-        selfieUrl: dto.selfiePath,
-        notes: isLate ? 'Absensi Terlambat' : 'Hadir Tepat Waktu',
-      },
-    });
+    if (typeof this.prisma.$transaction === 'function') {
+      await this.prisma.$transaction(async (tx) => executeCheckIn(tx));
+    } else {
+      await executeCheckIn(this.prisma);
+    }
 
     const refreshed = await this.prisma.activity.findUnique({
       where: { id: activityId },

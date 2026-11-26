@@ -2,6 +2,7 @@ import 'dotenv/config';
 import { NestFactory } from '@nestjs/core';
 import { Logger, ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
 import { AppModule } from './app.module';
 import { HttpExceptionFilter } from './common/filters/http-exception.filter';
 import { TransformInterceptor } from './common/interceptors/transform.interceptor';
@@ -65,30 +66,46 @@ async function bootstrap() {
     credentials: true,
   });
 
+  app.use(
+    helmet({
+      contentSecurityPolicy: false,
+      crossOriginResourcePolicy: { policy: 'cross-origin' },
+    }),
+  );
+
   app.useGlobalPipes(new ValidationPipe({ transform: true, whitelist: true }));
   app.useGlobalFilters(new HttpExceptionFilter());
 
   const eventsService = app.get(RealtimeEventsService, { strict: false });
   app.useGlobalInterceptors(new TransformInterceptor(eventsService));
 
-  const config = new DocumentBuilder()
-    .setTitle('HUMASS API')
-    .setDescription('Administration System for Public Relations Department Politeknik Negeri Lampung')
-    .setVersion('1.0')
-    .addBearerAuth()
-    .build();
-  const document = SwaggerModule.createDocument(app, config);
-
   const isVercel = process.env['VERCEL'] === '1';
-  SwaggerModule.setup('api/docs', app, document, isVercel
-    ? {
-        customCssUrl: 'https://unpkg.com/swagger-ui-dist@5.32.8/swagger-ui.css',
-        customJs: [
-          'https://unpkg.com/swagger-ui-dist@5.32.8/swagger-ui-bundle.js',
-          'https://unpkg.com/swagger-ui-dist@5.32.8/swagger-ui-standalone-preset.js',
-        ],
-      }
-    : undefined);
+  const swaggerEnabled = !isProd || process.env['ENABLE_SWAGGER'] === 'true';
+
+  if (swaggerEnabled) {
+    const config = new DocumentBuilder()
+      .setTitle('HUMASS API')
+      .setDescription('Administration System for Public Relations Department Politeknik Negeri Lampung')
+      .setVersion('1.0')
+      .addBearerAuth()
+      .build();
+    const document = SwaggerModule.createDocument(app, config);
+
+    SwaggerModule.setup(
+      'api/docs',
+      app,
+      document,
+      isVercel
+        ? {
+            customCssUrl: 'https://unpkg.com/swagger-ui-dist@5.32.8/swagger-ui.css',
+            customJs: [
+              'https://unpkg.com/swagger-ui-dist@5.32.8/swagger-ui-bundle.js',
+              'https://unpkg.com/swagger-ui-dist@5.32.8/swagger-ui-standalone-preset.js',
+            ],
+          }
+        : undefined,
+    );
+  }
 
   const port = process.env['PORT'] || 3001;
   if (isVercel) {

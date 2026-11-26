@@ -103,7 +103,7 @@ export class EquipmentLoansController {
   @Roles(Role.ADMIN, Role.SUPER_ADMIN, Role.USER)
   @ApiOperation({ summary: 'Catat peminjaman alat baru' })
   create(@Request() req: any, @Body() createLoanDto: CreateLoanDto) {
-    return this.equipmentLoansService.createLoan(createLoanDto, req.user.id);
+    return this.equipmentLoansService.createLoan(createLoanDto, req.user.id, req.user.role);
   }
 
   @Get('history')
@@ -168,8 +168,8 @@ export class EquipmentLoansController {
 
   @Get(':id')
   @ApiOperation({ summary: 'Detail satu peminjaman beserta daftar item' })
-  findOne(@Param('id', ParseIntPipe) id: number) {
-    return this.equipmentLoansService.findOne(id);
+  findOne(@Request() req: any, @Param('id', ParseIntPipe) id: number) {
+    return this.equipmentLoansService.findOne(id, req?.user?.id, req?.user?.role);
   }
 
   @Patch(':id/return-items')

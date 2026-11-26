@@ -252,17 +252,47 @@ export class ContentPlansService {
     return plan;
   }
 
-  async findOne(id: number, mobile = false) {
+  async findOne(id: number, mobile = false, userId?: number, userRole?: Role) {
     const plan = await this.findOneRaw(id);
+    if (userRole === Role.USER && plan.picId !== userId) {
+      throw new ForbiddenException('Anda tidak memiliki akses ke rencana konten ini.');
+    }
     return mobile ? mapContentPlanForMobile(plan) : plan;
   }
 
   async update(id: number, dto: UpdateContentPlanDto, userId?: number, userRole?: Role) {
     const existing = await this.findOneRaw(id);
 
-    // If role is USER (PIC), they can only update their own content
-    if (userRole === Role.USER && existing.picId !== userId) {
-      throw new ForbiddenException('Anda hanya dapat mengubah konten yang ditugaskan kepada Anda.');
+    // If role is USER (PIC), they can only update draft fields on their own content (never status/picId/deadline)
+    if (userRole === Role.USER) {
+      if (existing.picId !== userId) {
+        throw new ForbiddenException('Anda hanya dapat mengubah konten yang ditugaskan kepada Anda.');
+      }
+      const rawDto = dto as Record<string, unknown>;
+      if (
+        rawDto['status'] !== undefined ||
+        rawDto['picId'] !== undefined ||
+        rawDto['deadline'] !== undefined ||
+        rawDto['revisionNote'] !== undefined ||
+        rawDto['adminNotes'] !== undefined
+      ) {
+        throw new ForbiddenException(
+          'Anggota tidak diizinkan mengubah status persetujuan, PIC, tenggat, atau catatan verifikasi.',
+        );
+      }
+      const safeUserUpdate: Record<string, unknown> = {};
+      if (dto.description !== undefined) safeUserUpdate.description = dto.description;
+      if (dto.draftUrl !== undefined) safeUserUpdate.draftUrl = dto.draftUrl;
+      if (dto.videoUrl !== undefined) safeUserUpdate.videoUrl = dto.videoUrl;
+      if (dto.thumbnailUrl !== undefined) safeUserUpdate.thumbnailUrl = dto.thumbnailUrl;
+
+      const updated = await this.prisma.contentPlan.update({
+        where: { id },
+        data: safeUserUpdate,
+        include: this.include,
+      });
+      this.eventsService.emit('contentPlans', 'updated', id);
+      return updated;
     }
 
     const { deadline, revisionNote, adminNotes, category: _ignoredCategory, ...data } = dto as any;
@@ -611,8 +641,12 @@ export class ContentPlansService {
     return { message: `Rencana konten ID #${id} berhasil dihapus.` };
   }
 
-  async submitProof(id: number, dto: SubmitProofDto, userId?: number) {
+  async submitProof(id: number, dto: SubmitProofDto, userId?: number, userRole?: Role) {
     const plan = await this.findOneRaw(id);
+
+    if (userRole === Role.USER && plan.picId !== userId) {
+      throw new ForbiddenException('Anda hanya dapat mengirim bukti untuk konten yang ditugaskan kepada Anda.');
+    }
 
     if (plan.status === ContentStatus.PUBLISHED || plan.status === ContentStatus.SELESAI) {
       throw new BadRequestException('Konten sudah dipublikasikan.');

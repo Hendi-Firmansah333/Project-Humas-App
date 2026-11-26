@@ -2,6 +2,7 @@ import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ExtractJwt, Strategy } from 'passport-jwt';
 import { PrismaService } from '../prisma/prisma.service';
+import { getJwtSecret } from './jwt-secret.util';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -12,7 +13,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         ExtractJwt.fromUrlQueryParameter('token'),
       ]),
       ignoreExpiration: false,
-      secretOrKey: process.env['JWT_SECRET'] || 'humass_secret_key_2026',
+      secretOrKey: getJwtSecret(),
     });
   }
 
@@ -20,7 +21,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     const user = await this.prisma.user.findUnique({
       where: { id: payload.sub },
     });
-    if (!user || user.status === 'NONAKTIF' || user.deletedAt !== null) {
+    if (!user || user.status !== 'AKTIF' || user.deletedAt !== null) {
       throw new UnauthorizedException('User not active or not found');
     }
     const { password, ...result } = user;

@@ -8,10 +8,10 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-humas}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-yuda}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       POSTGRES_DB: ${POSTGRES_DB:-Polihumas}
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
     volumes:
       - humas_pg_data:/var/lib/postgresql/data
       - ./backend/prisma/backups:/backups
@@ -35,8 +35,8 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      DATABASE_URL: postgresql://${POSTGRES_USER:-humas}:${POSTGRES_PASSWORD:-yuda}@postgres:5432/${POSTGRES_DB:-Polihumas}?schema=public
-      JWT_SECRET: ${JWT_SECRET:-humass_production_secure_key_polinela_2026}
+      DATABASE_URL: postgresql://${POSTGRES_USER:-humas}:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@postgres:5432/${POSTGRES_DB:-Polihumas}?schema=public
+      JWT_SECRET: ${JWT_SECRET:?Set strong JWT_SECRET in .env}
       PORT: 3001
       NODE_ENV: production
       ALLOWED_ORIGINS: http://localhost:3000,http://127.0.0.1:3000

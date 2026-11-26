@@ -14,6 +14,7 @@ import { Server, Socket } from 'socket.io';
 import { LiveLocationService } from './live-location.service';
 import { UpdateLocationDto } from './dto/update-location.dto';
 import { PrismaService } from '../prisma/prisma.service';
+import { getJwtSecret } from '../auth/jwt-secret.util';
 
 const ADMIN_ROOM = 'admins';
 const LOCAL_DEV_ORIGIN_REGEX = /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i;
@@ -118,7 +119,7 @@ export class LiveLocationGateway implements OnGatewayConnection {
         let payload: { sub?: number; username?: string };
         try {
           payload = await this.jwtService.verifyAsync(token, {
-            secret: process.env['JWT_SECRET'] || 'humass_secret_key_2026',
+            secret: getJwtSecret(),
           });
         } catch {
           throw new UnauthorizedException('Token WebSocket tidak valid atau kedaluwarsa.');
@@ -139,7 +140,7 @@ export class LiveLocationGateway implements OnGatewayConnection {
           },
         });
 
-        if (!user || user.status === 'NONAKTIF' || user.deletedAt !== null) {
+        if (!user || user.status !== 'AKTIF' || user.deletedAt !== null) {
           throw new UnauthorizedException('Akun pengguna tidak aktif atau tidak ditemukan.');
         }
 

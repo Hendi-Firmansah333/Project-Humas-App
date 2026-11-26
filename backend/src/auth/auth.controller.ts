@@ -4,6 +4,7 @@ import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { UpdateProfileDto } from './dto/update-profile.dto';
+import { ChangePasswordDto } from './dto/change-password.dto';
 import { AuthGuard } from '@nestjs/passport';
 
 @ApiTags('Auth')
@@ -40,7 +41,7 @@ export class AuthController {
   @UseGuards(AuthGuard('jwt'))
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Change password for logged in user' })
-  async changePassword(@Request() req: any, @Body() body: any) {
+  async changePassword(@Request() req: any, @Body() body: ChangePasswordDto) {
     return this.authService.changePassword(req.user.id, body);
   }
 

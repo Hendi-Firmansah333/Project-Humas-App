@@ -1,12 +1,13 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateLoanDto } from './dto/create-loan.dto';
 import { UpdateLoanDto } from './dto/update-loan.dto';
-import { LoanStatus, ReturnCondition } from '@prisma/client';
+import { LoanStatus, ReturnCondition, Role } from '@prisma/client';
 
 const loanInclude = {
   user: { select: { id: true, fullName: true, username: true } },
@@ -374,43 +375,79 @@ export class EquipmentLoansService {
     return this.prisma.equipment.update({ where: { id }, data: { deletedAt: new Date(), status: 'NONAKTIF' } });
   }
 
-  // ── Create multi-item loan with stock validation ──────────────────────
-  async createLoan(dto: CreateLoanDto, userId?: number) {
+  // ── Create multi-item loan with atomic row-locked stock validation (anti-TOCTOU) ──
+  async createLoan(dto: CreateLoanDto, userId?: number, userRole?: Role) {
     if (!dto.items || dto.items.length === 0) {
       throw new BadRequestException('Minimal satu peralatan harus dipilih.');
     }
 
-    // Validate stock for all items
-    for (const item of dto.items) {
-      const stock = await this.getAvailableStock(item.equipmentId);
-      if (item.quantity > stock.available) {
-        const eq = await this.prisma.equipment.findUnique({ where: { id: item.equipmentId } });
-        throw new BadRequestException(
-          `Stok ${eq?.name ?? `ID #${item.equipmentId}`} tidak mencukupi. ` +
-            `Tersedia: ${stock.available}, Diminta: ${item.quantity}.`,
-        );
-      }
-    }
+    const effectiveStatus =
+      userRole === Role.USER
+        ? LoanStatus.SEDANG_DIPINJAM
+        : (dto.status ?? LoanStatus.SEDANG_DIPINJAM);
 
-    const loan = await this.prisma.equipmentLoan.create({
-      data: {
-        borrowerName: dto.borrowerName,
-        borrowerPhone: dto.borrowerPhone,
-        userId: userId ?? null,
-        purpose: dto.purpose,
-        borrowDate: new Date(dto.borrowDate),
-        returnDate: new Date(dto.returnDate),
-        status: dto.status ?? LoanStatus.SEDANG_DIPINJAM,
-        activityId: dto.activityId ?? null,
-        items: {
-          create: dto.items.map((i) => ({
-            equipmentId: i.equipmentId,
-            quantity: i.quantity,
-            returnedQuantity: 0,
-          })),
+    // Aggregate quantities per equipmentId (prevents split-item bypass & deadlocks via sorted lock order)
+    const requestedByEquipment = new Map<number, number>();
+    for (const item of dto.items) {
+      requestedByEquipment.set(
+        item.equipmentId,
+        (requestedByEquipment.get(item.equipmentId) ?? 0) + item.quantity,
+      );
+    }
+    const sortedEquipmentIds = Array.from(requestedByEquipment.keys()).sort((a, b) => a - b);
+
+    const loan = await this.prisma.$transaction(async (tx) => {
+      for (const eqId of sortedEquipmentIds) {
+        if (typeof tx.$executeRaw === 'function') {
+          await tx.$executeRaw`SELECT id FROM "Equipment" WHERE id = ${eqId} FOR UPDATE`;
+        }
+        const eq = await tx.equipment.findFirst({ where: { id: eqId, deletedAt: null } });
+        if (!eq) throw new NotFoundException(`Peralatan ID #${eqId} tidak ditemukan.`);
+
+        const activeLoanItems = await tx.equipmentLoanItem.findMany({
+          where: {
+            equipmentId: eqId,
+            loan: {
+              deletedAt: null,
+              status: { in: [LoanStatus.SEDANG_DIPINJAM, LoanStatus.TERLAMBAT] },
+            },
+          },
+          select: { quantity: true, returnedQuantity: true },
+        });
+        const borrowed = activeLoanItems.reduce(
+          (sum, row) => sum + Math.max(0, row.quantity - row.returnedQuantity),
+          0,
+        );
+        const available = Math.max(0, eq.total - eq.broken - borrowed);
+        const requested = requestedByEquipment.get(eqId) ?? 0;
+
+        if (requested > available) {
+          throw new BadRequestException(
+            `Stok ${eq.name} tidak mencukupi. Tersedia: ${available}, Diminta: ${requested}.`,
+          );
+        }
+      }
+
+      return tx.equipmentLoan.create({
+        data: {
+          borrowerName: dto.borrowerName,
+          borrowerPhone: dto.borrowerPhone,
+          userId: userId ?? null,
+          purpose: dto.purpose,
+          borrowDate: new Date(dto.borrowDate),
+          returnDate: new Date(dto.returnDate),
+          status: effectiveStatus,
+          activityId: dto.activityId ?? null,
+          items: {
+            create: dto.items.map((i) => ({
+              equipmentId: i.equipmentId,
+              quantity: i.quantity,
+              returnedQuantity: 0,
+            })),
+          },
         },
-      },
-      include: loanInclude,
+        include: loanInclude,
+      });
     });
 
     const itemsList = (loan as any).items || [];
@@ -498,13 +535,16 @@ export class EquipmentLoansService {
   }
 
   // ── Find one loan by id ──────────────────────────────────────────────
-  async findOne(id: number) {
+  async findOne(id: number, userId?: number, userRole?: Role) {
     await this.syncStatus();
     const loan = await this.prisma.equipmentLoan.findFirst({
       where: { id, deletedAt: null },
       include: loanInclude,
     });
     if (!loan) throw new NotFoundException(`Data peminjaman ID #${id} tidak ditemukan.`);
+    if (userRole === Role.USER && userId !== undefined && loan.userId !== userId) {
+      throw new ForbiddenException('Anda tidak memiliki akses ke data peminjaman ini.');
+    }
     return { ...loan, overdueDays: this.computeOverdueDays(loan) };
   }
 

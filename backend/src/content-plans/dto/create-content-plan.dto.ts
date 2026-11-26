@@ -1,6 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsEnum, IsInt, IsNotEmpty, IsOptional, IsString } from 'class-validator';
 import { Platform, ContentStatus } from '@prisma/client';
+import { IsSafeHttpUrl } from '../../common/validators/safe-url.validator';
 
 export class CreateContentPlanDto {
   @ApiProperty({ example: 'Rilis Berita Prestasi Mahasiswa' })
@@ -45,21 +46,25 @@ export class CreateContentPlanDto {
 
   @ApiProperty({ example: 'https://images.unsplash.com/...', required: false })
   @IsString()
+  @IsSafeHttpUrl()
   @IsOptional()
   thumbnailUrl?: string;
 
   @ApiProperty({ example: 'https://drive.google.com/...', required: false })
   @IsString()
+  @IsSafeHttpUrl()
   @IsOptional()
   draftUrl?: string;
 
   @ApiProperty({ example: 'https://video.mp4...', required: false })
   @IsString()
+  @IsSafeHttpUrl()
   @IsOptional()
   videoUrl?: string;
 
   @ApiProperty({ example: 'https://drive.google.com/drive/folders/...', required: false })
   @IsString()
+  @IsSafeHttpUrl()
   @IsOptional()
   rawMaterialUrl?: string;
 }

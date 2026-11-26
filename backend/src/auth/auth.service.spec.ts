@@ -7,7 +7,7 @@ import { PrismaService } from '../prisma/prisma.service';
 
 describe('AuthService Security', () => {
   let authService: AuthService;
-  let prisma: { user: { findUnique: jest.Mock; count: jest.Mock; create: jest.Mock } };
+  let prisma: { user: { findFirst: jest.Mock; count: jest.Mock; create: jest.Mock } };
   let jwtService: { sign: jest.Mock };
   let realPasswordHash: string;
 
@@ -18,7 +18,7 @@ describe('AuthService Security', () => {
   beforeEach(() => {
     prisma = {
       user: {
-        findUnique: jest.fn(),
+        findFirst: jest.fn(),
         count: jest.fn(),
         create: jest.fn(),
       },
@@ -33,7 +33,7 @@ describe('AuthService Security', () => {
   });
 
   it('rejects master fallback password "admin123" when account password differs', async () => {
-    prisma.user.findUnique.mockResolvedValue({
+    prisma.user.findFirst.mockResolvedValue({
       id: 1,
       username: 'kepala.humas',
       password: realPasswordHash,
@@ -52,7 +52,7 @@ describe('AuthService Security', () => {
   });
 
   it('rejects passing the stored bcrypt hash string directly as password', async () => {
-    prisma.user.findUnique.mockResolvedValue({
+    prisma.user.findFirst.mockResolvedValue({
       id: 2,
       username: 'komang.ari',
       password: realPasswordHash,
@@ -70,27 +70,38 @@ describe('AuthService Security', () => {
     expect(jwtService.sign).not.toHaveBeenCalled();
   });
 
-  it('rejects inactive user even with valid password', async () => {
-    prisma.user.findUnique.mockResolvedValue({
-      id: 3,
-      username: 'nonaktif.user',
-      password: realPasswordHash,
-      fullName: 'User Nonaktif',
-      role: Role.USER,
-      roleLabel: 'Staff',
-      avatar: null,
-      status: 'NONAKTIF',
-      deletedAt: null,
-    });
+  it('rejects inactive and suspended users even with valid password', async () => {
+    for (const status of ['NONAKTIF', 'SUSPENDED']) {
+      prisma.user.findFirst.mockResolvedValue({
+        id: 3,
+        username: 'nonaktif.user',
+        password: realPasswordHash,
+        fullName: 'User Nonaktif',
+        role: Role.USER,
+        roleLabel: 'Staff',
+        avatar: null,
+        status,
+        deletedAt: null,
+      });
+
+      await expect(
+        authService.login({ username: 'nonaktif.user', password: 'P@ssw0rdAman!' }),
+      ).rejects.toThrow(UnauthorizedException);
+    }
+    expect(jwtService.sign).not.toHaveBeenCalled();
+  });
+
+  it('rejects unknown username cleanly (constant-time dummy bcrypt check)', async () => {
+    prisma.user.findFirst.mockResolvedValue(null);
 
     await expect(
-      authService.login({ username: 'nonaktif.user', password: 'P@ssw0rdAman!' }),
+      authService.login({ username: 'tidak.ada', password: 'Password123!' }),
     ).rejects.toThrow(UnauthorizedException);
     expect(jwtService.sign).not.toHaveBeenCalled();
   });
 
   it('issues JWT and strips password field when bcrypt hash matches', async () => {
-    prisma.user.findUnique.mockResolvedValue({
+    prisma.user.findFirst.mockResolvedValue({
       id: 4,
       username: 'budi.fotografer',
       password: realPasswordHash,

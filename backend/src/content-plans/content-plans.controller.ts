@@ -4,7 +4,7 @@ import {
   Post,
   Body,
   Patch,
-  Param,
+  Param,  
   Delete,
   Query,
   UseGuards,
@@ -130,8 +130,17 @@ export class ContentPlansController {
   @Get(':id')
   @ApiOperation({ summary: 'Detail konten serta tautan draf' })
   @ApiQuery({ name: 'mobile', required: false })
-  findOne(@Param('id', ParseIntPipe) id: number, @Query('mobile') mobile?: string) {
-    return this.contentPlansService.findOne(id, mobile === 'true' || mobile === '1');
+  findOne(
+    @Request() req: any,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('mobile') mobile?: string,
+  ) {
+    return this.contentPlansService.findOne(
+      id,
+      mobile === 'true' || mobile === '1',
+      req?.user?.id,
+      req?.user?.role,
+    );
   }
 
   @Patch(':id')
@@ -232,7 +241,7 @@ export class ContentPlansController {
     @Param('id', ParseIntPipe) id: number,
     @Body() dto: SubmitProofDto,
   ) {
-    return this.contentPlansService.submitProof(id, dto, req?.user?.id);
+    return this.contentPlansService.submitProof(id, dto, req?.user?.id, req?.user?.role);
   }
 
   @Patch(':id/restore')

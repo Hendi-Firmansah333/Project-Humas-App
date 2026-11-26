@@ -126,8 +126,17 @@ export class ActivitiesController {
   @Get(':id')
   @ApiOperation({ summary: 'Detail agenda kegiatan dan penugasan tim' })
   @ApiQuery({ name: 'mobile', required: false })
-  findOne(@Param('id', ParseIntPipe) id: number, @Query('mobile') mobile?: string) {
-    return this.activitiesService.findOne(id, mobile === 'true' || mobile === '1');
+  findOne(
+    @Request() req: any,
+    @Param('id', ParseIntPipe) id: number,
+    @Query('mobile') mobile?: string,
+  ) {
+    return this.activitiesService.findOne(
+      id,
+      mobile === 'true' || mobile === '1',
+      req?.user?.id,
+      req?.user?.role,
+    );
   }
 
   // ── Approval Workflow Endpoints ────────────────────────────────────────

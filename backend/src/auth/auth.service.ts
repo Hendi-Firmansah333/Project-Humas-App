@@ -5,6 +5,10 @@ import { LoginDto } from './dto/login.dto';
 import * as bcrypt from 'bcrypt';
 import { Role } from '@prisma/client';
 
+// Hash bcrypt dummy konstan untuk mencegah timing attack (username enumeration) saat user tidak ditemukan
+const DUMMY_BCRYPT_HASH =
+  '$2b$10$CwTycUXWue0Thq9StjUM0uJ8l4c8m6P4i3y1m6i3q7q8y9z0A1B2C';
+
 @Injectable()
 export class AuthService implements OnModuleInit {
   constructor(
@@ -56,6 +60,7 @@ export class AuthService implements OnModuleInit {
     });
 
     if (!user || user.deletedAt !== null) {
+      await bcrypt.compare(loginDto.password, DUMMY_BCRYPT_HASH);
       throw new UnauthorizedException('Username atau password salah.');
     }
 
@@ -65,8 +70,8 @@ export class AuthService implements OnModuleInit {
       throw new UnauthorizedException('Username atau password salah.');
     }
 
-    if (user.status === 'NONAKTIF') {
-      throw new UnauthorizedException('Akun Anda dinonaktifkan.');
+    if (user.status !== 'AKTIF') {
+      throw new UnauthorizedException('Akun Anda tidak aktif atau ditangguhkan.');
     }
 
     const payload = { sub: user.id, username: user.username, role: user.role };
