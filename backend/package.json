@@ -80,7 +80,7 @@
     "eslint-plugin-prettier": "^5.2.2",
     "eslint-plugin-security": "^4.2.1",
     "globals": "^17.0.0",
-    "jest": "^30.0.0",
+    "jest": "^30.5.2",
     "prettier": "^3.4.2",
     "prisma": "^7.8.0",
     "source-map-support": "^0.5.21",
