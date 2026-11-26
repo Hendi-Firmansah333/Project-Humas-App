@@ -44,7 +44,7 @@
     "@nestjs/passport": "^11.0.5",
     "@nestjs/platform-express": "^11.0.1",
     "@nestjs/platform-socket.io": "^11.0.1",
-    "@nestjs/swagger": "^11.4.5",
+    "@nestjs/swagger": "^12.1.2",
     "@nestjs/throttler": "^6.4.0",
     "@nestjs/websockets": "^11.0.1",
     "@prisma/adapter-pg": "^7.8.0",
